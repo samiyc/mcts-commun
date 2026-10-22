@@ -55,6 +55,20 @@ describe("plans and paths (src/grid.js)", () => {
     assert.deepEqual(west.at(-1), { x: 1, y: 1, t: west.length - 1 });
   });
 
+  it("parks only where nobody else is due later", () => {
+    const reservations = createReservations();
+    const hall = parsePlan("#######\n#.....#\n#.....#\n#######");
+    // A passes through (3, 1) at t = 4 on its way east, and parks at (5, 1).
+    reservations.reserve("A", [{ x: 1, y: 1, t: 2 }, { x: 2, y: 1, t: 3 }, { x: 3, y: 1, t: 4 }, { x: 4, y: 1, t: 5 }, { x: 5, y: 1, t: 6 }], { stay: true });
+    assert.equal(reservations.freeFrom(3, 1, 1, "B"), false);
+    assert.equal(reservations.freeFrom(3, 1, 5, "B"), true);
+    assert.equal(reservations.freeFrom(5, 1, 9, "B"), false, "A s'y gare");
+    const passing = astar(hall, { x: 2, y: 2 }, { x: 3, y: 1 }, { passable: open, reservations, unit: "B" });
+    assert.equal(passing.at(-1).t, 2);
+    const parked = astar(hall, { x: 2, y: 2 }, { x: 3, y: 1 }, { passable: open, reservations, unit: "B", park: true });
+    assert.ok(parked.at(-1).t >= 5, `arrivé à ${parked.at(-1).t}`);
+  });
+
   it("lets units share a cell such as a dock, but never cross on its edge", () => {
     const dock = { x: 3, y: 1 };
     const reservations = createReservations({ shared: [dock] });

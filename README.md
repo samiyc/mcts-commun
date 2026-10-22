@@ -68,8 +68,8 @@ export function createEvents(start) {}              // { schedule(at, event), ne
 export function readyTasks(tasks, done, free) {}    // prerequisites finished, resources free
 export function smithOrder(tasks) {}                // most weight per minute first
 export function parsePlan(text) {}                  // { width, height, lines, at(x, y), inside(x, y), find(char) }
-export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon } → [{ x, y, t }] | null
-export function createReservations() {}             // { reserve(unit, path, { stay }), release(unit), isFree(x, y, t, unit), swaps(from, to, t, unit) }
+export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park } → [{ x, y, t }] | null
+export function createReservations() {}             // ({ shared }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
 ```
