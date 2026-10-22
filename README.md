@@ -87,3 +87,8 @@ Sans paquet publié ni étape de build :
 - Node 20, des modules ES, pas de build : le même code tourne sous Node et dans le navigateur.
 - Tout est pur et testé (`npm test`) ; aucun module n'importe `node:*`.
 - Tout tirage passe par `random` : un scénario et une recherche se rejouent depuis leur graine.
+- **Le contrat est testé** (`tests/api.test.js`) : ce que chaque module exporte, la forme du résultat de
+  `search`, les signatures de ce README (le `Problem` et `search` doivent y être les mêmes que dans le code),
+  et **l'empreinte** de la recherche : un hash de ses visites sur des problèmes jouets à graine fixe
+  (`tests/fixtures/problems.js`). Une optimisation doit la garder ; un changement voulu la change, avec le
+  test et ce README, dans le même commit, comme les empreintes de Lopin.

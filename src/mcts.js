@@ -26,6 +26,20 @@ import { createRng } from "./random.js";
  */
 export const SEARCH = Object.freeze({ depth: 5, explore: 0.7 });
 
+/** What a `Problem` must and may hold: the contract the README states and `tests/api.test.js` pins. */
+export const PROBLEM = Object.freeze({
+  required: Object.freeze(["sample", "actor", "moves", "key", "play", "over", "rollout", "score"]),
+  optional: Object.freeze(["shortlist"]),
+});
+
+/** Throws, naming them, when `problem` lacks a function the search needs or holds a non-function in its place. */
+export function checkProblem(problem) {
+  const missing = PROBLEM.required.filter((name) => typeof problem?.[name] !== "function");
+  const wrong = PROBLEM.optional.filter((name) => problem?.[name] !== undefined && typeof problem[name] !== "function");
+  if (missing.length > 0 || wrong.length > 0) throw new Error(`Problem incomplet : ${[...missing, ...wrong].join(", ")}`);
+  return problem;
+}
+
 const createNode = (move, key, actor) => ({ move, key, actor, visits: 0, total: 0, available: 0, children: new Map() });
 const meanOf = (node) => (node.visits > 0 ? node.total / node.visits : 0);
 
@@ -110,6 +124,7 @@ const sizeOf = (node) => 1 + [...node.children.values()].reduce((sum, child) => 
  */
 export function search(state, problem, { budget, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore }) {
   if (!Number.isInteger(budget) || budget < 1) throw new Error(`budget: a whole number of iterations, not ${budget}`);
+  checkProblem(problem);
   const root = createNode(null, "", "");
   const settings = { problem, rng, depth, explore };
   for (let i = 0; i < budget; i += 1) iterate(root, state, settings);

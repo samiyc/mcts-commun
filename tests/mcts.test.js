@@ -2,34 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { search } from "../src/mcts.js";
 import { createRng } from "../src/random.js";
-
-/** Nim: take 1 or 2 from the pile, the one who takes the last wins. Nothing hidden; two actors. */
-const nim = {
-  sample: (state) => ({ ...state }),
-  actor: (world) => world.toMove,
-  moves: (world) => [1, 2].filter((take) => take <= world.pile),
-  key: (take) => String(take),
-  play: (world, take) => ({ pile: world.pile - take, toMove: world.toMove === "A" ? "B" : "A", last: world.toMove }),
-  over: (world) => world.pile === 0,
-  rollout(world, rng) {
-    let end = world;
-    while (!this.over(end)) end = this.play(end, Math.min(end.pile, 1 + rng.int(2)));
-    return end;
-  },
-  score: (world, actor) => (world.last === actor ? 1 : 0),
-};
-
-/** Two doors, the prize behind A seven times in ten: the search only sees the worlds it draws. */
-const doors = {
-  sample: (state, rng) => ({ prize: rng.next() < 0.7 ? "A" : "B", opened: null }),
-  actor: () => "me",
-  moves: () => ["A", "B"],
-  key: (door) => door,
-  play: (world, door) => ({ ...world, opened: door }),
-  over: (world) => world.opened !== null,
-  rollout: (world) => world,
-  score: (world) => (world.opened === world.prize ? 1 : 0),
-};
+import { doors, nim, twoJobs } from "./fixtures/problems.js";
 
 describe("the tree search over hidden information (src/mcts.js)", () => {
   it("finds Nim's winning move for whoever is to play, crediting each actor with its own score", () => {
@@ -65,6 +38,17 @@ describe("the tree search over hidden information (src/mcts.js)", () => {
     assert.deepEqual([...found.visits.keys()].sort(), ["1", "2"]);
     assert.equal(found.size, 3);
     assert.ok(search({ pile: 20, toMove: "A" }, wide, { budget: 300, depth: 4 }).size > 3);
+  });
+
+  it("orders two jobs of hidden length to keep the one due", () => {
+    const longDue = search({ due: { id: "long", at: 75 }, ends: {} }, twoJobs, { budget: 400, rng: createRng(2) });
+    assert.equal(longDue.move, "long");
+    const shortDue = search({ due: { id: "short", at: 32 }, ends: {} }, twoJobs, { budget: 400, rng: createRng(2) });
+    assert.equal(shortDue.move, "short");
+  });
+
+  it("refuses an incomplete problem, naming what is missing", () => {
+    assert.throws(() => search({}, { ...doors, rollout: undefined, shortlist: 3 }, { budget: 5 }), /Problem incomplet : rollout, shortlist/);
   });
 
   it("returns no move when there is nothing to decide", () => {
