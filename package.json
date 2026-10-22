@@ -1,0 +1,15 @@
+{
+  "name": "mcts-commun",
+  "version": "0.1.0",
+  "private": true,
+  "description": "La bibliothèque commune des projets mcts-* : recherche (MCTS, ISMCTS), événements, ordonnancement, grille, mesure.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "author": "Sami",
+  "license": "UNLICENSED"
+}
