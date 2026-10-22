@@ -20,6 +20,18 @@ describe("the event queue (src/events.js)", () => {
     assert.throws(() => events.schedule(5, "late"), /passé/);
   });
 
+  it("clones at the same clock, keeping the events asked, in their order", () => {
+    const events = createEvents();
+    for (const [at, name] of [[5, "a"], [5, "b"], [2, "x"], [9, "c"]]) events.schedule(at, name);
+    events.next();
+    const copy = events.clone((name) => name !== "b");
+    assert.equal(copy.now, 2);
+    const seen = [];
+    for (let next = copy.next(); next; next = copy.next()) seen.push(next.event);
+    assert.deepEqual(seen, ["a", "c"]);
+    assert.equal(events.size, 3, "l'original n'a pas bougé");
+  });
+
   it("stays in order over many random events", () => {
     const rng = createRng(4);
     const events = createEvents();

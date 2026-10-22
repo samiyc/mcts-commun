@@ -69,6 +69,17 @@ describe("plans and paths (src/grid.js)", () => {
     assert.ok(parked.at(-1).t >= 5, `arrivé à ${parked.at(-1).t}`);
   });
 
+  it("clones a table: the copy and the original then go their own ways", () => {
+    const reservations = createReservations();
+    reservations.reserve("A", [{ x: 1, y: 1, t: 0 }, { x: 2, y: 1, t: 1 }], { stay: true });
+    const copy = reservations.clone();
+    copy.release("A");
+    assert.equal(copy.isFree(2, 1, 5, "B"), true);
+    assert.equal(reservations.isFree(2, 1, 5, "B"), false);
+    reservations.reserve("C", [{ x: 3, y: 3, t: 2 }]);
+    assert.equal(copy.isFree(3, 3, 2, "B"), true);
+  });
+
   it("lets units share a cell such as a dock, but never cross on its edge", () => {
     const dock = { x: 3, y: 1 };
     const reservations = createReservations({ shared: [dock] });

@@ -56,5 +56,14 @@ export function createEvents(start = 0) {
     peek() {
       return heap.length ? { at: heap[0].at, event: heap[0].event } : null;
     },
+    /**
+     * A copy of the queue at the same clock, keeping the events `keep(event)` accepts, in the same order. The
+     * events themselves are shared: schedule plain values (ids, not the objects they name) to clone safely.
+     */
+    clone(keep = () => true) {
+      const copy = createEvents(now);
+      for (const entry of [...heap].sort((a, b) => (before(a, b) ? -1 : 1))) if (keep(entry.event)) copy.schedule(entry.at, entry.event);
+      return copy;
+    },
   };
 }

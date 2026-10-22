@@ -47,14 +47,15 @@ const cellKey = (x, y) => `${x},${y}`;
  *
  * `shared` cells (a truck's dock, a doorway's far side) hold any number of units: nobody holds them, but a
  * move into or out of one is still reserved, so two units never cross on its edge.
+ *
+ * `clone()` copies the table, for a search that plays a world forward without touching the real one.
  */
 export function createReservations({ shared = [] } = {}) {
-  const sharedKeys = new Set(shared.map(({ x, y }) => cellKey(x, y)));
-  const cells = new Map();
-  const byCell = new Map();
-  const moves = new Map();
-  const stays = new Map();
-  const byUnit = new Map();
+  return tableOf({ sharedKeys: new Set(shared.map(({ x, y }) => cellKey(x, y))), cells: new Map(), byCell: new Map(), moves: new Map(), stays: new Map(), byUnit: new Map() });
+}
+
+/** The reservations' methods over their maps (createReservations, and each clone). */
+function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
   const holder = (x, y, t) => {
     const held = cells.get(`${cellKey(x, y)},${t}`);
     if (held !== undefined) return held;
@@ -102,6 +103,16 @@ export function createReservations({ shared = [] } = {}) {
     swaps(from, to, t, unit) {
       const other = moves.get(moveKey(to, from, t));
       return other !== undefined && other !== unit;
+    },
+    clone() {
+      return tableOf({
+        sharedKeys,
+        cells: new Map(cells),
+        byCell: new Map([...byCell].map(([key, times]) => [key, new Map(times)])),
+        moves: new Map(moves),
+        stays: new Map(stays),
+        byUnit: new Map(byUnit),
+      });
     },
   };
 }
