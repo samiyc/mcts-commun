@@ -29,7 +29,7 @@ dans Lopin.
 | `events` | la simulation à événements discrets : une file d'événements datés | fait |
 | `schedule` | les ressources, les priorités, les échéances, les prérequis, la règle de Smith | dans Lopin |
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
-| `grid` | A*, la table de réservations | à faire |
+| `grid` | les plans en texte, A* dans l'espace et le temps, la table de réservations | fait |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
 
 ## Les signatures de `mcts`
@@ -61,14 +61,15 @@ coup pas encore essayé, joue la règle rapide jusqu'au bout (`rollout`), puis c
 de celui qui l'a choisi. La racine joue son coup le plus visité. `stats` donne, pour chaque coup de la racine,
 ses visites et son score moyen ; `size`, le nombre de nœuds de l'arbre.
 
-Les autres modules (`events` et `measure` sont faits, les autres à venir) :
+Les autres modules (`schedule` est encore dans Lopin) :
 
 ```js
 export function createEvents(start) {}              // { schedule(at, event), next(), peek(), now, size }
 export function readyTasks(tasks, done, free) {}    // prerequisites finished, resources free
 export function smithOrder(tasks) {}                // most weight per minute first
-export function astar(grid, from, to, options) {}   // options: { cost(cell, unit), reserved }
-export function createReservations() {}             // { reserve(path, start), isFree(cell, t) }
+export function parsePlan(text) {}                  // { width, height, lines, at(x, y), inside(x, y), find(char) }
+export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon } → [{ x, y, t }] | null
+export function createReservations() {}             // { reserve(unit, path, { stay }), release(unit), isFree(x, y, t, unit), swaps(from, to, t, unit) }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
 ```
@@ -81,6 +82,11 @@ Sans paquet publié ni étape de build :
 - **dans la page**, une *import map* fait pointer `mcts-commun/` vers le même code, servi par le serveur
   local du projet, ou par un CDN depuis une étiquette git pour une page publiée (GitHub Pages) ;
 - **une version stable** est une étiquette git (`v0.1.0`), qu'un projet peut viser à la place du dossier.
+
+## Voir une page
+
+`mcts-serve [port]` (`bin/serve.js`) sert le dossier courant sur 127.0.0.1 : chaque projet a un script
+`npm run page`, et sa page trouve la bibliothèque par `node_modules/mcts-commun` grâce à une *import map*.
 
 ## Les règles
 

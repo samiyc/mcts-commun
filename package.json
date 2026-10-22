@@ -16,6 +16,10 @@
     "./random.js": "./src/random.js",
     "./events.js": "./src/events.js",
     "./mcts.js": "./src/mcts.js",
-    "./measure.js": "./src/measure.js"
+    "./measure.js": "./src/measure.js",
+    "./grid.js": "./src/grid.js"
+  },
+  "bin": {
+    "mcts-serve": "bin/serve.js"
   }
 }

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import * as events from "../src/events.js";
+import * as grid from "../src/grid.js";
 import * as mcts from "../src/mcts.js";
 import * as measure from "../src/measure.js";
 import * as random from "../src/random.js";
@@ -24,6 +25,8 @@ describe("the library's contract (tests/api.test.js)", () => {
   it("exports what the projects import, and nothing hidden behind", () => {
     assert.deepEqual(Object.keys(random).sort(), ["createRng", "streamOf"]);
     assert.deepEqual(Object.keys(events), ["createEvents"]);
+    assert.deepEqual(Object.keys(grid).sort(), ["astar", "createReservations", "parsePlan"]);
+    assert.deepEqual(Object.keys(grid.createReservations()).sort(), ["isFree", "release", "reserve", "swaps"]);
     assert.deepEqual(Object.keys(measure).sort(), ["paired", "wilson"]);
     assert.deepEqual(Object.keys(events.createEvents()).sort(), ["next", "now", "peek", "schedule", "size"]);
     assert.deepEqual(Object.keys(measure.paired([1], [0])), ["n", "mean", "low", "high", "wins", "ties", "losses"]);
