@@ -52,7 +52,7 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  */
 
 /** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }} */
-export function search(state, problem, { budget, rng, depth = 5, explore = 0.7 }) {}
+export function search(state, problem, { budget, rng, depth = 5, explore = 0.7, common = false }) {}
 ```
 
 Ce que fait une itération : elle tire un monde compatible avec ce qu'on sait (`sample`), descend l'arbre sur
@@ -60,6 +60,11 @@ les coups que ce monde permet (UCB1, compté sur les itérations où le coup ét
 coup pas encore essayé, joue la règle rapide jusqu'au bout (`rollout`), puis crédite chaque coup du score
 de celui qui l'a choisi. La racine joue son coup le plus visité. `stats` donne, pour chaque coup de la racine,
 ses visites et son score moyen ; `size`, le nombre de nœuds de l'arbre.
+
+**Les mondes communs** (`common: true`) : la k-ième visite de chaque coup de la racine joue le k-ième monde
+tiré, avec le k-ième flux de hasard. Les coups de la racine se comparent alors par paires, sur les mêmes
+mondes : c'est indispensable quand le bruit des mondes (toute une garde, toute une journée à venir) écrase
+l'écart entre deux coups. Les coups de la racine doivent être connus dans chaque monde.
 
 Les autres modules (`schedule` est encore dans Lopin) :
 

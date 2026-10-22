@@ -1,4 +1,4 @@
-import { createRng } from "./random.js";
+import { createRng, streamOf } from "./random.js";
 
 /**
  * A tree search over hidden information (single-observer ISMCTS, Cowling, Powley & Whitehouse 2012): the
@@ -112,6 +112,60 @@ function iterate(root, state, settings) {
   backpropagate(root, path, end, problem);
 }
 
+/** What common worlds need: their streams' base, and the root's moves and actor, read in the first world. */
+function commonRoot(state, problem, rng) {
+  const base = Math.floor(rng.next() * 2 ** 32) >>> 0;
+  const world = problem.sample(state, streamOf(base, 0));
+  return { base, moves: problem.over(world) ? new Map() : candidates(problem, world), actor: problem.actor(world) };
+}
+
+/** The root's child to visit: the first untried one in the shortlist's order, else UCB1 on the root's visits. */
+function rootChild(root, common, explore) {
+  for (const [key, move] of common.moves) {
+    if (root.children.has(key)) continue;
+    const child = createNode(move, key, common.actor);
+    root.children.set(key, child);
+    return child;
+  }
+  let best = null;
+  let bestValue = -Infinity;
+  for (const child of root.children.values()) {
+    const value = meanOf(child) + explore * Math.sqrt(Math.log(root.visits) / child.visits);
+    if (value > bestValue) {
+      best = child;
+      bestValue = value;
+    }
+  }
+  return best;
+}
+
+/**
+ * One iteration on common worlds: the root's child is chosen first, and its k-th visit plays the search's
+ * k-th world, drawn and rolled out with the k-th random stream. Every root move is judged on the same worlds,
+ * by pairs, which takes the worlds' own noise out of their comparison (Lopin's CommonDeals). Below the root,
+ * the walk goes on as usual.
+ */
+function iterateCommon(root, state, settings) {
+  const { problem, depth, explore, common } = settings;
+  const child = rootChild(root, common, explore);
+  const stream = streamOf(common.base, child.visits);
+  let world = problem.sample(state, stream);
+  const move = candidates(problem, world).get(child.key);
+  if (!move) throw new Error(`common: le coup ${child.key} manque dans un monde ; les coups de la racine doivent être connus`);
+  world = problem.play(world, move);
+  let node = child;
+  const path = [child];
+  for (let ply = 1; ply < depth && !problem.over(world); ply += 1) {
+    const next = step(node, world, settings);
+    if (!next) break;
+    ({ child: node, world } = next);
+    path.push(node);
+    if (next.fresh) break;
+  }
+  const end = problem.over(world) ? world : problem.rollout(world, stream);
+  backpropagate(root, path, end, problem);
+}
+
 const sizeOf = (node) => 1 + [...node.children.values()].reduce((sum, child) => sum + sizeOf(child), 0);
 
 /**
@@ -120,14 +174,19 @@ const sizeOf = (node) => 1 + [...node.children.values()].reduce((sum, child) => 
  * by key, every root move's `{ key, move, visits, mean }` from the most visited, and the tree's `size` in
  * nodes. A root move's object is the one of the world where it was first tried.
  *
+ * `common`: judge the root's moves on common worlds (`iterateCommon`), when the root's moves are known in
+ * every world and the worlds' noise dwarfs the moves' differences (a whole shift, a whole day to come).
+ *
  * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }}
  */
-export function search(state, problem, { budget, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore }) {
+export function search(state, problem, { budget, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false }) {
   if (!Number.isInteger(budget) || budget < 1) throw new Error(`budget: a whole number of iterations, not ${budget}`);
   checkProblem(problem);
   const root = createNode(null, "", "");
   const settings = { problem, rng, depth, explore };
-  for (let i = 0; i < budget; i += 1) iterate(root, state, settings);
+  if (common) settings.common = commonRoot(state, problem, rng);
+  const once = settings.common ? iterateCommon : iterate;
+  if (!settings.common || settings.common.moves.size > 0) for (let i = 0; i < budget; i += 1) once(root, state, settings);
   const stats = [...root.children.values()]
     .map((child) => ({ key: child.key, move: child.move, visits: child.visits, mean: meanOf(child) }))
     .sort((a, b) => b.visits - a.visits || b.mean - a.mean);

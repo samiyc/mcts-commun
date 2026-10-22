@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { search } from "../src/mcts.js";
 import { createRng } from "../src/random.js";
-import { doors, nim, twoJobs } from "./fixtures/problems.js";
+import { doors, loudLuck, nim, twoJobs } from "./fixtures/problems.js";
 
 describe("the tree search over hidden information (src/mcts.js)", () => {
   it("finds Nim's winning move for whoever is to play, crediting each actor with its own score", () => {
@@ -45,6 +45,19 @@ describe("the tree search over hidden information (src/mcts.js)", () => {
     assert.equal(longDue.move, "long");
     const shortDue = search({ due: { id: "short", at: 32 }, ends: {} }, twoJobs, { budget: 400, rng: createRng(2) });
     assert.equal(shortDue.move, "short");
+  });
+
+  it("judges the root's moves on common worlds when asked, so a small gap shows through a loud luck", () => {
+    let right = 0;
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const found = search({}, loudLuck, { budget: 24, rng: createRng(seed), common: true });
+      if (found.move === "A") right += 1;
+      assert.equal(found.stats.reduce((sum, one) => sum + one.visits, 0), 24);
+    }
+    assert.equal(right, 20);
+    let plain = 0;
+    for (let seed = 1; seed <= 20; seed += 1) if (search({}, loudLuck, { budget: 24, rng: createRng(seed) }).move === "A") plain += 1;
+    assert.ok(plain < 20, `sans mondes communs : ${plain} sur 20`);
   });
 
   it("refuses an incomplete problem, naming what is missing", () => {

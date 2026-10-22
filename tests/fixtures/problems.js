@@ -51,3 +51,18 @@ export const twoJobs = {
   },
   score: (world) => (world.ends[world.due.id] <= world.due.at ? 1 : 0),
 };
+
+/**
+ * Two moves under a loud luck: every world draws a luck shared by both moves, worth far more than the gap
+ * between them (A is 0.05 better). Judged on different worlds, the gap drowns; on common worlds, it shows.
+ */
+export const loudLuck = {
+  sample: (state, rng) => ({ luck: rng.next(), chosen: null }),
+  actor: () => "me",
+  moves: () => ["A", "B"],
+  key: (move) => move,
+  play: (world, move) => ({ ...world, chosen: move }),
+  over: (world) => world.chosen !== null,
+  rollout: (world) => world,
+  score: (world) => 0.6 * world.luck + (world.chosen === "A" ? 0.3 : 0.25),
+};
