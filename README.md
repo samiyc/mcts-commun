@@ -26,11 +26,11 @@ dans Lopin.
 | Module | Ce qu'il contient | État |
 |---|---|---|
 | `random` | le tirage reproductible, à partir d'une graine (mulberry32, celui de Lopin) | fait |
-| `events` | la simulation à événements discrets : une file d'événements datés | à faire |
+| `events` | la simulation à événements discrets : une file d'événements datés | fait |
 | `schedule` | les ressources, les priorités, les échéances, les prérequis, la règle de Smith | dans Lopin |
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
 | `grid` | A*, la table de réservations | à faire |
-| `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | à faire |
+| `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
 
 ## Les signatures de `mcts`
 
@@ -61,16 +61,16 @@ coup pas encore essayé, joue la règle rapide jusqu'au bout (`rollout`), puis c
 de celui qui l'a choisi. La racine joue son coup le plus visité. `stats` donne, pour chaque coup de la racine,
 ses visites et son score moyen ; `size`, le nombre de nœuds de l'arbre.
 
-Les autres modules, à venir :
+Les autres modules (`events` et `measure` sont faits, les autres à venir) :
 
 ```js
-export function createEvents() {}                   // { schedule(at, event), next(), now }
+export function createEvents(start) {}              // { schedule(at, event), next(), peek(), now, size }
 export function readyTasks(tasks, done, free) {}    // prerequisites finished, resources free
 export function smithOrder(tasks) {}                // most weight per minute first
 export function astar(grid, from, to, options) {}   // options: { cost(cell, unit), reserved }
 export function createReservations() {}             // { reserve(path, start), isFree(cell, t) }
-export function wilson(wins, games) {}              // { low, high }
-export function paired(scoresA, scoresB) {}         // { mean, low, high }
+export function wilson(wins, games) {}              // { rate, low, high }
+export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
 ```
 
 ## Comment les projets s'en servent

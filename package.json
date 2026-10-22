@@ -11,5 +11,11 @@
     "test": "node --test"
   },
   "author": "Sami",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "exports": {
+    "./random.js": "./src/random.js",
+    "./events.js": "./src/events.js",
+    "./mcts.js": "./src/mcts.js",
+    "./measure.js": "./src/measure.js"
+  }
 }

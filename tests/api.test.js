@@ -2,7 +2,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
+import * as events from "../src/events.js";
 import * as mcts from "../src/mcts.js";
+import * as measure from "../src/measure.js";
 import * as random from "../src/random.js";
 import { doors, nim, twoJobs } from "./fixtures/problems.js";
 
@@ -21,6 +23,10 @@ const FINGERPRINT = "f80ea0808e763c6b";
 describe("the library's contract (tests/api.test.js)", () => {
   it("exports what the projects import, and nothing hidden behind", () => {
     assert.deepEqual(Object.keys(random).sort(), ["createRng", "streamOf"]);
+    assert.deepEqual(Object.keys(events), ["createEvents"]);
+    assert.deepEqual(Object.keys(measure).sort(), ["paired", "wilson"]);
+    assert.deepEqual(Object.keys(events.createEvents()).sort(), ["next", "now", "peek", "schedule", "size"]);
+    assert.deepEqual(Object.keys(measure.paired([1], [0])), ["n", "mean", "low", "high", "wins", "ties", "losses"]);
     assert.deepEqual(Object.keys(mcts).sort(), ["PROBLEM", "SEARCH", "checkProblem", "search"]);
     assert.deepEqual(Object.keys(createRng(1)).sort(), ["clone", "getState", "int", "next", "normal", "setState", "shuffle"]);
     assert.deepEqual(mcts.SEARCH, { depth: 5, explore: 0.7 });
