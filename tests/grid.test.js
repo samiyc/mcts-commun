@@ -54,4 +54,19 @@ describe("plans and paths (src/grid.js)", () => {
     }
     assert.deepEqual(west.at(-1), { x: 1, y: 1, t: west.length - 1 });
   });
+
+  it("lets units share a cell such as a dock, but never cross on its edge", () => {
+    const dock = { x: 3, y: 1 };
+    const reservations = createReservations({ shared: [dock] });
+    const line = parsePlan("#####\n#...#\n#####");
+    const leaving = astar(line, dock, { x: 1, y: 1 }, { passable: open });
+    reservations.reserve("out", leaving, { stay: true });
+    assert.ok(reservations.isFree(3, 1, 0, "in"), "le quai reste libre");
+    const coming = astar(line, { x: 2, y: 1 }, dock, { passable: open, reservations, unit: "in" });
+    // Leaving moves 3 → 2 at t = 0; coming may not move 2 → 3 at the same moment.
+    assert.equal(coming, null);
+    reservations.release("out");
+    reservations.reserve("parked", [{ x: 3, y: 1, t: 0 }], { stay: true });
+    assert.ok(reservations.isFree(3, 1, 5, "other"), "on ne se gare pas sur une case partagée");
+  });
 });

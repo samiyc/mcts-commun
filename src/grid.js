@@ -39,13 +39,18 @@ const STEPS = [
 const cellKey = (x, y) => `${x},${y}`;
 
 /**
- * Reservations of cells in time, by unit: `reserve(unit, path, { stay })` holds each step of `path`
- * (`[{ x, y, t }]`), and with `stay` the last cell from then on; `release(unit)` frees all of a unit's;
- * `isFree(x, y, t, unit)`, `swaps(from, to, t, unit)`: may `unit` be there at `t`, move from → to between
- * `t` and `t + 1`?
+ * Reservations of cells and moves in time, by unit: `reserve(unit, path, { stay })` holds each step of `path`
+ * (`[{ x, y, t }]`) and each move between two steps, and with `stay` the last cell from then on;
+ * `release(unit)` frees all of a unit's; `isFree(x, y, t, unit)`, `swaps(from, to, t, unit)`: may `unit` be
+ * there at `t`, move from → to between `t` and `t + 1` without meeting a unit moving to → from?
+ *
+ * `shared` cells (a truck's dock, a doorway's far side) hold any number of units: nobody holds them, but a
+ * move into or out of one is still reserved, so two units never cross on its edge.
  */
-export function createReservations() {
+export function createReservations({ shared = [] } = {}) {
+  const sharedKeys = new Set(shared.map(({ x, y }) => cellKey(x, y)));
   const cells = new Map();
+  const moves = new Map();
   const stays = new Map();
   const byUnit = new Map();
   const holder = (x, y, t) => {
@@ -54,28 +59,35 @@ export function createReservations() {
     const stay = stays.get(cellKey(x, y));
     return stay && t >= stay.from ? stay.unit : undefined;
   };
+  const moveKey = (from, to, t) => `${cellKey(from.x, from.y)}>${cellKey(to.x, to.y)}@${t}`;
   return {
     reserve(unit, path, { stay = false } = {}) {
-      const keys = path.map(({ x, y, t }) => `${cellKey(x, y)},${t}`);
+      const kept = path.filter(({ x, y }) => !sharedKeys.has(cellKey(x, y)));
+      const keys = kept.map(({ x, y, t }) => `${cellKey(x, y)},${t}`);
       for (const key of keys) cells.set(key, unit);
+      const edges = path.slice(1).flatMap((step, i) => (step.x === path[i].x && step.y === path[i].y ? [] : [moveKey(path[i], step, path[i].t)]));
+      for (const edge of edges) moves.set(edge, unit);
       const last = path.at(-1);
-      if (stay && last) stays.set(cellKey(last.x, last.y), { unit, from: last.t });
-      byUnit.set(unit, { keys, stay: stay && last ? cellKey(last.x, last.y) : null });
+      const parks = stay && last && !sharedKeys.has(cellKey(last.x, last.y));
+      if (parks) stays.set(cellKey(last.x, last.y), { unit, from: last.t });
+      byUnit.set(unit, { keys, edges, stay: parks ? cellKey(last.x, last.y) : null });
     },
     release(unit) {
       const held = byUnit.get(unit);
       if (!held) return;
       for (const key of held.keys) if (cells.get(key) === unit) cells.delete(key);
+      for (const edge of held.edges) if (moves.get(edge) === unit) moves.delete(edge);
       if (held.stay && stays.get(held.stay)?.unit === unit) stays.delete(held.stay);
       byUnit.delete(unit);
     },
     isFree(x, y, t, unit) {
+      if (sharedKeys.has(cellKey(x, y))) return true;
       const held = holder(x, y, t);
       return held === undefined || held === unit;
     },
     swaps(from, to, t, unit) {
-      const other = holder(to.x, to.y, t);
-      return other !== undefined && other !== unit && holder(from.x, from.y, t + 1) === other;
+      const other = moves.get(moveKey(to, from, t));
+      return other !== undefined && other !== unit;
     },
   };
 }
