@@ -4,9 +4,10 @@ La bibliothèque commune des projets `mcts-*` : la recherche (MCTS, ISMCTS), la 
 discrets, l'ordonnancement, la grille et la mesure. Elle ne connaît aucun des thèmes ; chaque projet lui
 décrit son problème.
 
-Statut (22/10/2026) : le tirage reproductible (`src/random.js`) est là. Le module `schedule` arrive de
-Lopin (`src/schedule/`, l'ordonnanceur de sa file de nuit) au début des urgences ; `mcts` sera écrit
-d'abord pour le planificateur de cette même file, puis repris par les urgences.
+Statut (22/10/2026) : le tirage reproductible (`src/random.js`) et un premier jet de la recherche
+(`src/mcts.js`, testé sur Nim et sur deux portes) sont là. Le module `schedule` arrive de Lopin
+(`src/schedule/`, l'ordonnanceur de sa file de nuit) au début des urgences ; `mcts` servira d'abord au
+planificateur de cette même file, puis aux urgences.
 
 ## Les projets
 
@@ -27,7 +28,7 @@ dans Lopin.
 | `random` | le tirage reproductible, à partir d'une graine (mulberry32, celui de Lopin) | fait |
 | `events` | la simulation à événements discrets : une file d'événements datés | à faire |
 | `schedule` | les ressources, les priorités, les échéances, les prérequis, la règle de Smith | dans Lopin |
-| `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | à faire |
+| `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
 | `grid` | A*, la table de réservations | à faire |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | à faire |
 
@@ -42,7 +43,7 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  * @property {(state, rng) => World} sample        a scenario consistent with what is known
  * @property {(world) => string} actor             who decides now: a robot, the human, an opponent
  * @property {(world) => Move[]} moves             the legal decisions at this event
- * @property {(world, moves) => Move[]} shortlist  the fast rule's best few
+ * @property {(world, moves) => Move[]} [shortlist] the fast rule's best few (all of them by default)
  * @property {(move) => string} key                a move's name, shared by every scenario
  * @property {(world, move) => World} play         applies the move, runs to the next decision
  * @property {(world) => boolean} over
@@ -50,11 +51,17 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  * @property {(world, actor) => number} score      the reward of a finished world, 0 to 1
  */
 
-/** @returns {{ move: Move, visits: Map<string, number>, value: number }} */
+/** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }} */
 export function search(state, problem, { budget, rng, depth = 5, explore = 0.7 }) {}
 ```
 
-Les autres modules :
+Ce que fait une itération : elle tire un monde compatible avec ce qu'on sait (`sample`), descend l'arbre sur
+les coups que ce monde permet (UCB1, compté sur les itérations où le coup était possible), ajoute le premier
+coup pas encore essayé, joue la règle rapide jusqu'au bout (`rollout`), puis crédite chaque coup du score
+de celui qui l'a choisi. La racine joue son coup le plus visité. `stats` donne, pour chaque coup de la racine,
+ses visites et son score moyen ; `size`, le nombre de nœuds de l'arbre.
+
+Les autres modules, à venir :
 
 ```js
 export function createEvents() {}                   // { schedule(at, event), next(), now }
