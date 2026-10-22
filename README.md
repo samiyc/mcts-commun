@@ -92,6 +92,8 @@ Sans paquet publié ni étape de build :
 
 `mcts-serve [port]` (`bin/serve.js`) sert le dossier courant sur 127.0.0.1 : chaque projet a un script
 `npm run page`, et sa page trouve la bibliothèque par `node_modules/mcts-commun` grâce à une *import map*.
+Un *worker* ne lit pas l'import map : le serveur réécrit donc, dans le JavaScript qu'il sert, les imports
+`mcts-commun/…` en `/node_modules/mcts-commun/src/…` (23/10/2026, pour les gardes des urgences jouées en parallèle).
 
 ## Les règles
 
