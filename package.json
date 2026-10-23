@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "backlog": "node bin/backlog.js"
   },
   "author": "Sami",
   "license": "UNLICENSED",
@@ -17,9 +18,12 @@
     "./events.js": "./src/events.js",
     "./mcts.js": "./src/mcts.js",
     "./measure.js": "./src/measure.js",
-    "./grid.js": "./src/grid.js"
+    "./grid.js": "./src/grid.js",
+    "./schedule.js": "./src/schedule.js",
+    "./machine.js": "./node/machine.js"
   },
   "bin": {
-    "mcts-serve": "bin/serve.js"
+    "mcts-serve": "bin/serve.js",
+    "mcts-backlog": "bin/backlog.js"
   }
 }

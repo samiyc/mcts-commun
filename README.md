@@ -27,7 +27,8 @@ dans Lopin.
 |---|---|---|
 | `random` | le tirage reproductible, à partir d'une graine (mulberry32, celui de Lopin) | fait |
 | `events` | la simulation à événements discrets : une file d'événements datés | fait |
-| `schedule` | les ressources, les priorités, les échéances, les prérequis, la règle de Smith | dans Lopin |
+| `schedule` | l'ordre d'une file de jobs : les prérequis, les échéances, les priorités, la règle de Smith (celui de Lopin, validé le 23/10) | fait |
+| `machine` (`node/`, Node seulement) | les fils que la machine prête, la garde thermique, la garde mémoire, les créneaux partagés entre lanceurs | fait |
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
 | `grid` | les plans en texte, A* dans l'espace et le temps, la table de réservations | fait |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
@@ -95,10 +96,29 @@ Sans paquet publié ni étape de build :
 Un *worker* ne lit pas l'import map : le serveur réécrit donc, dans le JavaScript qu'il sert, les imports
 `mcts-commun/…` en `/node_modules/mcts-commun/src/…` (23/10/2026, pour les gardes des urgences jouées en parallèle).
 
+## Les longs jobs de la machine (`mcts-backlog`)
+
+Sami (23/10/2026) : l'ordonnanceur de Lopin, en commun, pour que les urgences, l'entrepôt et la cuisine lancent aussi leurs mesures de nuit. **Une seule file pour la machine**, `~/.mcts-backlog/queue.json` (`MCTS_BACKLOG_HOME` pour une autre) ; chaque job dit dans quel dossier il tourne.
+
+```bash
+npx mcts-backlog --add ent-sami --cwd ../mcts-entrepot --estimate "40 min" -- npm run compare -- --plan sami --days 200 --search
+npx mcts-backlog --list      # l'ordre prévu, et les derniers jobs finis
+npx mcts-backlog             # joue la file jusqu'au bout
+npx mcts-backlog --add-file ../mcts-entrepot/night.json   # les mesures de nuit d'un projet
+```
+
+Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, command, estimate }] }`) : `--add-file` les ajoute, lancées dans le dossier du fichier, chaque id suivi de la date (`--tag` pour une autre), pour qu'on puisse remettre la même série la nuit suivante.
+
+- **L'ordre** est celui de Lopin (`schedule`) : les prérequis (`--after`), une échéance (`--due`) qu'il raterait, puis la règle de Smith sur `--priority` et `--estimate`.
+- **Côte à côte** : les mesures des projets n'ont qu'un fil ; les jobs tournent ensemble tant que leurs fils (`--threads`, 1 par défaut) tiennent dans ce que prête la machine (tous les cœurs moins 3, 18 au plus ; `--budget`). Le banc de Lopin du 22/10 l'avait montré : deux jobs côte à côte battent un job sur 18 fils.
+- **Les créneaux** (`slots.json`) disent ce qui tourne sur la machine, quel que soit le lanceur : celui de Lopin prend les siens dans le même fichier, si bien que deux lanceurs ne demandent jamais plus de fils que la machine n'en prête. Un job qui en demande plus que tout le budget tourne seul.
+- **Les gardes**, comme dans Lopin : sous 5 Go de RAM libre deux fois de suite, le job le plus récent s'arrête et finit `failed` ; à 90 °C (le serveur web de LibreHardwareMonitor), tous les jobs s'arrêtent, retournent dans la file, et elle repart sous 75 °C. Un job dure au plus `--limit` minutes (120).
+- Ce qui reste : `runs/` (la sortie de chaque job), `done/AAAA-MM.json` (les jobs finis), `job-log/AAAA-MM.jsonl` (une ligne par job : fils, minutes, mémoire).
+
 ## Les règles
 
 - Node 20, des modules ES, pas de build : le même code tourne sous Node et dans le navigateur.
-- Tout est pur et testé (`npm test`) ; aucun module n'importe `node:*`.
+- Tout est pur et testé (`npm test`) ; aucun module de `src/` n'importe `node:*` (le lanceur et `node/machine.js`, qui ne servent que sous Node, sont à part).
 - Tout tirage passe par `random` : un scénario et une recherche se rejouent depuis leur graine.
 - **Le contrat est testé** (`tests/api.test.js`) : ce que chaque module exporte, la forme du résultat de
   `search`, les signatures de ce README (le `Problem` et `search` doivent y être les mêmes que dans le code),
