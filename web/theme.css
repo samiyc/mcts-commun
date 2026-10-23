@@ -1,0 +1,159 @@
+/*
+ * The look the projects' pages share (Sami, 23/10/2026: one dominant colour an application, foldable sections that
+ * show, after lopin's table). A page links this file first, then its own style.css, which sets the colour tokens
+ * below (and its dark ones) and keeps only what is its own: its plan, its timeline, its pieces.
+ *
+ * Tokens a page sets: --accent (buttons, links, the open section), --accent-2 (darker: hover, pressed),
+ * --accent-ink (text on the accent), --accent-soft (a tint for headers and the row in focus), --masthead (the band
+ * at the top: a colour or a gradient), --masthead-ink, --bg, --panel, --ink, --ink-2, --line.
+ */
+:root {
+  --bg: #f5f5f4;
+  --panel: #ffffff;
+  --ink: #1d2125;
+  --ink-2: #5b636b;
+  --line: #dcdcd8;
+  --accent: #3b5b77;
+  --accent-2: #2b445a;
+  --accent-ink: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  --masthead: var(--accent);
+  --masthead-ink: #ffffff;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 14px rgb(0 0 0 / 0.05);
+  --focus: color-mix(in srgb, var(--accent) 55%, #f0b400);
+  --body: system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --page: 1180px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141618;
+    --panel: #1c1f23;
+    --ink: #e8eaec;
+    --ink-2: #a2aab2;
+    --line: #333940;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 14px rgb(0 0 0 / 0.25);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+
+/* The band at the top: the application's colour, full width, its text on the page's column. */
+.masthead {
+  max-width: none;
+  margin: 0 0 18px;
+  padding: 18px max(16px, calc((100% - var(--page)) / 2 + 16px)) 16px;
+  background: var(--masthead);
+  color: var(--masthead-ink);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.12);
+  position: relative;
+}
+.masthead h1 { margin: 2px 0 6px; font-size: 1.85rem; line-height: 1.15; letter-spacing: -0.01em; display: flex; align-items: center; gap: 12px; }
+.masthead p { margin: 0; color: color-mix(in srgb, var(--masthead-ink) 86%, transparent); max-width: 82ch; }
+.masthead .links { float: right; margin: 0 0 6px 16px; font-size: 0.85rem; }
+.masthead .links a {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: var(--masthead-ink);
+  text-decoration: none;
+  background: rgb(255 255 255 / 0.16);
+  border: 1px solid rgb(255 255 255 / 0.35);
+}
+.masthead .links a:hover { background: rgb(255 255 255 / 0.28); }
+main { max-width: var(--page); margin: 0 auto; padding: 0 16px 48px; }
+main > * + * { margin-top: 14px; }
+
+h2 { font-size: 1.08rem; margin: 24px 0 10px; padding-left: 10px; border-left: 4px solid var(--accent); line-height: 1.3; }
+h3 { font-size: 0.98rem; margin: 14px 0 6px; }
+.hint { color: var(--ink-2); font-size: 0.86rem; }
+
+/* Fields and buttons. */
+select, input, textarea, button { font: inherit; color: var(--ink); }
+select, input, textarea { padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+select:hover, input:hover, textarea:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+button {
+  padding: 7px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.05s;
+}
+button:hover { background: var(--accent-2); border-color: var(--accent-2); }
+button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.45; cursor: default; transform: none; }
+button.quiet { background: var(--panel); color: var(--ink); border-color: var(--line); font-weight: 500; }
+button.quiet:hover { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; }
+.controls label, .fields label { display: grid; gap: 3px; font-size: 0.78rem; font-weight: 600; color: var(--ink-2); }
+/* The first row of controls, the page's settings: a card. */
+main > .controls:first-child { padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.fields { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 8px 0; }
+label.check { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+
+/* A line of figures: a card with the accent on its edge. */
+.summary { margin: 0; padding: 9px 14px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
+.error { color: #c62828; font-weight: 600; }
+
+/*
+ * Foldable sections (Sami, 23/10: they did not show): each a card whose header is a bar you can see is clickable, a
+ * chevron that turns, the open one edged in the accent.
+ */
+main details { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+main details > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  list-style: none;
+  cursor: pointer;
+  font-weight: 650;
+  background: var(--accent-soft);
+  border-bottom: 1px solid transparent;
+  user-select: none;
+  transition: background 0.12s;
+}
+main details > summary::-webkit-details-marker { display: none; }
+main details > summary::before {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent) no-repeat center / 12px 12px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4 2l4 4-4 4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  transition: transform 0.15s;
+}
+main details > summary::after { content: "Ouvrir"; margin-left: auto; font-size: 0.78rem; font-weight: 600; color: var(--accent); }
+main details[open] > summary::after { content: "Fermer"; }
+main details > summary:hover { background: color-mix(in srgb, var(--accent) 18%, var(--panel)); }
+main details[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+main details[open] > summary { border-bottom-color: var(--line); }
+main details[open] > summary::before { transform: rotate(90deg); }
+main details > :not(summary) { margin-left: 14px; margin-right: 14px; }
+main details > :not(summary):first-of-type { margin-top: 12px; }
+main details > :last-child:not(summary) { margin-bottom: 14px; }
+@media (prefers-reduced-motion: reduce) { main details > summary::before, button { transition: none; } }
+
+/* Tables. */
+.scroll { overflow-x: auto; border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; background: var(--panel); font-size: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); background: var(--accent-soft); }
+tbody tr:hover td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.current td { background: color-mix(in srgb, var(--accent) 13%, transparent); font-weight: 600; }
+
+/* Lists of kept replays. */
+.replay-list { font-size: 0.88rem; padding-left: 22px; }
+.replay-list li { margin: 6px 0; }
+.replay-list button { padding: 3px 10px; font-size: 0.82rem; }

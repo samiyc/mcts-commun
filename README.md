@@ -96,6 +96,8 @@ Sans paquet publié ni étape de build :
 Un *worker* ne lit pas l'import map : le serveur réécrit donc, dans le JavaScript qu'il sert, les imports
 `mcts-commun/…` en `/node_modules/mcts-commun/src/…` (23/10/2026, pour les gardes des urgences jouées en parallèle).
 
+**L'allure commune** (Sami, 23/10) : `web/theme.css`, lié en premier par chaque page (`../node_modules/mcts-commun/web/theme.css`), donne le bandeau en haut, les réglages en carte, les sections pliables bien visibles (une barre, un chevron, « Ouvrir / Fermer »), les boutons, les tableaux, le thème sombre. Chaque page n'y met que sa couleur dominante (`--accent`, `--masthead`…) et ce qui est à elle : rouge et blanc pour les urgences, bleu-gris métal pour l'entrepôt, orange pour la cuisine.
+
 **Les replays** (Sami, 23/10) : `POST /api/replays` écrit le replay reçu dans le dossier `replays/` du projet (exclu de git, comme `replays/` dans Lopin) ; `GET /api/replays` les liste. Les pages y envoient chaque partie jouée.
 
 ## Les longs jobs de la machine (`mcts-backlog`)
