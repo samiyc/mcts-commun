@@ -69,6 +69,19 @@ describe("plans and paths (src/grid.js)", () => {
     assert.ok(parked.at(-1).t >= 5, `arrivé à ${parked.at(-1).t}`);
   });
 
+  it("never lets a unit's own old steps hide another unit parked there since", () => {
+    const reservations = createReservations();
+    // B planned through (3, 1) at t = 4; then A stopped there for good, from t = 2.
+    reservations.reserve("B", [{ x: 1, y: 1, t: 2 }, { x: 2, y: 1, t: 3 }, { x: 3, y: 1, t: 4 }, { x: 4, y: 1, t: 5 }], { stay: true });
+    reservations.reserve("A", [{ x: 3, y: 1, t: 2 }], { stay: true });
+    assert.equal(reservations.isFree(3, 1, 4, "B"), false, "A y est garé");
+    assert.equal(reservations.isFree(3, 1, 1, "B"), true, "avant que A s'y gare");
+    // B planning again, its old steps still held, goes around A.
+    const hall = parsePlan("#######\n#.....#\n#.....#\n#######");
+    const path = astar(hall, { x: 1, y: 1 }, { x: 5, y: 1 }, { passable: open, reservations, unit: "B", start: 2 });
+    assert.ok(path.every((step) => step.x !== 3 || step.y !== 1), JSON.stringify(path));
+  });
+
   it("clones a table: the copy and the original then go their own ways", () => {
     const reservations = createReservations();
     reservations.reserve("A", [{ x: 1, y: 1, t: 0 }, { x: 2, y: 1, t: 1 }], { stay: true });

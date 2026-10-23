@@ -56,12 +56,6 @@ export function createReservations({ shared = [] } = {}) {
 
 /** The reservations' methods over their maps (createReservations, and each clone). */
 function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
-  const holder = (x, y, t) => {
-    const held = cells.get(`${cellKey(x, y)},${t}`);
-    if (held !== undefined) return held;
-    const stay = stays.get(cellKey(x, y));
-    return stay && t >= stay.from ? stay.unit : undefined;
-  };
   const moveKey = (from, to, t) => `${cellKey(from.x, from.y)}>${cellKey(to.x, to.y)}@${t}`;
   return {
     reserve(unit, path, { stay = false } = {}) {
@@ -90,8 +84,12 @@ function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
     },
     isFree(x, y, t, unit) {
       if (sharedKeys.has(cellKey(x, y))) return true;
-      const held = holder(x, y, t);
-      return held === undefined || held === unit;
+      // A step and a stay are both checked: a unit planning again still holds its old steps, which must not hide
+      // another unit parked there since (Sami's warehouse, 23/10: two robots met on a cell).
+      const held = cells.get(`${cellKey(x, y)},${t}`);
+      if (held !== undefined && held !== unit) return false;
+      const stay = stays.get(cellKey(x, y));
+      return !stay || t < stay.from || stay.unit === unit;
     },
     freeFrom(x, y, t, unit) {
       if (sharedKeys.has(cellKey(x, y))) return true;
