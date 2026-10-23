@@ -66,6 +66,20 @@ describe("the machine's runner (bin/backlog.js) and its slots (node/machine.js),
     await rm(folder, { recursive: true, force: true });
   });
 
+  it("starts a dozen jobs at once without losing the queue (Sami, 23/10: fifteen together broke it on Windows)", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
+    const folder = await mkdtemp(path.join(os.tmpdir(), "projet-"));
+    const file = path.join(folder, "night.json");
+    await writeFile(file, JSON.stringify({ jobs: Array.from({ length: 12 }, (_, i) => ({ id: `j${i}`, command: 'node -e "setTimeout(() => {}, 300)"', estimate: "1 min" })) }));
+    await backlog(home, "--add-file", file, "--tag", "x");
+    await backlog(home, "--budget", "18");
+    const archive = JSON.parse(await readFile(path.join(home, "done", (await readdir(path.join(home, "done")))[0]), "utf8"));
+    assert.equal(archive.length, 12);
+    assert.ok(archive.every((job) => job.status === "done"));
+    await rm(home, { recursive: true, force: true });
+    await rm(folder, { recursive: true, force: true });
+  });
+
   it("runs a queue: side by side within the budget, after its prerequisites, each in its folder, archived and logged", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
     const folder = await mkdtemp(path.join(os.tmpdir(), "projet-"));

@@ -54,18 +54,41 @@ async function readQueue() {
     throw error;
   }
 }
+let saves = 0;
 async function saveQueue(queue) {
   await mkdir(home, { recursive: true });
-  await writeFile(`${files.queue}.tmp`, `${JSON.stringify(queue, null, 2)}\n`);
-  await rename(`${files.queue}.tmp`, files.queue);
+  // Its own temporary file, and a few tries: on Windows a file just read may refuse to be replaced a moment.
+  saves += 1;
+  const tmp = `${files.queue}.${process.pid}.${saves}.tmp`;
+  await writeFile(tmp, `${JSON.stringify(queue, null, 2)}\n`);
+  for (let tries = 0; ; tries += 1) {
+    try {
+      await rename(tmp, files.queue);
+      return;
+    } catch (error) {
+      if (error.code !== "EPERM" || tries >= 20) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
 }
+/**
+ * The queue is read, changed and written back one change at a time (Sami, 23/10: fifteen jobs starting together
+ * wrote it at once, and the runner fell on Windows' EPERM).
+ */
+let writing = Promise.resolve();
+const serial = (work) => {
+  const done = writing.then(work);
+  writing = done.catch(() => {});
+  return done;
+};
 async function readArchive() {
   const names = (await readdir(files.done).catch(() => [])).filter((name) => name.endsWith(".json")).sort();
   const months = await Promise.all(names.map(async (name) => JSON.parse(await readFile(path.join(files.done, name), "utf8"))));
   return months.flat();
 }
 /** Moves the finished jobs of the queue to their month's archive. */
-async function archiveFinished() {
+const archiveFinished = () => serial(archiveNow);
+async function archiveNow() {
   const queue = await readQueue();
   const finished = queue.jobs.filter(isFinished);
   if (finished.length === 0) return 0;
@@ -78,11 +101,13 @@ async function archiveFinished() {
   await saveQueue({ ...queue, jobs: queue.jobs.filter((job) => !isFinished(job)) });
   return finished.length;
 }
-async function updateJob(id, change) {
-  const queue = await readQueue();
-  const job = queue.jobs.find((one) => one.id === id);
-  if (job) Object.assign(job, change);
-  await saveQueue(queue);
+function updateJob(id, change) {
+  return serial(async () => {
+    const queue = await readQueue();
+    const job = queue.jobs.find((one) => one.id === id);
+    if (job) Object.assign(job, change);
+    await saveQueue(queue);
+  });
 }
 
 const tags = (job) => [job.threads > 1 ? `${job.threads} fils` : "", job.priority && job.priority !== 2 ? `priorité ${job.priority}` : "", job.due ? `pour ${job.due}` : "", job.after?.length ? `après ${job.after.join(", ")}` : ""].filter(Boolean).join(", ");
