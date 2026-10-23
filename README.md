@@ -96,6 +96,8 @@ Sans paquet publié ni étape de build :
 Un *worker* ne lit pas l'import map : le serveur réécrit donc, dans le JavaScript qu'il sert, les imports
 `mcts-commun/…` en `/node_modules/mcts-commun/src/…` (23/10/2026, pour les gardes des urgences jouées en parallèle).
 
+**Les replays** (Sami, 23/10) : `POST /api/replays` écrit le replay reçu dans le dossier `replays/` du projet (exclu de git, comme `replays/` dans Lopin) ; `GET /api/replays` les liste. Les pages y envoient chaque partie jouée.
+
 ## Les longs jobs de la machine (`mcts-backlog`)
 
 Sami (23/10/2026) : l'ordonnanceur de Lopin, en commun, pour que les urgences, l'entrepôt et la cuisine lancent aussi leurs mesures de nuit. **Une seule file pour la machine**, `~/.mcts-backlog/queue.json` (`MCTS_BACKLOG_HOME` pour une autre) ; chaque job dit dans quel dossier il tourne.
