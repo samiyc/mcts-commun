@@ -1,0 +1,4 @@
+# The same line endings on every machine: LF in the repository and in the working tree.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

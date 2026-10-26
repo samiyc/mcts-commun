@@ -5,10 +5,16 @@
   "description": "La bibliothèque commune des projets mcts-* : recherche (MCTS, ISMCTS), événements, ordonnancement, grille, mesure.",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.9"
   },
   "scripts": {
     "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "types": "tsc -p .",
+    "check": "npm run lint && npm run types && npm test",
+    "prepare": "git config core.hooksPath .githooks",
     "page": "node bin/serve.js 4800",
     "backlog": "node bin/backlog.js"
   },
@@ -27,5 +33,13 @@
   "bin": {
     "mcts-serve": "bin/serve.js",
     "mcts-backlog": "bin/backlog.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^20.19.43",
+    "eslint": "^9.39.5",
+    "eslint-plugin-sonarjs": "^4.2.1",
+    "globals": "^17.12.0",
+    "typescript": "^5.9.3"
   }
 }
