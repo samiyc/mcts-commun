@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Backlog de la machine</title>
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="backlog.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <p class="links"><span id="pulse" class="pulse" title="Mis à jour toutes les 2 s">en direct</span></p>
+      <h1>La backlog de la machine</h1>
+      <p>Les longs jobs des projets <code>mcts-*</code>, tels que le lanceur les joue : lus sans rien écrire, mis à jour toutes les 2 s. La même chose au terminal : <code>npx mcts-backlog --tui</code>.</p>
+    </header>
+    <main>
+      <section class="tiles" id="machine" aria-label="La machine"></section>
+      <section id="alerts" aria-live="polite"></section>
+
+      <details open id="running-card">
+        <summary>En cours <span class="count" id="running-count"></span></summary>
+        <div class="scroll"><table id="running"></table></div>
+      </details>
+
+      <details open id="night-card">
+        <summary>La nuit à venir <span class="count" id="night-count"></span></summary>
+        <p class="hint">Comme le lanceur la jouerait si chaque job prenait son estimation : côte à côte tant que leurs fils tiennent, le suivant dans l'ordre de Lopin (prérequis, échéances, règle de Smith).</p>
+        <div id="night" class="night"></div>
+      </details>
+
+      <details id="held-card">
+        <summary>Bloqués et en attente <span class="count" id="held-count"></span></summary>
+        <div class="scroll"><table id="held"></table></div>
+      </details>
+
+      <details open id="finished-card">
+        <summary>Finis <span class="count" id="finished-count"></span></summary>
+        <div class="scroll"><table id="finished"></table></div>
+      </details>
+
+      <details id="journal-card">
+        <summary>Journal du lanceur <span class="count" id="journal-count"></span></summary>
+        <div id="journal"></div>
+      </details>
+
+      <details id="traces-card">
+        <summary>Traces de la bibliothèque <span class="count" id="traces-count"></span></summary>
+        <p class="hint">Chaque job lancé par le lanceur (et chaque <code>MCTS_TRACE=1</code> à la main) trace ce qui passe par <code>mcts-commun</code> : les appels de la recherche et d'A*, leurs erreurs, les appels lents, un battement toutes les 30 s. Une trace muette depuis 2 min : le calcul est sans doute coincé.</p>
+        <div class="scroll"><table id="traces"></table></div>
+      </details>
+    </main>
+
+    <dialog id="tail">
+      <header>
+        <strong id="tail-title"></strong>
+        <span class="hint" id="tail-file"></span>
+        <button type="button" class="quiet" id="tail-close">Fermer</button>
+      </header>
+      <pre id="tail-lines"></pre>
+    </dialog>
+    <script type="module" src="backlog.js"></script>
+  </body>
+</html>

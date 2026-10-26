@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +30,36 @@ describe("the page server's replays (bin/serve.js, Sami 23/10: stored by themsel
       server.kill();
       await gone;
       await rm(folder, { recursive: true, force: true, maxRetries: 5 });
+    }
+  });
+
+  it("shows the machine's backlog, read only: the view, the end of a job's output (Sami 26/10)", async () => {
+    const folder = await mkdtemp(path.join(os.tmpdir(), "serve-"));
+    const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
+    await mkdir(path.join(home, "runs"));
+    await mkdir(path.join(home, "done"));
+    await writeFile(path.join(home, "runs", "2026-10-26-19-00_a.txt"), "début\njour 3/100\n");
+    await writeFile(path.join(home, "done", "2026-10.json"), JSON.stringify([{ id: "a", cwd: folder, command: "x", estimate: "5 min", status: "done", doneAt: "2026-10-26T19:05", minutes: 5, output: path.join("runs", "2026-10-26-19-00_a.txt") }]));
+    await writeFile(path.join(home, "queue.json"), JSON.stringify({ jobs: [{ id: "b", cwd: folder, command: "y", estimate: "1 h", status: "todo" }] }));
+    const port = 4900 + Math.floor(Math.random() * 90);
+    const server = spawn(process.execPath, [SERVER, String(port)], { cwd: folder, env: { ...process.env, MCTS_BACKLOG_HOME: home, MCTS_SENSORS_URL: "http://127.0.0.1:9/" } });
+    await new Promise((resolve) => server.stdout.once("data", resolve));
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      const view = await (await fetch(`${base}/api/backlog`)).json();
+      assert.deepEqual(view.planned.map((job) => job.id), ["b"]);
+      assert.deepEqual(view.finished.map((job) => job.id), ["a"]);
+      const tail = await (await fetch(`${base}/api/backlog/tail?id=a&kind=output`)).json();
+      assert.deepEqual(tail.lines, ["début", "jour 3/100"]);
+      assert.equal((await fetch(`${base}/api/backlog/tail?id=personne`)).status, 404);
+      assert.equal((await fetch(`${base}/`)).status, 404);
+      assert.deepEqual((await readdir(home)).sort(), ["done", "queue.json", "runs"], "nothing written to the backlog");
+    } finally {
+      const gone = new Promise((resolve) => server.once("exit", resolve));
+      server.kill();
+      await gone;
+      await rm(folder, { recursive: true, force: true, maxRetries: 5 });
+      await rm(home, { recursive: true, force: true, maxRetries: 5 });
     }
   });
 });

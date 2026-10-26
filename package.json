@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "node --test",
+    "page": "node bin/serve.js 4800",
     "backlog": "node bin/backlog.js"
   },
   "author": "Sami",

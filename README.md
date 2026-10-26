@@ -32,6 +32,7 @@ dans Lopin.
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
 | `grid` | les plans en texte, A* dans l'espace et le temps, la table de réservations | fait |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
+| `trace` | ce qui passe par la bibliothèque : compteurs, erreurs, appels lents (voir « Les traces ») | fait |
 
 ## Les signatures de `mcts`
 
@@ -98,6 +99,8 @@ Un *worker* ne lit pas l'import map : le serveur réécrit donc, dans le JavaScr
 
 **L'allure commune** (Sami, 23/10) : `web/theme.css`, lié en premier par chaque page (`../node_modules/mcts-commun/web/theme.css`), donne le bandeau en haut, les réglages en carte, les sections pliables bien visibles (une barre, un chevron, « Ouvrir / Fermer »), les boutons, les tableaux, le thème sombre. Chaque page n'y met que sa couleur dominante (`--accent`, `--masthead`…) et ce qui est à elle : rouge et blanc pour les urgences, bleu-gris métal pour l'entrepôt, orange pour la cuisine.
 
+**La page de `mcts-commun`** (26/10) : `npm run page` ici montre la backlog de la machine (`GET /api/backlog`, `GET /api/backlog/tail`, servis par le même serveur, donc aussi dans chaque projet). Une requête qui échoue est écrite dans `logs/serve-AAAA-MM.jsonl` du dossier servi.
+
 **Les replays** (Sami, 23/10) : `POST /api/replays` écrit le replay reçu dans le dossier `replays/` du projet (exclu de git, comme `replays/` dans Lopin) ; `GET /api/replays` les liste. Les pages y envoient chaque partie jouée.
 
 ## Les longs jobs de la machine (`mcts-backlog`)
@@ -106,7 +109,8 @@ Sami (23/10/2026) : l'ordonnanceur de Lopin, en commun, pour que les urgences, l
 
 ```bash
 npx mcts-backlog --add ent-sami --cwd ../mcts-entrepot --estimate "40 min" -- npm run compare -- --plan sami --days 200 --search
-npx mcts-backlog --list      # l'ordre prévu, et les derniers jobs finis
+npx mcts-backlog --list      # la machine, les jobs en cours, la nuit à venir, les bloqués, les derniers finis
+npx mcts-backlog --tui       # la même chose en direct, façon k9s
 npx mcts-backlog             # joue la file jusqu'au bout
 npx mcts-backlog --add-file ../mcts-entrepot/night.json   # les mesures de nuit d'un projet
 ```
@@ -117,12 +121,31 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 - **Côte à côte** : les mesures des projets n'ont qu'un fil ; les jobs tournent ensemble tant que leurs fils (`--threads`, 1 par défaut) tiennent dans ce que prête la machine (tous les cœurs moins 3, 18 au plus ; `--budget`). Le banc de Lopin du 22/10 l'avait montré : deux jobs côte à côte battent un job sur 18 fils.
 - **Les créneaux** (`slots.json`) disent ce qui tourne sur la machine, quel que soit le lanceur : celui de Lopin prend les siens dans le même fichier, si bien que deux lanceurs ne demandent jamais plus de fils que la machine n'en prête. Un job qui en demande plus que tout le budget tourne seul.
 - **Les gardes**, comme dans Lopin : sous 5 Go de RAM libre deux fois de suite, le job le plus récent s'arrête et finit `failed` ; à 90 °C (le serveur web de LibreHardwareMonitor), tous les jobs s'arrêtent, retournent dans la file, et elle repart sous 75 °C. Un job dure au plus `--limit` minutes (120).
-- Ce qui reste : `runs/` (la sortie de chaque job), `done/AAAA-MM.json` (les jobs finis), `job-log/AAAA-MM.jsonl` (une ligne par job : fils, minutes, mémoire).
+- Ce qui reste : `runs/` (la sortie de chaque job), `traces/` (sa trace), `done/AAAA-MM.json` (les jobs finis), `job-log/AAAA-MM.jsonl` (une ligne par job : fils, minutes, mémoire), `journal/AAAA-MM.jsonl` (ce que fait le lanceur : démarrage, jobs lancés et finis, créneaux attendus, gardes, orphelins, réécritures de la file, plantage).
+
+**Voir la backlog** (Sami, 26/10/2026 : c'était une boîte noire), toujours en lecture seule, le lanceur peut tourner :
+- `npx mcts-backlog --list` : la machine en une ligne (lanceur, fils, CPU, mémoire), les jobs en cours avec leur avancement, la nuit à venir telle que le lanceur la jouerait (côte à côte dans le budget), les bloqués et pourquoi, les derniers finis ; `--json` donne la même vue ;
+- `npx mcts-backlog --tui` : la même chose en direct au terminal, façon k9s : six onglets (en cours, à venir, bloqués, finis, journal, traces), la ligne choisie détaillée avec la fin de sa sortie, `Entrée` pour la sortie entière, `/` pour filtrer, `?` pour l'aide ;
+- `npm run page` dans `mcts-commun` (http://127.0.0.1:4800/web/) : la page, avec la frise de la nuit et la sortie de chaque job d'un clic.
+
+Le lanceur qui tournait avant le 26/10 n'écrit ni journal ni traces : il le fera à son prochain démarrage ; les vues le lisent déjà.
+
+## Les traces
+
+Sami (26/10/2026) : le tronc commun était une boîte noire quand un calcul se bloquait. `src/trace.js` (pur, chargé aussi par les pages) compte et chronomètre ce qui passe par la bibliothèque, et garde les 200 derniers événements :
+- `search` et `astar` : appels, itérations, millisecondes, le plus long, les chemins introuvables ; une erreur (`Problem incomplet`, un coup manquant en `common`) ou un appel de plus de 2 s est gardé avec ses réglages, puis l'erreur repart comme avant ;
+- `grid` : une case réservée par-dessus une autre unité (les deux robots du 23/10) ; `events` : un événement dans le passé.
+
+Sous Node, `MCTS_TRACE=1` (ou `debug`, chaque appel en plus) écrit tout cela dans `logs/trace-AAAA-MM-JJ-<pid>.jsonl` du dossier courant, exclu de git : le départ du processus, les événements, **un battement toutes les 30 s** (les compteurs, la mémoire), le plantage s'il y en a un, la fin. Un calcul coincé dans une boucle ne bat plus : c'est ce que la page et le terminal signalent (« trace muette »). Les jobs de `mcts-backlog` sont tracés d'office dans `~/.mcts-backlog/traces/`. L'empreinte de la recherche ne bouge pas.
+
+```bash
+MCTS_TRACE=1 npm run compare -- --plan sami --days 5 --search   # logs/trace-….jsonl
+```
 
 ## Les règles
 
 - Node 20, des modules ES, pas de build : le même code tourne sous Node et dans le navigateur.
-- Tout est pur et testé (`npm test`) ; aucun module de `src/` n'importe `node:*` (le lanceur et `node/machine.js`, qui ne servent que sous Node, sont à part).
+- Tout est pur et testé (`npm test`) ; aucun module de `src/` n'importe `node:*` (le lanceur et `node/`, qui ne servent que sous Node, sont à part ; `src/trace.js` ne charge `node/trace-file.js` que sous Node, par un import dynamique).
 - Tout tirage passe par `random` : un scénario et une recherche se rejouent depuis leur graine.
 - **Le contrat est testé** (`tests/api.test.js`) : ce que chaque module exporte, la forme du résultat de
   `search`, les signatures de ce README (le `Problem` et `search` doivent y être les mêmes que dans le code),
