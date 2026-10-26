@@ -66,6 +66,19 @@ describe("the machine's runner (bin/backlog.js) and its slots (node/machine.js),
     await rm(folder, { recursive: true, force: true });
   });
 
+  it("adds a file's jobs as they are with --no-tag, each in its own folder (lopin's queue, 26/10)", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
+    const folder = await mkdtemp(path.join(os.tmpdir(), "projet-"));
+    const file = path.join(folder, "night.json");
+    await writeFile(file, JSON.stringify({ jobs: [{ id: "DUEL_1", command: "echo 1", cwd: ".." }, { id: "DUEL_2", command: "echo 2", after: ["DUEL_1"], stopIf: [{ after: ["DUEL_1"], below: 0.5 }] }] }));
+    await backlog(home, "--add-file", file, "--no-tag");
+    const { jobs } = JSON.parse(await readFile(path.join(home, "queue.json"), "utf8"));
+    assert.deepEqual(jobs.map((job) => [job.id, job.cwd, job.after ?? null]), [["DUEL_1", path.dirname(folder), null], ["DUEL_2", folder, ["DUEL_1"]]]);
+    assert.deepEqual(jobs[1].stopIf, [{ after: ["DUEL_1"], below: 0.5 }]);
+    await rm(home, { recursive: true, force: true });
+    await rm(folder, { recursive: true, force: true });
+  });
+
   it("starts a dozen jobs at once without losing the queue (Sami, 23/10: fifteen together broke it on Windows)", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
     const folder = await mkdtemp(path.join(os.tmpdir(), "projet-"));

@@ -19,10 +19,10 @@ import { runQueue } from "../node/runner.js";
  *   mcts-backlog --tui           the same in a terminal view that follows it live (node/tui.js), read only
  *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--threads N] [--priority 1|2|3] [--after A,B]
  *                [--due 2026-10-24T08:00] [--limit MIN] [--skip-if "COMMAND"] -- COMMAND…
- *   mcts-backlog --add-file PROJECT/night.json [--tag 2026-10-24]
- *                every job of a project's file (`{ jobs: [{ id, command, estimate, … }] }`), run in the file's folder;
- *                each id (and its `after`) gets the tag, today's date by default, so the file can be queued again
- *                the next night.
+ *   mcts-backlog --add-file PROJECT/night.json [--tag 2026-10-24 | --no-tag]
+ *                every job of a project's file (`{ jobs: [{ id, command, estimate, … }] }`), run in its `cwd` (the
+ *                file's folder by default); each id (and its `after`) gets the tag, today's date by default, so the
+ *                file can be queued again the next night; --no-tag keeps the ids as they are.
  *   mcts-backlog --status ID [--json]        where a job stands: to come (when), running, ended (how), its files
  *   mcts-backlog --wait ID [--timeout MIN]   waits for its end; exit 0 done, 1 failed or too long, 2 cancelled or
  *                                            skipped, 3 unknown, 4 still running at the timeout
@@ -66,7 +66,7 @@ async function add() {
 
 async function addFile() {
   const file = path.resolve(option("--add-file"));
-  const added = await jobsOfFile(file, option("--tag", stamp().slice(0, 10)));
+  const added = await jobsOfFile(file, args.includes("--no-tag") ? null : option("--tag", stamp().slice(0, 10)));
   await addJobs(queue, added, " : --tag pour une autre série");
   journal("added", { ids: added.map((job) => job.id), file });
   for (const job of added) console.log(`Ajouté : ${lineOf(job)}`);

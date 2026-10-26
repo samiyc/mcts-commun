@@ -38,11 +38,15 @@ function firstTwice(jobs, taken) {
   return undefined;
 }
 
-/** The jobs of a project's night file, each id (and its `after`) tagged, run in the file's folder. */
+/**
+ * The jobs of a project's night file, each id (and its `after`) tagged, unless `tag` is null (lopin's queue, whose ids
+ * are already its own); each run in its `cwd`, read from the file's folder (the folder itself by default).
+ */
 export async function jobsOfFile(file, tag, extra = {}) {
   const { jobs } = JSON.parse(await readFile(file, "utf8"));
-  const tagged = (id) => `${id}-${tag}`;
-  return jobs.map((job) => ({ status: "todo", estimate: "1 h", ...job, ...extra, id: tagged(job.id), cwd: path.dirname(file), ...(job.after ? { after: job.after.map(tagged) } : {}) }));
+  const tagged = (id) => (tag === null ? id : `${id}-${tag}`);
+  const cwdOf = (job) => path.resolve(path.dirname(file), job.cwd ?? ".");
+  return jobs.map((job) => ({ status: "todo", estimate: "1 h", ...job, ...extra, id: tagged(job.id), cwd: cwdOf(job), ...(job.after ? { after: job.after.map(tagged) } : {}) }));
 }
 
 /** Where a job stands, read from the queue or the archive: null for an id never seen. */
