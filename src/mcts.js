@@ -1,4 +1,5 @@
 import { createRng, streamOf } from "./random.js";
+import { count, timed, trace } from "./trace.js";
 
 /**
  * A tree search over hidden information (single-observer ISMCTS, Cowling, Powley & Whitehouse 2012): the
@@ -151,7 +152,10 @@ function iterateCommon(root, state, settings) {
   const stream = streamOf(common.base, child.visits);
   let world = problem.sample(state, stream);
   const move = candidates(problem, world).get(child.key);
-  if (!move) throw new Error(`common: le coup ${child.key} manque dans un monde ; les coups de la racine doivent être connus`);
+  if (!move) {
+    trace("search", "error", { message: `coup ${child.key} manquant en common`, visit: child.visits });
+    throw new Error(`common: le coup ${child.key} manque dans un monde ; les coups de la racine doivent être connus`);
+  }
   world = problem.play(world, move);
   let node = child;
   const path = [child];
@@ -180,8 +184,14 @@ const sizeOf = (node) => 1 + [...node.children.values()].reduce((sum, child) => 
  * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }}
  */
 export function search(state, problem, { budget, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false }) {
+  // Traced (src/trace.js): counted and timed; an error or a slow search kept with its settings.
+  return timed("search", () => searchTree(state, problem, { budget, rng, depth, explore, common }), () => ({ budget, depth, explore, common }));
+}
+
+function searchTree(state, problem, { budget, rng, depth, explore, common }) {
   if (!Number.isInteger(budget) || budget < 1) throw new Error(`budget: a whole number of iterations, not ${budget}`);
   checkProblem(problem);
+  count("search", "iterations", budget);
   const root = createNode(null, "", "");
   const settings = { problem, rng, depth, explore };
   if (common) settings.common = commonRoot(state, problem, rng);

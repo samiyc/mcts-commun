@@ -1,4 +1,5 @@
 import { createEvents } from "./events.js";
+import { count, timed, trace } from "./trace.js";
 
 /**
  * Plans drawn as text and paths found on them (Sami, 22/10/2026: change the warehouse, the kitchen or the
@@ -54,6 +55,14 @@ export function createReservations({ shared = [] } = {}) {
   return tableOf({ sharedKeys: new Set(shared.map(({ x, y }) => cellKey(x, y))), cells: new Map(), byCell: new Map(), moves: new Map(), stays: new Map(), byUnit: new Map() });
 }
 
+const OVERBOOKED_TRACED = 20;
+let overbookings = 0;
+function overbooked(cell, unit, other) {
+  count("grid", "overbooked");
+  overbookings += 1;
+  if (overbookings <= OVERBOOKED_TRACED) trace("grid", "warn", { message: "case réservée par-dessus une autre unité", cell, unit, other });
+}
+
 /** The reservations' methods over their maps (createReservations, and each clone). */
 function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
   const moveKey = (from, to, t) => `${cellKey(from.x, from.y)}>${cellKey(to.x, to.y)}@${t}`;
@@ -61,7 +70,11 @@ function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
     reserve(unit, path, { stay = false } = {}) {
       const kept = path.filter(({ x, y }) => !sharedKeys.has(cellKey(x, y)));
       const keys = kept.map(({ x, y, t }) => `${cellKey(x, y)},${t}`);
-      for (const key of keys) cells.set(key, unit);
+      // A cell booked over another unit is how two robots met (23/10): counted, and the first ones traced.
+      for (const key of keys) {
+        if (cells.has(key) && cells.get(key) !== unit) overbooked(key, unit, cells.get(key));
+        cells.set(key, unit);
+      }
       for (const { x, y, t } of kept) {
         if (!byCell.has(cellKey(x, y))) byCell.set(cellKey(x, y), new Map());
         byCell.get(cellKey(x, y)).set(t, unit);
@@ -121,7 +134,14 @@ function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
  * `reservations` and `unit`, whose cells to avoid; `horizon`, how many steps to look ahead at most; `park`,
  * the unit stays at `to` once there, so it arrives only when nobody else is due there later.
  */
-export function astar(plan, from, to, { passable, reservations = null, unit = null, start = 0, horizon = 4 * plan.width * plan.height, park = false } = {}) {
+export function astar(plan, from, to, options = {}) {
+  // Traced (src/trace.js): counted and timed, the paths not found counted, a slow or failing call kept with its ends.
+  const path = timed("astar", () => shortestPath(plan, from, to, options), () => ({ from, to, unit: options.unit ?? null, start: options.start ?? 0 }));
+  if (!path) count("astar", "notFound");
+  return path;
+}
+
+function shortestPath(plan, from, to, { passable, reservations = null, unit = null, start = 0, horizon = 4 * plan.width * plan.height, park = false }) {
   const arrived = (node) => node.x === to.x && node.y === to.y && (!park || !reservations || reservations.freeFrom(to.x, to.y, node.t, unit));
   const distance = (x, y) => Math.abs(x - to.x) + Math.abs(y - to.y);
   const free = (x, y, t) => !reservations || reservations.isFree(x, y, t, unit);

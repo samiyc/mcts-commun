@@ -1,3 +1,5 @@
+import { trace } from "./trace.js";
+
 /**
  * A discrete-event queue: what happens next, by time. Two events at the same time come out in the order they
  * were scheduled, so a simulation replays the same from the same seed. A binary heap: scheduling and taking
@@ -36,7 +38,10 @@ export function createEvents(start = 0) {
     },
     /** Schedules `event` at `at`, never before the present. */
     schedule(at, event) {
-      if (!(at >= now)) throw new Error(`événement dans le passé : ${at} < ${now}`);
+      if (!(at >= now)) {
+        trace("events", "error", { message: "événement dans le passé", at, now });
+        throw new Error(`événement dans le passé : ${at} < ${now}`);
+      }
       heap.push({ at, order: order++, event });
       up(heap.length - 1);
     },

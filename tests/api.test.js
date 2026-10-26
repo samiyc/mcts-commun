@@ -7,6 +7,7 @@ import * as grid from "../src/grid.js";
 import * as mcts from "../src/mcts.js";
 import * as measure from "../src/measure.js";
 import * as random from "../src/random.js";
+import * as trace from "../src/trace.js";
 import { doors, nim, twoJobs } from "./fixtures/problems.js";
 
 /**
@@ -33,6 +34,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     assert.deepEqual(Object.keys(mcts).sort(), ["PROBLEM", "SEARCH", "checkProblem", "search"]);
     assert.deepEqual(Object.keys(createRng(1)).sort(), ["clone", "getState", "int", "next", "normal", "setState", "shuffle"]);
     assert.deepEqual(mcts.SEARCH, { depth: 5, explore: 0.7 });
+    assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "resetTrace", "setTraceLevel", "timed", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
   });
 
   it("returns the search's result in its stated shape", () => {
