@@ -6,6 +6,7 @@ import { readBacklog, viewOf } from "../node/backlog-view.js";
 import { createJournal } from "../node/journal.js";
 import { backlogHome, threadBudget } from "../node/machine.js";
 import { createQueue, stamp } from "../node/queue.js";
+import { pullJobs, pushJobs, remoteView } from "../node/remote.js";
 import { runQueue } from "../node/runner.js";
 
 /**
@@ -28,6 +29,9 @@ import { runQueue } from "../node/runner.js";
  *                                            skipped, 3 unknown, 4 still running at the timeout
  *   mcts-backlog --cancel ID                 a job to come ends cancelled; a running one is stopped by its runner
  *   mcts-backlog --retry ID                  a finished job queued again, as ID-r1
+ *   mcts-backlog --push MACHINE              the jobs for another machine (`--machine MACHINE` on --add or --add-file)
+ *                                            sent there with their folders, its runner started (node/remote.js)
+ *   mcts-backlog --list --machine MACHINE    its queue (--json too); --pull MACHINE brings back what it did
  *
  * For other tools (Sami, 26/10/2026), the contract is docs/backlog.md: these commands, their JSON and exit codes;
  * every change holds the queue's lock (node/queue.js), so a tool never loses the runner's writes nor the runner its.
@@ -52,7 +56,7 @@ function jobOfOptions() {
   }
   const job = { id, cwd: path.resolve(option("--cwd")), command: args.slice(at + 1).join(" "), estimate: option("--estimate", "1 h"), status: "todo" };
   /** @type {Record<string, [string, (text: string) => any]>} */
-  const read = { "--threads": ["threads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String] };
+  const read = { "--threads": ["threads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String], "--machine": ["machine", String] };
   for (const [flag, [key, parse]] of Object.entries(read)) if (option(flag) !== null) job[key] = parse(option(flag));
   return job;
 }
@@ -66,7 +70,8 @@ async function add() {
 
 async function addFile() {
   const file = path.resolve(option("--add-file"));
-  const added = await jobsOfFile(file, args.includes("--no-tag") ? null : option("--tag", stamp().slice(0, 10)));
+  const machine = option("--machine") ? { machine: option("--machine") } : {};
+  const added = await jobsOfFile(file, args.includes("--no-tag") ? null : option("--tag", stamp().slice(0, 10)), machine);
   await addJobs(queue, added, " : --tag pour une autre série");
   journal("added", { ids: added.map((job) => job.id), file });
   for (const job of added) console.log(`Ajouté : ${lineOf(job)}`);
@@ -74,7 +79,8 @@ async function addFile() {
 
 /** What the runner holds, read without writing (Sami, 26/10/2026: --list was obscure; the backlog a black box). */
 async function list() {
-  const view = viewOf(await readBacklog(home, { budget }));
+  const machine = option("--machine");
+  const view = machine ? await remoteView({ home, name: machine }) : viewOf(await readBacklog(home, { budget }));
   if (args.includes("--json")) console.log(JSON.stringify(view, null, 1));
   else console.log(listText(view, { color: colorsOn(), width: process.stdout.columns ?? 120, finished: Number(option("--done", 8)) }));
 }
@@ -114,7 +120,17 @@ async function tui() {
   await runTui({ home, budget });
 }
 
-const COMMANDS = { "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry };
+async function push() {
+  const ids = await pushJobs({ home, queue, name: option("--push"), journal });
+  console.log(ids.length ? `Envoyé à ${option("--push")} : ${ids.join(", ")}` : `Rien à envoyer à ${option("--push")} (des jobs avec --machine ${option("--push")}).`);
+}
+
+async function pull() {
+  const { ended, waiting } = await pullJobs({ home, queue, name: option("--pull"), journal });
+  console.log(`${option("--pull")} : ${ended.length} fini(s) rapatrié(s)${ended.length ? " (" + ended.join(", ") + ")" : ""}, ${waiting.length} encore là-bas.`);
+}
+
+const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry };
 const asked = Object.keys(COMMANDS).find((flag) => args.includes(flag) && !(flag === "--json" && (args.includes("--status") || args.includes("--wait"))));
 if (asked) process.exit((await COMMANDS[asked]()) ?? 0);
 await runQueue({ home, budget, queue, journal, pollMs: Number(process.env.MCTS_BACKLOG_POLL_MS || 5_000) });

@@ -99,6 +99,12 @@ function traceStateOf(trace, now) {
 const processesOf = (job) => ({ runnerPid: job.runnerPid ?? null, childPid: job.childPid ?? null });
 
 const plannedOf = ({ job, start, end, late }) => ({ ...named(job), start, end, late, estimateMin: minutesOf(job.estimate), threads: job.threads ?? 1, priority: job.priority ?? 2, due: job.due ?? null, after: job.after ?? [] });
+/** The jobs for another machine (node/remote.js), waiting there or to be sent. */
+const elsewhere = (jobs) =>
+  jobs
+    .filter((job) => job.machine && !isFinished(job))
+    .map((job) => ({ job, blocked: false, reason: job.sentAt ? `sur ${job.machine}, envoyé ${job.sentAt.slice(11)} (--pull ${job.machine})` : `pour ${job.machine} (--push ${job.machine})` }));
+
 const heldOf = ({ job, reason, blocked }) => ({ ...named(job), reason, blocked: Boolean(blocked), estimateMin: minutesOf(job.estimate), after: job.after ?? [] });
 const finishedOf = (job) => ({
   ...named(job),
@@ -147,9 +153,9 @@ export function viewOf(state) {
     .filter((job) => job.status === "running")
     .map((job) => runningOf(job, { now, outputs, traceById, alivePids }))
     .sort((a, b) => b.elapsedMin - a.elapsedMin);
-  const { order, waiting } = projectNight(jobs, archive, budget, now);
+  const { order, waiting } = projectNight(jobs.filter((job) => !job.machine), archive, budget, now);
   const planned = order.filter(({ job }) => job.status !== "running").map(plannedOf);
-  const held = waiting.map(heldOf);
+  const held = [...waiting.map(heldOf), ...elsewhere(jobs).map(heldOf)];
   const finished = [...archive]
     .sort((a, b) => String(b.doneAt).localeCompare(String(a.doneAt)))
     .slice(0, FINISHED_SHOWN)

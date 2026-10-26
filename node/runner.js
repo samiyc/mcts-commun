@@ -98,10 +98,10 @@ function stopCancelled({ running, journal }, jobs) {
   }
 }
 
-/** The next job by lopin's order, among those not running. */
+/** The next job by lopin's order, among those not running; a job for another machine (`machine`, node/remote.js) is left. */
 async function pickNext({ queue, running }, current) {
   const archive = await queue.readArchive();
-  const waiting = current.jobs.filter((job) => job.status !== "running" && !running.has(job.id));
+  const waiting = current.jobs.filter((job) => job.status !== "running" && !running.has(job.id) && !job.machine);
   return nextJob(waiting, [...archive, ...current.jobs.filter((one) => one.status === "running")], Date.now());
 }
 

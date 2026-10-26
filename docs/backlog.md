@@ -53,6 +53,7 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 | `--wait ID [--timeout MIN] [--json]` | attend la fin du job, en relisant la file toutes les 2 s | comme `--status` | 0 fini, 1 échec ou trop long, 2 annulé ou sauté, 3 inconnu, 4 pas fini au bout de `--timeout` |
 | `--cancel ID` | un job à venir finit `cancelled` tout de suite, et ceux qui en dépendent sont bloqués ; un job en cours est marqué, et son lanceur l'arrête | une ligne | 0, ou 3 si l'id est inconnu |
 | `--retry ID` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
+| `--push MACHINE`, `--pull MACHINE`, `--list --machine MACHINE` | une autre machine : les jobs marqués `--machine MACHINE` (sur `--add` ou `--add-file`) y partent, sa file se lit d'ici, ses résultats reviennent ([`distant.md`](distant.md)) | des lignes, ou la vue JSON de là-bas | 0, ou 1 si la machine est inconnue ou injoignable |
 | `--list --json` | toute la vue : la machine, les jobs en cours, la nuit à venir, les bloqués, les finis, le journal, les traces | un objet JSON | 0 |
 
 Pour suivre un job pas à pas, on lit la fin de `output` (le fichier grandit pendant le job) ou de `trace`. On peut
@@ -65,4 +66,5 @@ Il ne prend pas le verrou et ne connaît ni `cancel`, ni `skipIf`, ni le statut 
 protégés entre eux. Ils le seront aussi contre ses propres écritures une fois qu'il aura redémarré. D'ici là :
 - un `--cancel` sur un job à venir marche ;
 - sur un job en cours, la marque attend le nouveau lanceur ;
-- un `skipIf` n'est pas encore lu.
+- un `skipIf` n'est pas encore lu ;
+- un job marqué `--machine` serait lancé ici. On n'envoie donc rien à une autre machine avant son redémarrage.
