@@ -6,7 +6,9 @@ import os from "node:os";
 import path from "node:path";
 import { createJournal } from "../node/journal.js";
 import { alive, backlogHome, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, threadBudget, waitUntilCool, watchHeat, watchMemory } from "../node/machine.js";
-import { isFinished, nextJob, planNight } from "../src/schedule.js";
+import { isFinished, nextJob } from "../src/schedule.js";
+import { colorsOn, listText } from "../node/backlog-text.js";
+import { readBacklog, viewOf } from "../node/backlog-view.js";
 
 /**
  * `mcts-backlog`: the machine's long jobs, every project's (Sami, 23/10/2026: the scheduler in common, so that the
@@ -14,7 +16,9 @@ import { isFinished, nextJob, planNight } from "../src/schedule.js";
  * `~/.mcts-backlog/queue.json` (`MCTS_BACKLOG_HOME` or `--home` elsewhere); each job says the folder it runs in.
  *
  *   mcts-backlog                 run the queue to its end
- *   mcts-backlog --list          the jobs to come in the planned order, and the last ones done
+ *   mcts-backlog --list [--done N]  the machine, the jobs running, the night to come as the runner would play it,
+ *                                what is blocked and why, the last N done (8); --json, the same as JSON
+ *   mcts-backlog --tui           the same in a terminal view that follows it live (node/tui.js), read only
  *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--threads N] [--priority 1|2|3] [--after A,B]
  *                [--due 2026-10-24T08:00] [--limit MIN] -- COMMAND…
  *   mcts-backlog --add-file PROJECT/night.json [--tag 2026-10-24]
@@ -151,13 +155,16 @@ if (args.includes("--add-file")) {
   process.exit(0);
 }
 
-if (args.includes("--list")) {
-  const archive = await readArchive();
-  for (const job of archive.slice(-3)) console.log(lineOf(job));
-  const { order, waiting } = planNight((await readQueue()).jobs, archive, Date.now());
-  if (order.length) console.log(`Ordre prévu (l'un après l'autre ; côte à côte tant que leurs fils tiennent dans ${budget}) :`);
-  for (const { job, start } of order) console.log(`${new Date(start).toTimeString().slice(0, 5)}  ${lineOf(job)}`);
-  for (const { job, reason } of waiting) console.log(`attend : ${reason}  ${lineOf(job)}`);
+// What the runner holds, read without writing (Sami, 26/10/2026: --list was obscure; the backlog a black box).
+if (args.includes("--list") || args.includes("--json")) {
+  const view = viewOf(await readBacklog(home, { budget }));
+  if (args.includes("--json")) console.log(JSON.stringify(view, null, 1));
+  else console.log(listText(view, { color: colorsOn(), width: process.stdout.columns ?? 120, finished: Number(option("--done", 8)) }));
+  process.exit(0);
+}
+if (args.includes("--tui")) {
+  const { runTui } = await import("../node/tui.js");
+  await runTui({ home, budget });
   process.exit(0);
 }
 

@@ -89,7 +89,8 @@ describe("the machine's runner (bin/backlog.js) and its slots (node/machine.js),
     await backlog(home, "--add", "c", "--cwd", folder, "--estimate", "1 min", "--after", "a,b", "--", wait(10, "c"));
     await backlog(home, "--add", "bad", "--cwd", folder, "--estimate", "2 min", "--", 'node -e "process.exit(3)"');
     const { stdout: list } = await backlog(home, "--list");
-    assert.match(list, /Ordre prévu/);
+    assert.match(list, /À venir \(4\)/);
+    assert.match(list, /\sc\s+1 min\s+après a, b/);
     const started = Date.now();
     await backlog(home, "--budget", "3");
     const archive = JSON.parse(await readFile(path.join(home, "done", (await readdir(path.join(home, "done")))[0]), "utf8"));
