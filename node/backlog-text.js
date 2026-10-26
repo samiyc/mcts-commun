@@ -1,3 +1,5 @@
+import { CSI } from "./ansi.js";
+
 /**
  * The backlog in a terminal's words (Sami, 26/10/2026: `--list` was obscure): durations, clocks, bars, the colours of
  * a status, and `listText`, what `mcts-backlog --list` prints. The terminal view (node/tui.js) draws with the same.
@@ -6,7 +8,7 @@ const CODES = { bold: [1, 22], dim: [2, 22], inverse: [7, 27], red: [31, 39], gr
 
 /** Styles as functions (`styles.red("x")`); plain text when `enabled` is false. */
 export function stylesOf(enabled) {
-  return Object.fromEntries(Object.entries(CODES).map(([name, [on, off]]) => [name, (text) => (enabled ? `\x1b[${on}m${text}\x1b[${off}m` : String(text))]));
+  return Object.fromEntries(Object.entries(CODES).map(([name, [on, off]]) => [name, (text) => (enabled ? `${CSI}${on}m${text}${CSI}${off}m` : String(text))]));
 }
 
 /** Colours wanted on `stream`: a terminal, and no NO_COLOR. */
@@ -22,6 +24,13 @@ export const STATUS = {
   skipped: { icon: "↷", color: "gray", word: "sauté" },
 };
 export const statusOf = (status) => STATUS[status] ?? { icon: "?", color: "white", word: status };
+
+/** `before` + `text` when there is a text, else nothing: the optional bits of a line. */
+export const maybe = (text, before = " ") => (text ? before + text : "");
+/** "(text)" after a space, or nothing. */
+export const paren = (text) => (text ? ` (${text})` : "");
+/** `word` with an s past one. */
+export const plural = (n, word) => (n > 1 ? `${word}s` : word);
 
 /** "< 1 min", "34 min", "2 h 05". */
 export function durationText(minutes) {
@@ -64,11 +73,15 @@ export function fit(text, width, align = "left") {
 
 const decimal = (value) => String(value).replace(".", ",");
 
+/** A runner in a few words: alive or not, its pid, since when. */
+function runnerText(one, view, s) {
+  const since = one.since ? durationText((view.now - Date.parse(one.since)) / 60_000) : "";
+  return `${one.alive ? s.green("●") : s.red("○")} ${one.runner} ${one.pid}${maybe(since, " depuis ")}`;
+}
+
 /** The machine in one line: runners, threads, CPU, memory. */
 export function machineLine(view, s) {
-  const runners = view.runners.length
-    ? view.runners.map((one) => `${one.alive ? s.green("●") : s.red("○")} ${one.runner} ${one.pid}${one.since ? ` depuis ${durationText((view.now - Date.parse(one.since)) / 60_000)}` : ""}`).join("  ")
-    : `${s.gray("○")} aucun lanceur`;
+  const runners = view.runners.length ? view.runners.map((one) => runnerText(one, view, s)).join("  ") : `${s.gray("○")} aucun lanceur`;
   const { used, budget } = view.threads;
   const machine = view.machine;
   const cpu = machine?.cpu ? `CPU ${decimal(machine.cpu.celsius)} °C` : "CPU ?";
@@ -89,46 +102,66 @@ export function progressText(job, s, width = 10) {
  * projects' measures write theirs at the end.
  */
 export function warningsOf(job) {
-  return [job.orphan ? "lanceur mort" : "", job.elapsedMin > job.limitMin * 0.9 ? `près de la limite (${job.limitMin} min)` : "", job.beatMin !== null && job.beatMin >= 2 ? `trace muette ${durationText(job.beatMin)}` : "", job.problems ? `${job.problems} incident${job.problems > 1 ? "s" : ""} tracé${job.problems > 1 ? "s" : ""}` : ""].filter(Boolean);
+  const incidents = job.problems ? `${job.problems} ${plural(job.problems, "incident")} ${plural(job.problems, "tracé")}` : "";
+  const silent = job.beatMin !== null && job.beatMin >= 2 ? `trace muette ${durationText(job.beatMin)}` : "";
+  return [job.orphan ? "lanceur mort" : "", job.elapsedMin > job.limitMin * 0.9 ? `près de la limite (${job.limitMin} min)` : "", silent, incidents].filter(Boolean);
+}
+
+/** A planned job's notes: its priority when not normal, its threads, its due time, its prerequisites. */
+export function tagsOf(job) {
+  return [job.priority !== 2 ? `priorité ${job.priority}` : "", job.threads > 1 ? `${job.threads} fils` : "", maybe(job.due, "pour "), maybe(job.after.join(", "), "après ")].filter(Boolean).join(", ");
 }
 
 /** `mcts-backlog --list`: the machine, then the sections, aligned to `width`. */
 export function listText(view, { color = false, width = 120, finished = 8 } = {}) {
   const s = stylesOf(color);
-  const lines = [];
-  const title = (text, n) => {
-    lines.push("");
-    lines.push(`${s.bold(text)} ${s.gray(`(${n})`)}`);
-  };
-  const idWidth = Math.min(46, Math.max(10, ...[...view.running, ...view.planned, ...view.blocked, ...view.waiting, ...view.finished.slice(0, finished)].map((job) => job.id.length)));
-  const projectWidth = 9;
-  lines.push(`${s.bold("La backlog de la machine")} ${s.gray(`— ${new Date(view.now).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`)}`);
-  lines.push(machineLine(view, s));
-  const { doneToday, failedToday, nightEnd } = view.counts;
-  lines.push(s.gray(`Aujourd'hui : ${doneToday} fini${doneToday > 1 ? "s" : ""}, ${failedToday} en échec${nightEnd ? ` · la file finirait vers ${clockText(nightEnd)} (${relativeText(nightEnd, view.now)})` : ""}`));
-
-  title("En cours", view.running.length);
-  for (const job of view.running) {
-    const warnings = warningsOf(job);
-    const head = `  ${s.cyan("▶")} ${fit(job.project, projectWidth)} ${fit(job.id, idWidth)} ${progressText(job, s)}`;
-    lines.push(`${head}${warnings.length ? `  ${s.yellow(warnings.join(", "))}` : ""}`);
-  }
-  title("À venir", view.planned.length);
-  for (const job of view.planned) {
-    const tags = [job.priority !== 2 ? `priorité ${job.priority}` : "", job.threads > 1 ? `${job.threads} fils` : "", job.due ? `pour ${job.due}` : "", job.after.length ? `après ${job.after.join(", ")}` : ""].filter(Boolean).join(", ");
-    const when = `${clockText(job.start)} ${s.gray(fit(relativeText(job.start, view.now), 14))}`;
-    lines.push(`  ${when} ${fit(job.project, projectWidth)} ${fit(job.id, idWidth)} ${fit(durationText(job.estimateMin), 7, "right")}${job.late ? s.red("  en retard sur son échéance") : ""}${tags ? s.gray(`  ${tags}`) : ""}`);
-  }
-  if (view.waiting.length) {
-    title("En attente", view.waiting.length);
-    for (const job of view.waiting) lines.push(`  ${s.gray("◷")} ${fit(job.project, projectWidth)} ${fit(job.id, idWidth)} ${s.gray(job.reason)}`);
-  }
-  title("Bloqués", view.blocked.length);
-  for (const job of view.blocked) lines.push(`  ${s.red("■")} ${fit(job.project, projectWidth)} ${fit(job.id, idWidth)} ${s.red(job.reason)}`);
-  title("Derniers finis", Math.min(finished, view.finished.length));
-  for (const job of view.finished.slice(0, finished)) {
-    const status = statusOf(job.status);
-    lines.push(`  ${s[status.color](status.icon)} ${fit(stampText(job.doneAt, view.now), 11)} ${fit(job.project, projectWidth)} ${fit(job.id, idWidth)} ${fit(durationText(job.minutes), 7, "right")} ${s.gray(`estimé ${durationText(job.estimateMin)}`)}${job.reason ? s.red(`  ${job.reason}`) : ""}`);
-  }
+  const shown = view.finished.slice(0, finished);
+  const ids = [...view.running, ...view.planned, ...view.blocked, ...view.waiting, ...shown].map((job) => job.id.length);
+  const layout = { view, s, id: Math.min(46, Math.max(10, ...ids)), project: 9 };
+  const sections = [
+    section(layout, "En cours", view.running, runningLine),
+    section(layout, "À venir", view.planned, plannedLine),
+    view.waiting.length ? section(layout, "En attente", view.waiting, waitingLine) : [],
+    section(layout, "Bloqués", view.blocked, blockedLine),
+    section(layout, "Derniers finis", shown, finishedLine),
+  ];
+  const lines = [...headLines(view, s), ...sections.flat()];
   return lines.map((line) => (color ? line : line.slice(0, Math.max(width, 200)))).join("\n");
+}
+
+function headLines(view, s) {
+  const { doneToday, failedToday, nightEnd } = view.counts;
+  const end = nightEnd ? `${clockText(nightEnd)} (${relativeText(nightEnd, view.now)})` : "";
+  const when = new Date(view.now).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  return [`${s.bold("La backlog de la machine")} ${s.gray("— " + when)}`, machineLine(view, s), s.gray(`Aujourd'hui : ${doneToday} ${plural(doneToday, "fini")}, ${failedToday} en échec${maybe(end, " · la file finirait vers ")}`)];
+}
+
+/** A titled section: a blank line, its title and count, a line a job. */
+function section(layout, title, jobs, lineOf) {
+  return ["", `${layout.s.bold(title)} ${layout.s.gray("(" + jobs.length + ")")}`, ...jobs.map((job) => lineOf(job, layout))];
+}
+
+const named = (job, { project, id }) => `${fit(job.project, project)} ${fit(job.id, id)}`;
+
+function runningLine(job, layout) {
+  const { s } = layout;
+  const warnings = warningsOf(job).join(", ");
+  return `  ${s.cyan("▶")} ${named(job, layout)} ${progressText(job, s)}${warnings ? "  " + s.yellow(warnings) : ""}`;
+}
+
+function plannedLine(job, layout) {
+  const { s, view } = layout;
+  const tags = tagsOf(job);
+  const when = `${clockText(job.start)} ${s.gray(fit(relativeText(job.start, view.now), 14))}`;
+  return `  ${when} ${named(job, layout)} ${fit(durationText(job.estimateMin), 7, "right")}${job.late ? s.red("  en retard sur son échéance") : ""}${tags ? s.gray("  " + tags) : ""}`;
+}
+
+const waitingLine = (job, layout) => `  ${layout.s.gray("◷")} ${named(job, layout)} ${layout.s.gray(job.reason)}`;
+const blockedLine = (job, layout) => `  ${layout.s.red("■")} ${named(job, layout)} ${layout.s.red(job.reason)}`;
+
+function finishedLine(job, layout) {
+  const { s, view } = layout;
+  const status = statusOf(job.status);
+  const estimate = `estimé ${durationText(job.estimateMin)}`;
+  return `  ${s[status.color](status.icon)} ${fit(stampText(job.doneAt, view.now), 11)} ${named(job, layout)} ${fit(durationText(job.minutes), 7, "right")} ${s.gray(estimate)}${job.reason ? s.red("  " + job.reason) : ""}`;
 }

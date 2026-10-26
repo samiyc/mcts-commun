@@ -6,13 +6,13 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { viewOf } from "../node/backlog-view.js";
+import { visible } from "../node/ansi.js";
 import { clip, screenOf } from "../node/tui.js";
 
 const run = promisify(execFile);
 const TUI = new URL("../node/tui.js", import.meta.url).href;
 const NOW = Date.parse("2026-10-26T20:00:00");
 const local = (minutesAgo) => new Date(NOW - minutesAgo * 60_000 - new Date(NOW).getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-const visible = (line) => line.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
 
 describe("the backlog's terminal view (node/tui.js, Sami 26/10: like k9s, read only)", () => {
   const view = viewOf({

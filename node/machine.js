@@ -193,10 +193,13 @@ export async function takeSlot({ home = backlogHome(), id, threads, budget = thr
     if (slots.length > 0 && used + threads > budget) return null;
     const mine = { pid, runner, id, threads, since: new Date().toISOString() };
     await writeSlots(home, [...slots, mine]);
-    return {
-      release: () => withLock(home, async () => writeSlots(home, (await readSlots(home)).filter((slot) => !(slot.pid === pid && slot.id === id)))),
-    };
+    return { release: () => withLock(home, () => dropSlot(home, pid, id)) };
   });
+}
+
+/** Gives back the slot of job `id` taken by process `pid`. */
+async function dropSlot(home, pid, id) {
+  await writeSlots(home, (await readSlots(home)).filter((slot) => !(slot.pid === pid && slot.id === id)));
 }
 
 /** Waits for `threads` free threads (checking every `everyMs`), then takes them; `onWait(slots)` once while it waits. */

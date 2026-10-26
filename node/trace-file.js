@@ -17,17 +17,24 @@ export function traceFileOf(env = process.env, cwd = process.cwd(), pid = proces
   return env.MCTS_TRACE_FILE ? path.resolve(env.MCTS_TRACE_FILE) : path.join(cwd, "logs", `trace-${date.toISOString().slice(0, 10)}-${pid}.jsonl`);
 }
 
-export function traceToFile({ file = traceFileOf(), everyMs = 2_000, heartbeatMs = 30_000 } = {}) {
+/** Lines kept for `file`, written by `flush`: the folder is made with the first. */
+function bufferTo(file) {
   let lines = [];
   let made = false;
-  const flush = () => {
-    if (lines.length === 0) return;
-    if (!made) mkdirSync(path.dirname(file), { recursive: true });
-    made = true;
-    appendFileSync(file, lines.join(""));
-    lines = [];
+  return {
+    write: (event) => lines.push(`${JSON.stringify(event)}\n`),
+    flush() {
+      if (lines.length === 0) return;
+      if (!made) mkdirSync(path.dirname(file), { recursive: true });
+      made = true;
+      appendFileSync(file, lines.join(""));
+      lines = [];
+    },
   };
-  const write = (event) => lines.push(`${JSON.stringify(event)}\n`);
+}
+
+export function traceToFile({ file = traceFileOf(), everyMs = 2_000, heartbeatMs = 30_000 } = {}) {
+  const { write, flush } = bufferTo(file);
   const note = (kind, data = {}) => write({ at: new Date().toISOString(), scope: "process", kind, ...data });
   const beat = () => note("heartbeat", { rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), uptimeS: Math.round(process.uptime()), counters: traceSnapshot().counters });
 

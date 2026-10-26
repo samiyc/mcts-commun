@@ -109,7 +109,10 @@ createServer(async (request, response) => {
     if (!response.headersSent) json(response, 500, { error: error.message });
     else response.end();
   }
-}).listen(PORT, "127.0.0.1", () => console.log(`http://127.0.0.1:${PORT}/web/`));
+}).listen(PORT, "127.0.0.1", function announce() {
+  // The port taken: PORT, or the one the system chose for 0 (the tests).
+  console.log(`http://127.0.0.1:${this.address().port}/web/`);
+});
 
 async function serve(request, response) {
   const url = new URL(request.url, "http://local");
