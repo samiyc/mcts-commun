@@ -40,11 +40,14 @@ async function readArchive(home) {
   return (await Promise.all(names.map((name) => readJson(path.join(folder, name), [])))).flat();
 }
 
-let cpu = { at: 0, reading: null };
-/** The CPU's temperature, read at most every 10 s (LibreHardwareMonitor may not answer). */
+let cpu = { at: 0, reading: null, good: null };
+/** The CPU's temperature, read at most every 10 s; a reading missed keeps the last one for a minute. */
 async function cpuReading(now) {
-  if (now - cpu.at > 10_000) cpu = { at: now, reading: await readCpuTemperature({ url: heatSettings().url, timeoutMs: 800 }) };
-  return cpu.reading;
+  if (now - cpu.at > 10_000) {
+    const reading = await readCpuTemperature({ url: heatSettings().url, timeoutMs: 2000 });
+    cpu = { at: now, reading, good: reading ? { reading, at: now } : cpu.good };
+  }
+  return cpu.reading ?? (cpu.good && now - cpu.good.at < 60_000 ? cpu.good.reading : null);
 }
 
 /** A trace file's summary: its last heartbeat, its errors and slow calls in its last lines, its end. */
