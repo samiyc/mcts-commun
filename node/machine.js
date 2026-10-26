@@ -146,12 +146,14 @@ export function alive(pid) {
 const slotsFile = (home) => path.join(home, "slots.json");
 const STALE_LOCK_MS = 30_000;
 
-/** Takes the lock `name` of `home` (a folder `<name>.lock`: mkdir is atomic), or false when another holds it. */
+/** Takes the lock folder `dir` (mkdir is atomic): true, or false when another process holds it. */
 async function tryLock(dir) {
   try {
     await mkdir(dir);
     return true;
   } catch (error) {
+    // Windows answers EPERM for a folder another process is removing: busy, as when it exists.
+    if (error.code === "EPERM") return false;
     if (error.code !== "EEXIST") throw error;
     // A lock held 30 s was left by a process that died (a holder keeps it a few milliseconds): taken over.
     const info = await stat(dir).catch(() => null);

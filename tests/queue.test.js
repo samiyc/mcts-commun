@@ -51,6 +51,15 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       assert.deepEqual(JSON.parse(await readFile(path.join(home, "queue.json"), "utf8")).jobs, []);
     }));
 
+  it("runs each job once when two runners play the same queue", () =>
+    scratch(async (home, folder) => {
+      for (let i = 0; i < 10; i += 1) await backlog(home, "--add", `j${i}`, "--cwd", folder, "--estimate", "1 min", "--", sleeper(150));
+      await Promise.all([backlog(home, "--budget", "4"), backlog(home, "--budget", "4")]);
+      const archive = await archiveOf(home);
+      assert.deepEqual(archive.map((job) => job.id).sort(), Array.from({ length: 10 }, (_, i) => `j${i}`).sort());
+      assert.equal((await readdir(path.join(home, "runs"))).length, 10, "one output a job: none started twice");
+    }));
+
   it("says where a job stands, and waits for its end with an exit code a tool can read", () =>
     scratch(async (home, folder) => {
       await backlog(home, "--add", "ok", "--cwd", folder, "--estimate", "1 min", "--", sleeper(10));

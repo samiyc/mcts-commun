@@ -18,14 +18,7 @@ export const stamp = (date = new Date()) => new Date(date.getTime() - date.getTi
 const RENAME_TRIES = 20;
 let saves = 0;
 
-async function readQueue(files) {
-  try {
-    return JSON.parse(await readFile(files.queue, "utf8"));
-  } catch (error) {
-    if (error.code === "ENOENT") return { jobs: [] };
-    throw error;
-  }
-}
+const readQueue = (files) => readJson(files.queue, { jobs: [] });
 
 /** Writes the queue to its own temporary file, then over the queue. */
 async function saveQueue(files, queue, journal) {
@@ -55,19 +48,40 @@ function refused(error, tries, journal) {
   return error;
 }
 
-async function readArchive(files) {
-  const names = (await readdir(files.done).catch(() => [])).filter((name) => name.endsWith(".json")).sort();
-  const months = await Promise.all(names.map(async (name) => JSON.parse(await readFile(path.join(files.done, name), "utf8"))));
-  return months.flat();
+/** A JSON file, read again a moment later when it is caught being replaced; `fallback` when it is missing. */
+async function readJson(file, fallback) {
+  for (let tries = 0; ; tries += 1) {
+    const read = await readFile(file, "utf8")
+      .then((text) => JSON.parse(text))
+      .then(
+        (value) => ({ value, error: null }),
+        (error) => ({ value: null, error }),
+      );
+    if (!read.error) return read.value;
+    if (read.error.code === "ENOENT") return fallback;
+    if (tries >= RENAME_TRIES) throw read.error;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
 }
 
-/** Adds each finished job to its month's file in `folder`. */
-async function appendArchive(folder, finished) {
+async function readArchive(files) {
+  const names = (await readdir(files.done).catch(() => [])).filter((name) => name.endsWith(".json")).sort();
+  return (await Promise.all(names.map((name) => readJson(path.join(files.done, name), [])))).flat();
+}
+
+/**
+ * Adds each finished job to its month's file in `folder`, written whole then renamed into place (Sami, 26/10/2026:
+ * with two runners, one read the archive while the other rewrote it, and read half a file).
+ */
+async function appendArchive(folder, finished, journal) {
   await mkdir(folder, { recursive: true });
   for (const job of finished) {
     const file = path.join(folder, `${job.doneAt.slice(0, 7)}.json`);
-    const month = JSON.parse(await readFile(file, "utf8").catch(() => "[]"));
-    await writeFile(file, `${JSON.stringify([...month, job], null, 2)}\n`);
+    const month = await readJson(file, []);
+    saves += 1;
+    const tmp = `${file}.${process.pid}.${saves}.tmp`;
+    await writeFile(tmp, `${JSON.stringify([...month, job], null, 2)}\n`);
+    await renameRetrying(tmp, file, journal);
   }
 }
 
@@ -94,7 +108,7 @@ export function createQueue(home, { journal = () => {} } = {}) {
     change(async (queue) => {
       const finished = queue.jobs.filter(isFinished);
       if (finished.length === 0) return { keep: true, moved: 0 };
-      await appendArchive(files.done, finished);
+      await appendArchive(files.done, finished, journal);
       queue.jobs = queue.jobs.filter((job) => !isFinished(job));
       return { moved: finished.length };
     });

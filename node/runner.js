@@ -115,12 +115,25 @@ async function tryStart(runner, job) {
     runner.waitingForSlot.add(job.id);
     return false;
   }
-  if (job.skipIf && (await skipped(runner, job))) {
+  // Taken under the queue's lock: another runner that read the same queue does not start it too.
+  const taken = await claim(runner.queue, job);
+  if (!taken || (job.skipIf && (await skipped(runner, job)))) {
     await slot.release();
     return true;
   }
   await start(runner, { job, slot, threads });
   return true;
+}
+
+/** Marks `job` running for this runner if it still waits: false when another runner has taken it. */
+async function claim(queue, job) {
+  const result = await queue.change((current) => {
+    const fresh = current.jobs.find((one) => one.id === job.id);
+    if (!fresh || !["todo", "scheduled"].includes(fresh.status)) return { keep: true, claimed: false };
+    Object.assign(fresh, { status: "running", startedAt: stamp(), runnerPid: process.pid });
+    return { claimed: true };
+  });
+  return result.claimed;
 }
 
 /** Skips `job` when its `skipIf` says so: true if it did. */
@@ -150,7 +163,7 @@ async function start(runner, run) {
   console.log(`▶ ${job.id} (${job.estimate ?? "?"}, ${threads} fil${threads > 1 ? "s" : ""}) : ${job.cwd} : ${job.command}`);
   const child = runJob(job, files, { signal: guard.signal, threads, home });
   const output = path.relative(home, files.out);
-  await queue.update(job.id, { status: "running", startedAt: stamp(), runnerPid: process.pid, childPid: child.pid, output, trace: path.relative(home, files.trace) });
+  await queue.update(job.id, { childPid: child.pid, output, trace: path.relative(home, files.trace) });
   journal("job-started", { id: job.id, cwd: job.cwd, command: job.command, threads, childPid: child.pid, output });
   const done = child.done.then((code) => ended(runner, run, code));
   runner.running.set(job.id, { guard, stops, done });
