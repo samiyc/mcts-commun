@@ -4,7 +4,8 @@ import { createWriteStream } from "node:fs";
 import { appendFile, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { alive, backlogHome, heatSettings, memoryFloorGb, readCpuTemperature, takeSlot, threadBudget, waitUntilCool, watchHeat, watchMemory } from "../node/machine.js";
+import { createJournal } from "../node/journal.js";
+import { alive, backlogHome, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, threadBudget, waitUntilCool, watchHeat, watchMemory } from "../node/machine.js";
 import { isFinished, nextJob, planNight } from "../src/schedule.js";
 
 /**
@@ -25,7 +26,8 @@ import { isFinished, nextJob, planNight } from "../src/schedule.js";
  * side as long as their threads (`threads`, 1 by default: the projects' measures are single-threaded) fit in the
  * machine's budget (node/machine.js: every core but 3, 18 at most; `--budget N`). The budget is the machine's, not
  * this runner's: the slots (node/machine.js) count lopin's jobs too, so two runners never ask more than it lends.
- * Each job's output goes to runs/, a finished job to done/YYYY-MM.json, a line to job-log/YYYY-MM.jsonl. A job
+ * Each job's output goes to runs/, its trace (src/trace.js, through MCTS_TRACE_FILE) to traces/, a finished job to
+ * done/YYYY-MM.json, a line to job-log/YYYY-MM.jsonl; what the runner does to journal/YYYY-MM.jsonl. A job
  * runs `limit` minutes at most (120). The guards, as in lopin: under `MCTS_RAM_FLOOR` GB free (5) twice in a row,
  * the most recent job stops and ends failed; at `MCTS_HEAT_ALERT` °C (90, LibreHardwareMonitor's web server)
  * twice in a row, every job stops, goes back to the queue, and the queue goes on once the CPU is under
@@ -44,6 +46,7 @@ const files = {
   runs: path.join(home, "runs"),
   log: path.join(home, "job-log"),
 };
+const journal = createJournal(home);
 const stamp = (date = new Date()) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 
 async function readQueue() {
@@ -64,8 +67,10 @@ async function saveQueue(queue) {
   for (let tries = 0; ; tries += 1) {
     try {
       await rename(tmp, files.queue);
+      if (tries > 0) journal("queue-retried", { tries });
       return;
     } catch (error) {
+      if (error.code === "EPERM" && tries >= 20) journal("queue-refused", { tries, message: error.message });
       if (error.code !== "EPERM" || tries >= 20) throw error;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -125,6 +130,7 @@ if (args.includes("--add")) {
   const job = { id, cwd: path.resolve(option("--cwd")), command: args.slice(at + 1).join(" "), estimate: option("--estimate", "1 h"), status: "todo" };
   for (const [flag, key, read] of [["--threads", "threads", Number], ["--priority", "priority", Number], ["--limit", "limit", Number], ["--due", "due", String], ["--after", "after", (text) => text.split(",")]]) if (option(flag) !== null) job[key] = read(option(flag));
   await saveQueue({ ...queue, jobs: [...queue.jobs, job] });
+  journal("added", { ids: [id] });
   console.log(`Ajouté : ${lineOf(job)}`);
   process.exit(0);
 }
@@ -140,6 +146,7 @@ if (args.includes("--add-file")) {
   const twice = added.find((job) => taken.has(job.id));
   if (twice) throw new Error(`le job ${twice.id} existe déjà : --tag pour une autre série`);
   await saveQueue({ ...queue, jobs: [...queue.jobs, ...added] });
+  journal("added", { ids: added.map((job) => job.id), file });
   for (const job of added) console.log(`Ajouté : ${lineOf(job)}`);
   process.exit(0);
 }
@@ -154,11 +161,14 @@ if (args.includes("--list")) {
   process.exit(0);
 }
 
-/** Runs `job` in its folder, its output in `outFile`; resolves with its exit code, "timeout" or "aborted". */
-function runJob(job, outFile, { signal, threads }) {
+/**
+ * Runs `job` in its folder, its output in `outFile`, its trace in `traceFile`: `{ pid, done }`, `done` resolving with
+ * its exit code, "timeout" or "aborted".
+ */
+function runJob(job, outFile, { signal, threads, traceFile }) {
   const out = createWriteStream(outFile);
-  return new Promise((resolve) => {
-    const child = spawn(job.command, { cwd: job.cwd, shell: true, env: { ...process.env, MCTS_THREADS: String(threads), LOPIN_THREADS: String(threads) } });
+  const child = spawn(job.command, { cwd: job.cwd, shell: true, env: { ...process.env, MCTS_THREADS: String(threads), LOPIN_THREADS: String(threads), MCTS_TRACE_FILE: traceFile } });
+  const done = new Promise((resolve) => {
     let ended = null;
     const stop = (why, note) => {
       if (ended) return;
@@ -177,6 +187,7 @@ function runJob(job, outFile, { signal, threads }) {
       out.end(() => resolve(ended ?? code));
     });
   });
+  return { pid: child.pid, done };
 }
 
 const heat = heatSettings();
@@ -184,6 +195,8 @@ const ramFloor = memoryFloorGb();
 const heatStops = new Map();
 const running = new Map();
 let cooling = null;
+// A runner that dies says why in its journal first.
+process.on("uncaughtExceptionMonitor", (error, origin) => journal("crash", { origin, message: error?.message ?? String(error), stack: error?.stack, running: [...running.keys()] }));
 await mkdir(files.runs, { recursive: true });
 await archiveFinished();
 // A job left running by a runner that died goes back to the queue.
@@ -192,19 +205,23 @@ await archiveFinished();
   const orphans = queue.jobs.filter((job) => job.status === "running" && !alive(job.runnerPid));
   for (const job of orphans) Object.assign(job, { status: "todo" });
   if (orphans.length) await saveQueue(queue);
+  if (orphans.length) journal("orphans-requeued", { ids: orphans.map((job) => job.id) });
 }
 const reading = await readCpuTemperature(heat);
 console.log(`File de la machine : ${files.queue}, ${budget} fils au plus.`);
 if (!reading) console.log("Température du CPU illisible (LibreHardwareMonitor) : pas de garde thermique.");
 else console.log(`CPU à ${reading.celsius} °C (${reading.sensor}) ; ${heat.alert > 0 ? `garde thermique à ${heat.alert} °C, reprise sous ${heat.resume} °C` : "garde thermique coupée"}.`);
+journal("runner-started", { budget, queue: files.queue, cpu: reading, heat: heat.alert > 0 ? { alert: heat.alert, resume: heat.resume } : null, ramFloorGb: ramFloor });
 console.log(ramFloor > 0 ? `Garde mémoire : un job s'arrête sous ${ramFloor} Go libres.` : "Garde mémoire coupée.");
 
 // One heat guard for the machine: at the alert, every job stops and goes back to the queue.
 const temperature = watchHeat({
   settings: heat,
   onAlert: (celsius) => {
-    cooling = waitUntilCool({ settings: heat }).then(() => {
+    journal("heat-alert", { celsius, stopping: [...running.keys()] });
+    cooling = waitUntilCool({ settings: heat }).then((reading) => {
       cooling = null;
+      journal("heat-resumed", { celsius: reading?.celsius ?? null });
       console.log("  CPU refroidi : la file repart");
     });
     for (const one of running.values()) one.guard.abort(`garde thermique, CPU à ${celsius} °C`);
@@ -212,20 +229,25 @@ const temperature = watchHeat({
 });
 
 async function start(job, slot, threads) {
-  const outFile = path.join(files.runs, `${stamp().replace(/[:T]/g, "-")}_${job.id}.txt`);
+  const name = `${stamp().replace(/[:T]/g, "-")}_${job.id}`;
+  const outFile = path.join(files.runs, `${name}.txt`);
+  const traceFile = path.join(home, "traces", `${name}.jsonl`);
   const guard = new AbortController();
   let memoryStop = null;
   const memory = watchMemory({
     floorGb: ramFloor,
     onLow: (gb) => {
       memoryStop = `arrêté par la garde mémoire : ${gb} Go libres, sous ${ramFloor} Go`;
+      journal("memory-stop", { id: job.id, freeGb: gb, floorGb: ramFloor });
       guard.abort(memoryStop);
     },
   });
   const started = Date.now();
   console.log(`▶ ${job.id} (${job.estimate ?? "?"}, ${threads} fil${threads > 1 ? "s" : ""}) : ${job.cwd} : ${job.command}`);
-  await updateJob(job.id, { status: "running", startedAt: stamp(), runnerPid: process.pid });
-  const done = runJob(job, outFile, { signal: guard.signal, threads }).then(async (code) => {
+  const child = runJob(job, outFile, { signal: guard.signal, threads, traceFile });
+  await updateJob(job.id, { status: "running", startedAt: stamp(), runnerPid: process.pid, childPid: child.pid, output: path.relative(home, outFile), trace: path.relative(home, traceFile) });
+  journal("job-started", { id: job.id, cwd: job.cwd, command: job.command, threads, childPid: child.pid, output: path.relative(home, outFile) });
+  const done = child.done.then(async (code) => {
     await slot.release();
     const free = memory.stop();
     const minutes = Math.round((Date.now() - started) / 600) / 100;
@@ -234,6 +256,7 @@ async function start(job, slot, threads) {
       heatStops.set(job.id, count);
       if (count < HEAT_STOPS) {
         await updateJob(job.id, { status: "todo" });
+        journal("job-requeued", { id: job.id, heatStops: count });
         console.log(`■ ${job.id} : arrêté par la garde thermique (${count}/${HEAT_STOPS}), remis dans la file`);
         return;
       }
@@ -242,6 +265,7 @@ async function start(job, slot, threads) {
     const reason = code === "aborted" ? (memoryStop ?? `arrêté ${HEAT_STOPS} fois par la garde thermique`) : undefined;
     await updateJob(job.id, { status, doneAt: stamp(), minutes: Math.round(minutes), output: path.relative(home, outFile), ...(reason ? { reason } : {}) });
     await archiveFinished();
+    journal("job-ended", { id: job.id, status, code, minutes: Math.round(minutes * 100) / 100, ...(reason ? { reason } : {}) });
     await mkdir(files.log, { recursive: true });
     await appendFile(path.join(files.log, `${stamp().slice(0, 7)}.jsonl`), `${JSON.stringify({ id: job.id, cwd: job.cwd, command: job.command, threads, cores: os.cpus().length, startedAt: new Date(started).toISOString(), minutes, status, source: "mcts-backlog", ...free })}\n`);
     console.log(`■ ${job.id} : ${status}, ${Math.round(minutes)} min → ${outFile}`);
@@ -250,6 +274,7 @@ async function start(job, slot, threads) {
   done.finally(() => running.delete(job.id));
 }
 
+const waitingForSlot = new Set();
 for (;;) {
   if (cooling) await cooling;
   const queue = await readQueue();
@@ -264,10 +289,13 @@ for (;;) {
       await start(job, slot, threads);
       continue;
     }
+    if (!waitingForSlot.has(job.id)) journal("slot-waiting", { id: job.id, threads, slots: (await readSlots(home)).map(({ runner, id, threads: taken }) => ({ runner, id, threads: taken })) });
+    waitingForSlot.add(job.id);
   }
   if (!job && running.size === 0) break;
   // Wait for a job to end, or for another runner to free threads.
   await Promise.race([...[...running.values()].map((one) => one.done), new Promise((resolve) => setTimeout(resolve, POLL_MS))]);
 }
 temperature.stop();
+journal("runner-ended", {});
 console.log("File vide.");

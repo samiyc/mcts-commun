@@ -107,4 +107,29 @@ describe("the machine's runner (bin/backlog.js) and its slots (node/machine.js),
     await rm(home, { recursive: true, force: true });
     await rm(folder, { recursive: true, force: true });
   });
+
+  it("journals what it does, and traces each job that uses the library (Sami, 26/10: the backlog was a black box)", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
+    const folder = await mkdtemp(path.join(os.tmpdir(), "projet-"));
+    const library = new URL("../src/mcts.js", import.meta.url).href;
+    await writeFile(path.join(folder, "job.mjs"), `const { search } = await import(${JSON.stringify(library)});\ntry { search({}, {}, { budget: 1 }); } catch {}\n`);
+    await backlog(home, "--add", "lib", "--cwd", folder, "--estimate", "1 min", "--", "node job.mjs");
+    await backlog(home, "--add", "bad", "--cwd", folder, "--estimate", "1 min", "--", 'node -e "process.exit(2)"');
+    await backlog(home);
+    const journal = (await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+    const kinds = journal.map((entry) => entry.kind);
+    assert.deepEqual([kinds[0], kinds[1], kinds[2], kinds.at(-1)], ["added", "added", "runner-started", "runner-ended"]);
+    assert.equal(kinds.filter((kind) => kind === "job-started").length, 2);
+    const ended = Object.fromEntries(journal.filter((entry) => entry.kind === "job-ended").map((entry) => [entry.id, entry]));
+    assert.equal(ended.lib.status, "done");
+    assert.deepEqual([ended.bad.status, ended.bad.code], ["failed", 2]);
+    const archive = JSON.parse(await readFile(path.join(home, "done", (await readdir(path.join(home, "done")))[0]), "utf8"));
+    const lib = archive.find((job) => job.id === "lib");
+    assert.ok(Number.isInteger(lib.childPid));
+    assert.match(lib.trace, /^traces[\\/].*_lib\.jsonl$/);
+    const trace = (await readFile(path.join(home, lib.trace), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+    assert.deepEqual(trace.map(({ scope, kind }) => `${scope}/${kind}`), ["process/start", "search/error", "process/heartbeat", "process/end"]);
+    await rm(home, { recursive: true, force: true });
+    await rm(folder, { recursive: true, force: true });
+  });
 });
