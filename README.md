@@ -113,6 +113,7 @@ npx mcts-backlog --list      # la machine, les jobs en cours, la nuit à venir, 
 npx mcts-backlog --tui       # la même chose en direct, façon k9s
 npx mcts-backlog             # joue la file jusqu'au bout
 npx mcts-backlog --add-file ../mcts-entrepot/night.json   # les mesures de nuit d'un projet
+npx mcts-backlog --status ent-sami --json   # où en est un job ; --wait l'attend, --cancel l'annule, --retry le relance
 ```
 
 Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, command, estimate }] }`) : `--add-file` les ajoute, lancées dans le dossier du fichier, chaque id suivi de la date (`--tag` pour une autre), pour qu'on puisse remettre la même série la nuit suivante.
@@ -129,6 +130,8 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 - `npm run page` dans `mcts-commun` (http://127.0.0.1:4800/web/) : la page, avec la frise de la nuit et la sortie de chaque job d'un clic.
 
 Le lanceur qui tournait avant le 26/10 n'écrit ni journal ni traces : il le fera à son prochain démarrage ; les vues le lisent déjà.
+
+**Se brancher depuis un autre outil** (Sami, 26/10/2026) : tout passe par la commande, jamais par `queue.json` à la main, parce que la commande tient le verrou de la file (`queue.lock`). `--status`, `--wait` (son code de sortie dit comment le job a fini), `--cancel`, `--retry`, et `skipIf` sur un job, une commande du projet qui peut l'annuler juste avant son départ. Le contrat complet est dans [`docs/backlog.md`](docs/backlog.md).
 
 ## Les traces
 
