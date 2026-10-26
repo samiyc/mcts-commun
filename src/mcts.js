@@ -195,8 +195,19 @@ function searchTree(state, problem, { budget, rng, depth, explore, common }) {
   const root = createNode(null, "", "");
   const settings = { problem, rng, depth, explore };
   if (common) settings.common = commonRoot(state, problem, rng);
+  iterateAll(root, state, settings, budget);
+  return resultOf(root);
+}
+
+/** `budget` iterations, on common worlds when asked (none when the root has no move known in every world). */
+function iterateAll(root, state, settings, budget) {
+  if (settings.common?.moves.size === 0) return;
   const once = settings.common ? iterateCommon : iterate;
-  if (!settings.common || settings.common.moves.size > 0) for (let i = 0; i < budget; i += 1) once(root, state, settings);
+  for (let i = 0; i < budget; i += 1) once(root, state, settings);
+}
+
+/** What `search` returns, read from the root's children. */
+function resultOf(root) {
   const stats = [...root.children.values()]
     .map((child) => ({ key: child.key, move: child.move, visits: child.visits, mean: meanOf(child) }))
     .sort((a, b) => b.visits - a.visits || b.mean - a.mean);

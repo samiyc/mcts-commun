@@ -15,7 +15,10 @@ export const SLOW_MS = 2000;
 export const DEBUG_CAP = 1000;
 
 const env = globalThis.process?.env ?? {};
-const levelOf = (value) => (value === "debug" ? "debug" : value && value !== "0" && value !== "off" ? "on" : "off");
+function levelOf(value) {
+  if (value === "debug") return "debug";
+  return value && value !== "0" && value !== "off" ? "on" : "off";
+}
 const state = { level: levelOf(env.MCTS_TRACE || (env.MCTS_TRACE_FILE ? "on" : "")), since: Date.now(), counters: new Map(), recent: [], sinks: new Set(), debugs: new Map() };
 const clock = () => globalThis.performance?.now() ?? Date.now();
 
@@ -100,5 +103,5 @@ export function resetTrace() {
 }
 
 if (globalThis.process?.versions?.node && state.level !== "off") {
-  import("../node/trace-file.js").then(({ traceToFile }) => traceToFile()).catch((error) => console.error(`[mcts-commun] trace : ${error.message}`));
+  import("../node/trace-file.js").then(({ traceToFile }) => traceToFile()).catch((error) => globalThis.console.error(`[mcts-commun] trace : ${error.message}`));
 }

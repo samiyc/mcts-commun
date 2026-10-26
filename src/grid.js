@@ -63,38 +63,71 @@ function overbooked(cell, unit, other) {
   if (overbookings <= OVERBOOKED_TRACED) trace("grid", "warn", { message: "case réservée par-dessus une autre unité", cell, unit, other });
 }
 
+const moveKey = (from, to, t) => `${cellKey(from.x, from.y)}>${cellKey(to.x, to.y)}@${t}`;
+
 /** The reservations' methods over their maps (createReservations, and each clone). */
-function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
-  const moveKey = (from, to, t) => `${cellKey(from.x, from.y)}>${cellKey(to.x, to.y)}@${t}`;
+function tableOf(maps) {
+  return { ...bookingOf(maps), ...queriesOf(maps), clone: () => tableOf(copyOf(maps)) };
+}
+
+/** `reserve` and `release`: the maps written. */
+function bookingOf(maps) {
+  const { sharedKeys, byUnit } = maps;
   return {
     reserve(unit, path, { stay = false } = {}) {
       const kept = path.filter(({ x, y }) => !sharedKeys.has(cellKey(x, y)));
-      const keys = kept.map(({ x, y, t }) => `${cellKey(x, y)},${t}`);
-      // A cell booked over another unit is how two robots met (23/10): counted, and the first ones traced.
-      for (const key of keys) {
-        if (cells.has(key) && cells.get(key) !== unit) overbooked(key, unit, cells.get(key));
-        cells.set(key, unit);
-      }
-      for (const { x, y, t } of kept) {
-        if (!byCell.has(cellKey(x, y))) byCell.set(cellKey(x, y), new Map());
-        byCell.get(cellKey(x, y)).set(t, unit);
-      }
-      const edges = path.slice(1).flatMap((step, i) => (step.x === path[i].x && step.y === path[i].y ? [] : [moveKey(path[i], step, path[i].t)]));
-      for (const edge of edges) moves.set(edge, unit);
-      const last = path.at(-1);
-      const parks = stay && last && !sharedKeys.has(cellKey(last.x, last.y));
-      if (parks) stays.set(cellKey(last.x, last.y), { unit, from: last.t });
-      byUnit.set(unit, { keys, steps: kept, edges, stay: parks ? cellKey(last.x, last.y) : null });
+      const keys = holdCells(maps, unit, kept);
+      const edges = holdMoves(maps, unit, path);
+      byUnit.set(unit, { keys, steps: kept, edges, stay: parkAt(maps, unit, path.at(-1), stay) });
     },
     release(unit) {
       const held = byUnit.get(unit);
       if (!held) return;
-      for (const key of held.keys) if (cells.get(key) === unit) cells.delete(key);
-      for (const { x, y, t } of held.steps) if (byCell.get(cellKey(x, y))?.get(t) === unit) byCell.get(cellKey(x, y)).delete(t);
-      for (const edge of held.edges) if (moves.get(edge) === unit) moves.delete(edge);
-      if (held.stay && stays.get(held.stay)?.unit === unit) stays.delete(held.stay);
+      for (const key of held.keys) dropHeld(maps.cells, key, unit);
+      for (const { x, y, t } of held.steps) dropHeld(maps.byCell.get(cellKey(x, y)), t, unit);
+      for (const edge of held.edges) dropHeld(maps.moves, edge, unit);
+      if (held.stay && maps.stays.get(held.stay)?.unit === unit) maps.stays.delete(held.stay);
       byUnit.delete(unit);
     },
+  };
+}
+
+/** Holds each step of `kept` for `unit`, by cell and time: the keys held. */
+function holdCells({ cells, byCell }, unit, kept) {
+  const keys = kept.map(({ x, y, t }) => `${cellKey(x, y)},${t}`);
+  // A cell booked over another unit is how two robots met (23/10): counted, and the first ones traced.
+  for (const key of keys) {
+    if (cells.has(key) && cells.get(key) !== unit) overbooked(key, unit, cells.get(key));
+    cells.set(key, unit);
+  }
+  for (const { x, y, t } of kept) {
+    if (!byCell.has(cellKey(x, y))) byCell.set(cellKey(x, y), new Map());
+    byCell.get(cellKey(x, y)).set(t, unit);
+  }
+  return keys;
+}
+
+/** Holds each move of `path` (a wait is no move) for `unit`: the edges held. */
+function holdMoves({ moves }, unit, path) {
+  const edges = path.slice(1).flatMap((step, i) => (step.x === path[i].x && step.y === path[i].y ? [] : [moveKey(path[i], step, path[i].t)]));
+  for (const edge of edges) moves.set(edge, unit);
+  return edges;
+}
+
+/** Parks `unit` on `last` from its time on, unless it is shared: the cell parked on, or null. */
+function parkAt({ sharedKeys, stays }, unit, last, stay) {
+  if (!stay || !last || sharedKeys.has(cellKey(last.x, last.y))) return null;
+  stays.set(cellKey(last.x, last.y), { unit, from: last.t });
+  return cellKey(last.x, last.y);
+}
+
+const dropHeld = (map, key, unit) => {
+  if (map?.get(key) === unit) map.delete(key);
+};
+
+/** `isFree`, `freeFrom` and `swaps`: the maps read. */
+function queriesOf({ sharedKeys, cells, byCell, moves, stays }) {
+  return {
     isFree(x, y, t, unit) {
       if (sharedKeys.has(cellKey(x, y))) return true;
       // A step and a stay are both checked: a unit planning again still holds its old steps, which must not hide
@@ -115,56 +148,71 @@ function tableOf({ sharedKeys, cells, byCell, moves, stays, byUnit }) {
       const other = moves.get(moveKey(to, from, t));
       return other !== undefined && other !== unit;
     },
-    clone() {
-      return tableOf({
-        sharedKeys,
-        cells: new Map(cells),
-        byCell: new Map([...byCell].map(([key, times]) => [key, new Map(times)])),
-        moves: new Map(moves),
-        stays: new Map(stays),
-        byUnit: new Map(byUnit),
-      });
-    },
   };
 }
+
+const copyOf = ({ sharedKeys, cells, byCell, moves, stays, byUnit }) => ({
+  sharedKeys,
+  cells: new Map(cells),
+  byCell: new Map([...byCell].map(([key, times]) => [key, new Map(times)])),
+  moves: new Map(moves),
+  stays: new Map(stays),
+  byUnit: new Map(byUnit),
+});
 
 /**
  * The shortest path in time from `from` to `to` (`{ x, y }`), leaving at `start`: `[{ x, y, t }]` from the start
  * to the arrival, waits included, or null. `passable(char, x, y)` says which cells a unit may enter;
  * `reservations` and `unit`, whose cells to avoid; `horizon`, how many steps to look ahead at most; `park`,
  * the unit stays at `to` once there, so it arrives only when nobody else is due there later.
+ *
+ * @param {{ passable: (char: string, x: number, y: number) => boolean, reservations?: object | null, unit?: any, start?: number, horizon?: number, park?: boolean }} options
  */
-export function astar(plan, from, to, options = {}) {
+export function astar(plan, from, to, options) {
   // Traced (src/trace.js): counted and timed, the paths not found counted, a slow or failing call kept with its ends.
   const path = timed("astar", () => shortestPath(plan, from, to, options), () => ({ from, to, unit: options.unit ?? null, start: options.start ?? 0 }));
   if (!path) count("astar", "notFound");
   return path;
 }
 
-function shortestPath(plan, from, to, { passable, reservations = null, unit = null, start = 0, horizon = 4 * plan.width * plan.height, park = false }) {
+/** The search's settings: the options given, their defaults where left out. */
+function settingsOf(plan, to, options) {
+  const given = (name, fallback) => (options[name] === undefined ? fallback : options[name]);
+  return { plan, to, passable: options.passable, reservations: given("reservations", null), unit: given("unit", null), start: given("start", 0), horizon: given("horizon", 4 * plan.width * plan.height), park: given("park", false) };
+}
+
+const distanceTo = (to, x, y) => Math.abs(x - to.x) + Math.abs(y - to.y);
+
+function shortestPath(plan, from, to, options) {
+  const settings = settingsOf(plan, to, options);
+  const { reservations, unit, start, horizon, park } = settings;
   const arrived = (node) => node.x === to.x && node.y === to.y && (!park || !reservations || reservations.freeFrom(to.x, to.y, node.t, unit));
-  const distance = (x, y) => Math.abs(x - to.x) + Math.abs(y - to.y);
-  const free = (x, y, t) => !reservations || reservations.isFree(x, y, t, unit);
   // A consistent heuristic pops f in non-decreasing order: the event queue serves as the open list.
   const open = createEvents();
   const seen = new Set();
-  open.schedule(distance(from.x, from.y), { x: from.x, y: from.y, t: start, parent: null });
+  open.schedule(distanceTo(to, from.x, from.y), { x: from.x, y: from.y, t: start, parent: null });
   for (let next = open.next(); next; next = open.next()) {
     const node = next.event;
     if (arrived(node)) return pathOf(node);
     const key = `${cellKey(node.x, node.y)},${node.t}`;
     if (seen.has(key) || node.t - start >= horizon) continue;
     seen.add(key);
-    for (const [dx, dy] of STEPS) {
-      const x = node.x + dx;
-      const y = node.y + dy;
-      const t = node.t + 1;
-      if (!plan.inside(x, y) || !passable(plan.at(x, y), x, y) || !free(x, y, t)) continue;
-      if (reservations && reservations.swaps(node, { x, y }, node.t, unit)) continue;
-      open.schedule(t - start + distance(x, y), { x, y, t, parent: node });
-    }
+    expand(node, settings, open);
   }
   return null;
+}
+
+/** Schedules every step `node` may take: a wait or a move to a passable cell, free then, swapping with nobody. */
+function expand(node, settings, open) {
+  for (const [dx, dy] of STEPS) {
+    const step = { x: node.x + dx, y: node.y + dy, t: node.t + 1 };
+    if (canStep(node, step, settings)) open.schedule(step.t - settings.start + distanceTo(settings.to, step.x, step.y), { ...step, parent: node });
+  }
+}
+
+function canStep(node, { x, y, t }, { plan, passable, reservations, unit }) {
+  if (!plan.inside(x, y) || !passable(plan.at(x, y), x, y)) return false;
+  return !reservations || (reservations.isFree(x, y, t, unit) && !reservations.swaps(node, { x, y }, node.t, unit));
 }
 
 function pathOf(node) {
