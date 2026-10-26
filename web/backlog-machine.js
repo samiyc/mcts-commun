@@ -1,5 +1,7 @@
 // The backlog page's top (web/backlog.js): the machine in tiles, then what to look at.
 import { clockText, durationText, maybe, plural, relativeText, warningsOf } from "../node/backlog-text.js";
+
+const hours = (value) => `${decimal(value)}<small> h</small>`;
 import { $, decimal, escape, gauge, levelOf } from "./backlog-html.js";
 
 function runnerTile(view) {
@@ -38,11 +40,20 @@ function endTile(view) {
   return ["Fin de la file", nightEnd ? clockText(nightEnd) : "—", nightEnd ? relativeText(nightEnd, view.now) : "rien à venir"];
 }
 
-/** The machine in tiles: the runner, the threads, the CPU, the memory, today, the queue's end. */
+/** The load: the queue's hours at its estimates, and at the pace measured; whether it holds before 8:00. */
+function loadTile(view) {
+  const { load } = view;
+  if (!load) return ["Charge", "?", ""];
+  const measured = load.measuredHours === null ? "" : `≈ ${decimal(load.measuredHours)} h au rythme mesuré · `;
+  const morning = load.pastMorningMin > 0 ? `<span class="status-failed">${durationText(load.pastMorningMin)} après 8 h</span>` : "tient avant 8 h";
+  return ["Charge de la file", hours(load.queueHours), measured + morning];
+}
+
+/** The machine in tiles: the runner, the threads, the CPU, the memory, today, the queue's end, its load. */
 export function machine(view) {
   const { used, budget } = view.threads;
   const threads = ["Fils", `${used}<small> / ${budget}</small>`, gauge(used / budget, used > budget ? "bad" : "")];
-  const tiles = [runnerTile(view), threads, cpuTile(view), memoryTile(view), todayTile(view), endTile(view)];
+  const tiles = [runnerTile(view), threads, cpuTile(view), memoryTile(view), todayTile(view), endTile(view), loadTile(view)];
   $("machine").innerHTML = tiles.map(([label, value, sub]) => `<div class="tile"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`).join("");
 }
 

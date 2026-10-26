@@ -4,7 +4,7 @@ import { $ } from "./backlog-html.js";
 import { finished, held, running } from "./backlog-jobs.js";
 import { journal, traces } from "./backlog-log.js";
 import { alerts, machine } from "./backlog-machine.js";
-import { night } from "./backlog-night.js";
+import { night, nights } from "./backlog-night.js";
 
 const REFRESH_MS = 2_000;
 const dialog = () => /** @type {HTMLDialogElement} */ ($("tail"));
@@ -40,7 +40,7 @@ async function refresh() {
     const response = await fetch("/api/backlog", { cache: "no-store" });
     const view = await response.json();
     if (!response.ok) throw new Error(view.error ?? response.statusText);
-    for (const draw of [machine, alerts, running, night, held, finished, journal, traces]) draw(view);
+    for (const draw of [machine, alerts, running, night, nights, held, finished, journal, traces]) draw(view);
     await showTail();
     pulse.className = "pulse beat";
     pulse.textContent = `en direct · ${new Date(view.now).toLocaleTimeString("fr-FR")}`;

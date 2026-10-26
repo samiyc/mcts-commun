@@ -1,4 +1,5 @@
 import { holdOf, indexJobs, isFinished, minutesOf, nextJob } from "../src/schedule.js";
+import { loadOf } from "./backlog-load.js";
 
 export { readBacklog } from "./backlog-read.js";
 
@@ -153,6 +154,7 @@ export function viewOf(state) {
     .sort((a, b) => String(b.doneAt).localeCompare(String(a.doneAt)))
     .slice(0, FINISHED_SHOWN)
     .map(finishedOf);
+  const counts = countsOf({ now, archive, running, planned, held, order });
   return {
     now,
     machine: machine && { ...machine, budget },
@@ -165,6 +167,7 @@ export function viewOf(state) {
     finished,
     journal: [...journal].reverse(),
     traces: traces.map(traceOf(now)),
-    counts: countsOf({ now, archive, running, planned, held, order }),
+    counts,
+    load: loadOf({ now, budget, running, planned, finished, archive, nightEnd: counts.nightEnd }),
   };
 }

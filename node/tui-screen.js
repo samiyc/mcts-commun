@@ -1,5 +1,5 @@
 import { INVERSE, RESET, clip } from "./ansi.js";
-import { clockText, machineLine, stylesOf } from "./backlog-text.js";
+import { clockText, loadShort, machineLine, stylesOf } from "./backlog-text.js";
 import { detailOf } from "./tui-detail.js";
 import { TABS, rowsOf } from "./tui-tabs.js";
 
@@ -18,7 +18,7 @@ const HELP = [
 function headLines(view, s) {
   const { doneToday, failedToday, nightEnd } = view.counts;
   const failed = failedToday ? s.red(failedToday + " en échec") : "0 en échec";
-  const end = nightEnd ? " · la file finirait vers " + clockText(nightEnd) : "";
+  const end = (nightEnd ? " · la file finirait vers " + clockText(nightEnd) : "") + (view.load ? " · " + loadShort(view.load) : "");
   return [`${s.inverse(s.bold(" mcts-backlog "))} ${machineLine(view, s)}`, s.gray(` ${new Date(view.now).toLocaleTimeString("fr-FR")} · aujourd'hui ${doneToday} fini(s), ${failed}${end}`)];
 }
 

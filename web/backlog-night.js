@@ -1,6 +1,6 @@
 // The backlog page's night (web/backlog.js): the running jobs from their start, the planned ones after, on one axis.
-import { clockText } from "../node/backlog-text.js";
-import { $, escape, project, projectColor } from "./backlog-html.js";
+import { clockText, durationText } from "../node/backlog-text.js";
+import { $, escape, gauge, levelOf, project, projectColor, table } from "./backlog-html.js";
 
 const NIGHT_LANES = 70;
 const HOUR = 3_600_000;
@@ -46,4 +46,17 @@ export function night(view) {
     ${shown.map((one) => laneHtml(one, x)).join("")}
     ${more}
     <p class="legend">${projects}<span>plein : en cours · hachuré : prévu</span></p>`;
+}
+
+/** The last nights: how busy the machine was from 20:00 to 8:00, how far past 8:00 their jobs ran. */
+export function nights(view) {
+  const list = view.load?.nights ?? [];
+  $("nights-count").textContent = list.length ? `(${list.length})` : "";
+  const rows = list.map((one) => {
+    const day = new Date(one.start).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" });
+    const past = one.pastMorningMin > 0 ? `<span class="status-failed">${durationText(one.pastMorningMin)}</span>` : "—";
+    const busy = `<div class="compare">${Math.round(one.busy * 100)} %${one.underWay ? ' <span class="hint">en cours</span>' : ""}${gauge(one.busy, levelOf(one.busy, 0.95, 0.8))}</div>`;
+    return `<tr><td>${escape(day)}</td><td class="num">${one.jobs}</td><td>${busy}</td><td>${past}</td></tr>`;
+  });
+  $("nights").innerHTML = table(["Nuit", ">Jobs", "Machine occupée (20 h – 8 h)", "Après 8 h"], rows, "Aucune nuit dans l'archive pour l'instant.");
 }

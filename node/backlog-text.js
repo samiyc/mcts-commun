@@ -108,6 +108,29 @@ export function warningsOf(job) {
   return [job.orphan ? "lanceur mort" : "", job.elapsedMin > job.limitMin * 0.9 ? `près de la limite (${job.limitMin} min)` : "", silent, incidents].filter(Boolean);
 }
 
+const percent = (fraction) => `${Math.round(fraction * 100)} %`;
+const hours = (value) => `${decimal(value)} h`;
+
+/** The load in a sentence: what the queue asks of the machine, at the estimates and at the pace measured, against 8:00. */
+export function loadText(load) {
+  const measured = load.measuredHours === null ? "" : `, ≈ ${hours(load.measuredHours)} au rythme mesuré (les jobs prennent ×${decimal(Math.round(load.estimateRatio * 100) / 100)} de leur estimation)`;
+  const morning = load.pastMorningMin > 0 ? `elle finirait ${durationText(load.pastMorningMin)} après 8 h` : "elle tient avant 8 h";
+  return `La file demande ${hours(load.queueHours)} de la machine entière à ses estimations${measured} ; ${morning}.`;
+}
+
+/** The load in a few words, for a header: the queue's hours, measured, past 8:00. */
+export function loadShort(load) {
+  const measured = load.measuredHours === null ? "" : ` (≈ ${hours(load.measuredHours)} mesurées)`;
+  return `charge ${hours(load.queueHours)}${measured}${load.pastMorningMin > 0 ? ", après 8 h" : ""}`;
+}
+
+/** A night in a few words: its date, how busy, how far past the morning. */
+export function nightText(night) {
+  const day = new Date(night.start).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  const past = night.pastMorningMin > 0 ? `, débordée de ${durationText(night.pastMorningMin)}` : "";
+  return `${day} ${percent(night.busy)}${night.underWay ? " (en cours)" : ""}${past}`;
+}
+
 /** A planned job's notes: its priority when not normal, its threads, its due time, its prerequisites. */
 export function tagsOf(job) {
   return [job.priority !== 2 ? `priorité ${job.priority}` : "", job.threads > 1 ? `${job.threads} fils` : "", maybe(job.due, "pour "), maybe(job.after.join(", "), "après ")].filter(Boolean).join(", ");
@@ -134,7 +157,10 @@ function headLines(view, s) {
   const { doneToday, failedToday, nightEnd } = view.counts;
   const end = nightEnd ? `${clockText(nightEnd)} (${relativeText(nightEnd, view.now)})` : "";
   const when = new Date(view.now).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-  return [`${s.bold("La backlog de la machine")} ${s.gray("— " + when)}`, machineLine(view, s), s.gray(`Aujourd'hui : ${doneToday} ${plural(doneToday, "fini")}, ${failedToday} en échec${maybe(end, " · la file finirait vers ")}`)];
+  const lines = [`${s.bold("La backlog de la machine")} ${s.gray("— " + when)}`, machineLine(view, s), s.gray(`Aujourd'hui : ${doneToday} ${plural(doneToday, "fini")}, ${failedToday} en échec${maybe(end, " · la file finirait vers ")}`)];
+  if (!view.load) return lines;
+  const nights = view.load.nights.map(nightText).join(" · ");
+  return [...lines, s.gray(loadText(view.load)), ...(nights ? [s.gray("Nuits : " + nights)] : [])];
 }
 
 /** A titled section: a blank line, its title and count, a line a job. */
