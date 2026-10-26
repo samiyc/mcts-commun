@@ -26,6 +26,8 @@ import { tailOf } from "../node/tail.js";
  * folder's `logs/serve-YYYY-MM.jsonl` (out of git).
  */
 const ROOT = process.cwd();
+/** What a request's path is read against. */
+const LOCAL = "http://127.0.0.1";
 const PORT = Number(process.argv[2] ?? process.env.PORT ?? 4800);
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".txt": "text/plain; charset=utf-8", ".png": "image/png" };
 
@@ -33,7 +35,7 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
 const withLibrary = (code) => code.replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(["'])mcts-commun\//g, "$1$2/node_modules/mcts-commun/src/");
 
 async function fileFor(url) {
-  const wanted = path.normalize(decodeURIComponent(new URL(url, "http://local").pathname));
+  const wanted = path.normalize(decodeURIComponent(new URL(url, LOCAL).pathname));
   const full = path.join(ROOT, wanted);
   if (!full.startsWith(ROOT)) return null;
   const info = await stat(full).catch(() => null);
@@ -49,7 +51,7 @@ function replayName(replay) {
   const kind = String(replay.format ?? "replay").split(/[-/]/)[0].replace(/[^a-z0-9]/gi, "") || "replay";
   const when = String(replay.savedAt ?? new Date().toISOString()).slice(0, 19).replace(/[:T]/g, "-");
   const what = [replay.kitchenId ?? replay.hospital ?? replay.planId, replay.seed].filter((part) => part !== undefined).join("-").replace(/[^a-z0-9-]/gi, "");
-  return `${kind}_${when}${what ? `_${what}` : ""}.json`;
+  return `${kind}_${when}${what ? "_" + what : ""}.json`;
 }
 
 async function replays(request, response) {
@@ -84,13 +86,17 @@ async function backlog(url, response) {
   const view = viewOf(await readBacklog(home, { budget: threadBudget() }));
   if (url.pathname === "/api/backlog") return json(response, 200, view);
   const id = url.searchParams.get("id");
-  const kind = url.searchParams.get("kind") ?? "output";
-  const running = view.running.find((job) => job.id === id);
-  const finished = view.finished.find((job) => job.id === id);
-  const trace = view.traces.find((one) => one.id === id || one.name === id);
-  const file = kind === "trace" ? (trace?.file ?? (finished?.trace ? path.join(home, finished.trace) : null)) : (running?.output ?? (finished?.output ? path.join(home, finished.output) : null));
+  const file = tailFile(view, id, url.searchParams.get("kind") ?? "output", home);
   if (!file) return json(response, 404, { error: `rien pour ${id}` });
   json(response, 200, { file, lines: await tailOf(file, { lines: Number(url.searchParams.get("lines") ?? 400) }) });
+}
+
+/** The file whose end `/api/backlog/tail` gives: a running or ended job's output, or a trace. */
+function tailFile(view, id, kind, home) {
+  const inHome = (file) => (file ? path.join(home, file) : null);
+  const finished = view.finished.find((job) => job.id === id);
+  if (kind === "trace") return view.traces.find((one) => one.id === id || one.name === id)?.file ?? inHome(finished?.trace);
+  return view.running.find((job) => job.id === id)?.output ?? inHome(finished?.output);
 }
 
 const LOGS = path.join(ROOT, "logs");
@@ -114,16 +120,17 @@ createServer(async (request, response) => {
   console.log(`http://127.0.0.1:${this.address().port}/web/`);
 });
 
+/** The API: a path, the methods it answers, its handler. */
+const ROUTES = [
+  { path: "/api/replays", methods: ["GET", "POST"], handle: (request, response) => replays(request, response) },
+  { path: "/api/backlog", methods: ["GET"], handle: (request, response, url) => backlog(url, response) },
+  { path: "/api/backlog/tail", methods: ["GET"], handle: (request, response, url) => backlog(url, response) },
+];
+
 async function serve(request, response) {
-  const url = new URL(request.url, "http://local");
-  if (url.pathname === "/api/replays" && ["GET", "POST"].includes(request.method)) {
-    await replays(request, response);
-    return;
-  }
-  if ((url.pathname === "/api/backlog" || url.pathname === "/api/backlog/tail") && request.method === "GET") {
-    await backlog(url, response);
-    return;
-  }
+  const url = new URL(request.url, LOCAL);
+  const route = ROUTES.find((one) => one.path === url.pathname && one.methods.includes(request.method));
+  if (route) return route.handle(request, response, url);
   const file = await fileFor(request.url);
   if (!file) {
     response.writeHead(404, { "content-type": "text/plain; charset=utf-8" }).end("introuvable");

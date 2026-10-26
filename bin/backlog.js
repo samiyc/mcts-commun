@@ -1,308 +1,119 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { appendFile, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { createJournal } from "../node/journal.js";
-import { alive, backlogHome, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, threadBudget, waitUntilCool, watchHeat, watchMemory } from "../node/machine.js";
-import { isFinished, nextJob } from "../src/schedule.js";
-import { colorsOn, listText } from "../node/backlog-text.js";
+import { addJobs, cancelJob, jobStatus, jobsOfFile, retryJob, waitCode, waitFor } from "../node/backlog-commands.js";
+import { colorsOn, listText, paren } from "../node/backlog-text.js";
 import { readBacklog, viewOf } from "../node/backlog-view.js";
+import { createJournal } from "../node/journal.js";
+import { backlogHome, threadBudget } from "../node/machine.js";
+import { createQueue, stamp } from "../node/queue.js";
+import { runQueue } from "../node/runner.js";
 
 /**
  * `mcts-backlog`: the machine's long jobs, every project's (Sami, 23/10/2026: the scheduler in common, so that the
  * hospital, the warehouse and the kitchen run their night measures too). One queue for the machine,
  * `~/.mcts-backlog/queue.json` (`MCTS_BACKLOG_HOME` or `--home` elsewhere); each job says the folder it runs in.
  *
- *   mcts-backlog                 run the queue to its end
+ *   mcts-backlog                 run the queue to its end (node/runner.js)
  *   mcts-backlog --list [--done N]  the machine, the jobs running, the night to come as the runner would play it,
  *                                what is blocked and why, the last N done (8); --json, the same as JSON
  *   mcts-backlog --tui           the same in a terminal view that follows it live (node/tui.js), read only
  *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--threads N] [--priority 1|2|3] [--after A,B]
- *                [--due 2026-10-24T08:00] [--limit MIN] -- COMMAND…
+ *                [--due 2026-10-24T08:00] [--limit MIN] [--skip-if "COMMAND"] -- COMMAND…
  *   mcts-backlog --add-file PROJECT/night.json [--tag 2026-10-24]
  *                every job of a project's file (`{ jobs: [{ id, command, estimate, … }] }`), run in the file's folder;
  *                each id (and its `after`) gets the tag, today's date by default, so the file can be queued again
  *                the next night.
+ *   mcts-backlog --status ID [--json]        where a job stands: to come (when), running, ended (how), its files
+ *   mcts-backlog --wait ID [--timeout MIN]   waits for its end; exit 0 done, 1 failed or too long, 2 cancelled or
+ *                                            skipped, 3 unknown, 4 still running at the timeout
+ *   mcts-backlog --cancel ID                 a job to come ends cancelled; a running one is stopped by its runner
+ *   mcts-backlog --retry ID                  a finished job queued again, as ID-r1
  *
- * The order is lopin's (src/schedule.js): prerequisites, a `due` it would miss, then Smith's rule. Jobs run side by
- * side as long as their threads (`threads`, 1 by default: the projects' measures are single-threaded) fit in the
- * machine's budget (node/machine.js: every core but 3, 18 at most; `--budget N`). The budget is the machine's, not
- * this runner's: the slots (node/machine.js) count lopin's jobs too, so two runners never ask more than it lends.
- * Each job's output goes to runs/, its trace (src/trace.js, through MCTS_TRACE_FILE) to traces/, a finished job to
- * done/YYYY-MM.json, a line to job-log/YYYY-MM.jsonl; what the runner does to journal/YYYY-MM.jsonl. A job
- * runs `limit` minutes at most (120). The guards, as in lopin: under `MCTS_RAM_FLOOR` GB free (5) twice in a row,
- * the most recent job stops and ends failed; at `MCTS_HEAT_ALERT` °C (90, LibreHardwareMonitor's web server)
- * twice in a row, every job stops, goes back to the queue, and the queue goes on once the CPU is under
- * `MCTS_HEAT_RESUME` °C (75); a job stopped three times by the heat ends failed.
+ * For other tools (Sami, 26/10/2026), the contract is docs/backlog.md: these commands, their JSON and exit codes;
+ * every change holds the queue's lock (node/queue.js), so a tool never loses the runner's writes nor the runner its.
  */
-const LIMIT = 120;
-const HEAT_STOPS = 3;
-const POLL_MS = Number(process.env.MCTS_BACKLOG_POLL_MS || 5_000);
 const args = process.argv.slice(2);
 const option = (name, fallback = null) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
 const home = path.resolve(option("--home", backlogHome()));
 const budget = Number(option("--budget", threadBudget()));
-const files = {
-  queue: path.join(home, "queue.json"),
-  done: path.join(home, "done"),
-  runs: path.join(home, "runs"),
-  log: path.join(home, "job-log"),
-};
 const journal = createJournal(home);
-const stamp = (date = new Date()) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-
-async function readQueue() {
-  try {
-    return JSON.parse(await readFile(files.queue, "utf8"));
-  } catch (error) {
-    if (error.code === "ENOENT") return { jobs: [] };
-    throw error;
-  }
-}
-let saves = 0;
-async function saveQueue(queue) {
-  await mkdir(home, { recursive: true });
-  // Its own temporary file, and a few tries: on Windows a file just read may refuse to be replaced a moment.
-  saves += 1;
-  const tmp = `${files.queue}.${process.pid}.${saves}.tmp`;
-  await writeFile(tmp, `${JSON.stringify(queue, null, 2)}\n`);
-  for (let tries = 0; ; tries += 1) {
-    try {
-      await rename(tmp, files.queue);
-      if (tries > 0) journal("queue-retried", { tries });
-      return;
-    } catch (error) {
-      if (error.code === "EPERM" && tries >= 20) journal("queue-refused", { tries, message: error.message });
-      if (error.code !== "EPERM" || tries >= 20) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-  }
-}
-/**
- * The queue is read, changed and written back one change at a time (Sami, 23/10: fifteen jobs starting together
- * wrote it at once, and the runner fell on Windows' EPERM).
- */
-let writing = Promise.resolve();
-const serial = (work) => {
-  const done = writing.then(work);
-  writing = done.catch(() => {});
-  return done;
-};
-async function readArchive() {
-  const names = (await readdir(files.done).catch(() => [])).filter((name) => name.endsWith(".json")).sort();
-  const months = await Promise.all(names.map(async (name) => JSON.parse(await readFile(path.join(files.done, name), "utf8"))));
-  return months.flat();
-}
-/** Moves the finished jobs of the queue to their month's archive. */
-const archiveFinished = () => serial(archiveNow);
-async function archiveNow() {
-  const queue = await readQueue();
-  const finished = queue.jobs.filter(isFinished);
-  if (finished.length === 0) return 0;
-  await mkdir(files.done, { recursive: true });
-  for (const job of finished) {
-    const file = path.join(files.done, `${job.doneAt.slice(0, 7)}.json`);
-    const month = JSON.parse(await readFile(file, "utf8").catch(() => "[]"));
-    await writeFile(file, `${JSON.stringify([...month, job], null, 2)}\n`);
-  }
-  await saveQueue({ ...queue, jobs: queue.jobs.filter((job) => !isFinished(job)) });
-  return finished.length;
-}
-function updateJob(id, change) {
-  return serial(async () => {
-    const queue = await readQueue();
-    const job = queue.jobs.find((one) => one.id === id);
-    if (job) Object.assign(job, change);
-    await saveQueue(queue);
-  });
-}
+const queue = createQueue(home, { journal });
 
 const tags = (job) => [job.threads > 1 ? `${job.threads} fils` : "", job.priority && job.priority !== 2 ? `priorité ${job.priority}` : "", job.due ? `pour ${job.due}` : "", job.after?.length ? `après ${job.after.join(", ")}` : ""].filter(Boolean).join(", ");
-const lineOf = (job) => `[${job.status}] ${job.id} — ${job.estimate ?? "?"} — ${job.cwd} : ${job.command}${tags(job) ? ` (${tags(job)})` : ""}${job.doneAt ? ` (fait le ${job.doneAt}, ${job.minutes} min)` : ""}${job.reason ? ` (${job.reason})` : ""}`;
+const lineOf = (job) => [`[${job.status}] ${job.id} — ${job.estimate ?? "?"} — ${job.cwd} : ${job.command}`, tags(job) && ` (${tags(job)})`].filter(Boolean).join("");
 
-if (args.includes("--add")) {
+/** The job `--add` describes, from its options and the command after `--`. */
+function jobOfOptions() {
   const id = option("--add");
   const at = args.indexOf("--");
   if (!id || at < 0 || !option("--cwd")) {
-    console.error('usage : mcts-backlog --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 2] [--after A,B] [--due ISO] [--limit MIN] -- COMMANDE…');
+    console.error('usage : mcts-backlog --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 2] [--after A,B] [--due ISO] [--limit MIN] [--skip-if "COMMANDE"] -- COMMANDE…');
     process.exit(1);
   }
-  const queue = await readQueue();
-  if ([...queue.jobs, ...(await readArchive())].some((job) => job.id === id)) throw new Error(`le job ${id} existe déjà`);
   const job = { id, cwd: path.resolve(option("--cwd")), command: args.slice(at + 1).join(" "), estimate: option("--estimate", "1 h"), status: "todo" };
-  for (const [flag, key, read] of [["--threads", "threads", Number], ["--priority", "priority", Number], ["--limit", "limit", Number], ["--due", "due", String], ["--after", "after", (text) => text.split(",")]]) if (option(flag) !== null) job[key] = read(option(flag));
-  await saveQueue({ ...queue, jobs: [...queue.jobs, job] });
-  journal("added", { ids: [id] });
-  console.log(`Ajouté : ${lineOf(job)}`);
-  process.exit(0);
+  const read = { "--threads": ["threads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String] };
+  for (const [flag, [key, parse]] of Object.entries(read)) if (option(flag) !== null) job[key] = parse(option(flag));
+  return job;
 }
 
-if (args.includes("--add-file")) {
+async function add() {
+  const job = jobOfOptions();
+  await addJobs(queue, [job]);
+  journal("added", { ids: [job.id] });
+  console.log(`Ajouté : ${lineOf(job)}`);
+}
+
+async function addFile() {
   const file = path.resolve(option("--add-file"));
-  const tag = option("--tag", stamp().slice(0, 10));
-  const { jobs } = JSON.parse(await readFile(file, "utf8"));
-  const queue = await readQueue();
-  const taken = new Set([...queue.jobs, ...(await readArchive())].map((job) => job.id));
-  const tagged = (id) => `${id}-${tag}`;
-  const added = jobs.map((job) => ({ status: "todo", estimate: "1 h", ...job, id: tagged(job.id), cwd: path.dirname(file), ...(job.after ? { after: job.after.map(tagged) } : {}) }));
-  const twice = added.find((job) => taken.has(job.id));
-  if (twice) throw new Error(`le job ${twice.id} existe déjà : --tag pour une autre série`);
-  await saveQueue({ ...queue, jobs: [...queue.jobs, ...added] });
+  const added = await jobsOfFile(file, option("--tag", stamp().slice(0, 10)));
+  await addJobs(queue, added, " : --tag pour une autre série");
   journal("added", { ids: added.map((job) => job.id), file });
   for (const job of added) console.log(`Ajouté : ${lineOf(job)}`);
-  process.exit(0);
 }
 
-// What the runner holds, read without writing (Sami, 26/10/2026: --list was obscure; the backlog a black box).
-if (args.includes("--list") || args.includes("--json")) {
+/** What the runner holds, read without writing (Sami, 26/10/2026: --list was obscure; the backlog a black box). */
+async function list() {
   const view = viewOf(await readBacklog(home, { budget }));
   if (args.includes("--json")) console.log(JSON.stringify(view, null, 1));
   else console.log(listText(view, { color: colorsOn(), width: process.stdout.columns ?? 120, finished: Number(option("--done", 8)) }));
-  process.exit(0);
 }
-if (args.includes("--tui")) {
+
+const statusText = (job) => [`${job.id} : ${job.status}${paren(job.reason)}`, job.plannedStart && `prévu ${job.plannedStart}`, job.waiting && `attend : ${job.waiting}`, job.output && `sortie ${job.output}`].filter(Boolean).join(" · ");
+
+async function status() {
+  const job = await jobStatus(queue, option("--status"), { home, budget });
+  if (args.includes("--json")) console.log(JSON.stringify(job));
+  else console.log(job ? statusText(job) : `job inconnu : ${option("--status")}`);
+  return job ? 0 : 3;
+}
+
+async function wait() {
+  const minutes = Number(option("--timeout", Infinity));
+  const job = await waitFor(queue, option("--wait"), { home, budget, minutes, everyMs: Number(process.env.MCTS_BACKLOG_POLL_MS || 2_000) });
+  console.log(args.includes("--json") ? JSON.stringify(job) : (job && statusText(job)) || `job inconnu : ${option("--wait")}`);
+  return waitCode(job);
+}
+
+const SAID = { cancelled: "annulé", marked: "marqué : son lanceur l'arrête", already: "déjà fini", unknown: "inconnu" };
+async function cancel() {
+  const done = await cancelJob(queue, option("--cancel"));
+  if (done !== "unknown" && done !== "already") journal("cancel-asked", { id: option("--cancel"), done });
+  console.log(`${option("--cancel")} : ${SAID[done]}`);
+  return done === "unknown" ? 3 : 0;
+}
+
+async function retry() {
+  const job = await retryJob(queue, option("--retry"));
+  journal("added", { ids: [job.id], retryOf: option("--retry") });
+  console.log(`Ajouté : ${lineOf(job)}`);
+}
+
+async function tui() {
   const { runTui } = await import("../node/tui.js");
   await runTui({ home, budget });
-  process.exit(0);
 }
 
-/**
- * Runs `job` in its folder, its output in `outFile`, its trace in `traceFile`: `{ pid, done }`, `done` resolving with
- * its exit code, "timeout" or "aborted".
- */
-function runJob(job, outFile, { signal, threads, traceFile }) {
-  const out = createWriteStream(outFile);
-  const child = spawn(job.command, { cwd: job.cwd, shell: true, env: { ...process.env, MCTS_THREADS: String(threads), LOPIN_THREADS: String(threads), MCTS_TRACE_FILE: traceFile } });
-  const done = new Promise((resolve) => {
-    let ended = null;
-    const stop = (why, note) => {
-      if (ended) return;
-      ended = why;
-      out.write(`\n[mcts-backlog] ${note}\n`);
-      if (process.platform === "win32") spawn(path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe"), ["/pid", String(child.pid), "/T", "/F"]);
-      else child.kill("SIGTERM");
-    };
-    const minutes = job.limit ?? LIMIT;
-    const timer = setTimeout(() => stop("timeout", `arrêté au bout de ${minutes} min`), minutes * 60_000);
-    signal.addEventListener("abort", () => stop("aborted", `arrêté : ${signal.reason}`), { once: true });
-    for (const stream of [child.stdout, child.stderr]) stream.on("data", (chunk) => out.write(chunk));
-    child.on("error", (error) => out.write(`\n[mcts-backlog] ${error.message}\n`));
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      out.end(() => resolve(ended ?? code));
-    });
-  });
-  return { pid: child.pid, done };
-}
-
-const heat = heatSettings();
-const ramFloor = memoryFloorGb();
-const heatStops = new Map();
-const running = new Map();
-let cooling = null;
-// A runner that dies says why in its journal first.
-process.on("uncaughtExceptionMonitor", (error, origin) => journal("crash", { origin, message: error?.message ?? String(error), stack: error?.stack, running: [...running.keys()] }));
-await mkdir(files.runs, { recursive: true });
-await archiveFinished();
-// A job left running by a runner that died goes back to the queue.
-{
-  const queue = await readQueue();
-  const orphans = queue.jobs.filter((job) => job.status === "running" && !alive(job.runnerPid));
-  for (const job of orphans) Object.assign(job, { status: "todo" });
-  if (orphans.length) await saveQueue(queue);
-  if (orphans.length) journal("orphans-requeued", { ids: orphans.map((job) => job.id) });
-}
-const reading = await readCpuTemperature(heat);
-console.log(`File de la machine : ${files.queue}, ${budget} fils au plus.`);
-if (!reading) console.log("Température du CPU illisible (LibreHardwareMonitor) : pas de garde thermique.");
-else console.log(`CPU à ${reading.celsius} °C (${reading.sensor}) ; ${heat.alert > 0 ? `garde thermique à ${heat.alert} °C, reprise sous ${heat.resume} °C` : "garde thermique coupée"}.`);
-journal("runner-started", { budget, queue: files.queue, cpu: reading, heat: heat.alert > 0 ? { alert: heat.alert, resume: heat.resume } : null, ramFloorGb: ramFloor });
-console.log(ramFloor > 0 ? `Garde mémoire : un job s'arrête sous ${ramFloor} Go libres.` : "Garde mémoire coupée.");
-
-// One heat guard for the machine: at the alert, every job stops and goes back to the queue.
-const temperature = watchHeat({
-  settings: heat,
-  onAlert: (celsius) => {
-    journal("heat-alert", { celsius, stopping: [...running.keys()] });
-    cooling = waitUntilCool({ settings: heat }).then((reading) => {
-      cooling = null;
-      journal("heat-resumed", { celsius: reading?.celsius ?? null });
-      console.log("  CPU refroidi : la file repart");
-    });
-    for (const one of running.values()) one.guard.abort(`garde thermique, CPU à ${celsius} °C`);
-  },
-});
-
-async function start(job, slot, threads) {
-  const name = `${stamp().replace(/[:T]/g, "-")}_${job.id}`;
-  const outFile = path.join(files.runs, `${name}.txt`);
-  const traceFile = path.join(home, "traces", `${name}.jsonl`);
-  const guard = new AbortController();
-  let memoryStop = null;
-  const memory = watchMemory({
-    floorGb: ramFloor,
-    onLow: (gb) => {
-      memoryStop = `arrêté par la garde mémoire : ${gb} Go libres, sous ${ramFloor} Go`;
-      journal("memory-stop", { id: job.id, freeGb: gb, floorGb: ramFloor });
-      guard.abort(memoryStop);
-    },
-  });
-  const started = Date.now();
-  console.log(`▶ ${job.id} (${job.estimate ?? "?"}, ${threads} fil${threads > 1 ? "s" : ""}) : ${job.cwd} : ${job.command}`);
-  const child = runJob(job, outFile, { signal: guard.signal, threads, traceFile });
-  await updateJob(job.id, { status: "running", startedAt: stamp(), runnerPid: process.pid, childPid: child.pid, output: path.relative(home, outFile), trace: path.relative(home, traceFile) });
-  journal("job-started", { id: job.id, cwd: job.cwd, command: job.command, threads, childPid: child.pid, output: path.relative(home, outFile) });
-  const done = child.done.then(async (code) => {
-    await slot.release();
-    const free = memory.stop();
-    const minutes = Math.round((Date.now() - started) / 600) / 100;
-    if (code === "aborted" && !memoryStop) {
-      const count = (heatStops.get(job.id) ?? 0) + 1;
-      heatStops.set(job.id, count);
-      if (count < HEAT_STOPS) {
-        await updateJob(job.id, { status: "todo" });
-        journal("job-requeued", { id: job.id, heatStops: count });
-        console.log(`■ ${job.id} : arrêté par la garde thermique (${count}/${HEAT_STOPS}), remis dans la file`);
-        return;
-      }
-    }
-    const status = code === "timeout" ? "timeout" : code === 0 ? "done" : "failed";
-    const reason = code === "aborted" ? (memoryStop ?? `arrêté ${HEAT_STOPS} fois par la garde thermique`) : undefined;
-    await updateJob(job.id, { status, doneAt: stamp(), minutes: Math.round(minutes), output: path.relative(home, outFile), ...(reason ? { reason } : {}) });
-    await archiveFinished();
-    journal("job-ended", { id: job.id, status, code, minutes: Math.round(minutes * 100) / 100, ...(reason ? { reason } : {}) });
-    await mkdir(files.log, { recursive: true });
-    await appendFile(path.join(files.log, `${stamp().slice(0, 7)}.jsonl`), `${JSON.stringify({ id: job.id, cwd: job.cwd, command: job.command, threads, cores: os.cpus().length, startedAt: new Date(started).toISOString(), minutes, status, source: "mcts-backlog", ...free })}\n`);
-    console.log(`■ ${job.id} : ${status}, ${Math.round(minutes)} min → ${outFile}`);
-  });
-  running.set(job.id, { guard, done });
-  done.finally(() => running.delete(job.id));
-}
-
-const waitingForSlot = new Set();
-for (;;) {
-  if (cooling) await cooling;
-  const queue = await readQueue();
-  const archive = await readArchive();
-  const waiting = queue.jobs.filter((job) => job.status !== "running" && !running.has(job.id));
-  // The next job by lopin's order, among those not running; jobs that would not fit wait for a slot.
-  const job = nextJob(waiting, [...archive, ...queue.jobs.filter((one) => one.status === "running")], Date.now());
-  if (job) {
-    const threads = Math.max(1, Math.min(job.threads ?? 1, budget));
-    const slot = await takeSlot({ home, id: job.id, threads, budget });
-    if (slot) {
-      await start(job, slot, threads);
-      continue;
-    }
-    if (!waitingForSlot.has(job.id)) journal("slot-waiting", { id: job.id, threads, slots: (await readSlots(home)).map(({ runner, id, threads: taken }) => ({ runner, id, threads: taken })) });
-    waitingForSlot.add(job.id);
-  }
-  if (!job && running.size === 0) break;
-  // Wait for a job to end, or for another runner to free threads.
-  await Promise.race([...[...running.values()].map((one) => one.done), new Promise((resolve) => setTimeout(resolve, POLL_MS))]);
-}
-temperature.stop();
-journal("runner-ended", {});
-console.log("File vide.");
+const COMMANDS = { "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry };
+const asked = Object.keys(COMMANDS).find((flag) => args.includes(flag) && !(flag === "--json" && (args.includes("--status") || args.includes("--wait"))));
+if (asked) process.exit((await COMMANDS[asked]()) ?? 0);
+await runQueue({ home, budget, queue, journal, pollMs: Number(process.env.MCTS_BACKLOG_POLL_MS || 5_000) });

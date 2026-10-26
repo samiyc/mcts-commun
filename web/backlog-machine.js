@@ -1,0 +1,70 @@
+// The backlog page's top (web/backlog.js): the machine in tiles, then what to look at.
+import { clockText, durationText, maybe, plural, relativeText, warningsOf } from "../node/backlog-text.js";
+import { $, decimal, escape, gauge, levelOf } from "./backlog-html.js";
+
+function runnerTile(view) {
+  const runner = view.runners.find((one) => one.alive) ?? view.runners[0];
+  if (!runner) return ["Lanceur", '<span class="dot off"></span>aucun', "npx mcts-backlog pour jouer la file"];
+  const since = runner.since ? durationText((view.now - Date.parse(runner.since)) / 60_000) : "";
+  const state = runner.alive ? '<span class="dot on"></span>en marche' : '<span class="dot off"></span>arrêté';
+  return ["Lanceur", state, `${escape(runner.runner)} pid ${runner.pid}${maybe(since, " · depuis ")}`];
+}
+
+function cpuTile(view) {
+  const cpu = view.machine?.cpu;
+  if (!cpu) return ["CPU", "?", "LibreHardwareMonitor ne répond pas"];
+  return ["CPU", `${decimal(cpu.celsius)}<small> °C</small>`, gauge(cpu.celsius / 100, levelOf(cpu.celsius, 85, 75))];
+}
+
+/** Under 5 GB free the guard is near: bad; under 8, to watch. */
+function memoryLevel(freeGb) {
+  if (freeGb < 5) return "bad";
+  return freeGb < 8 ? "warn" : "";
+}
+
+function memoryTile(view) {
+  const ram = view.machine;
+  if (!ram) return ["Mémoire libre", "?", ""];
+  return ["Mémoire libre", `${decimal(ram.freeGb)}<small> / ${decimal(ram.totalGb)} Go</small>`, gauge(1 - ram.freeGb / ram.totalGb, memoryLevel(ram.freeGb))];
+}
+
+function todayTile(view) {
+  const { doneToday, failedToday } = view.counts;
+  return ["Aujourd'hui", `${doneToday}<small> ${plural(doneToday, "fini")}</small>`, failedToday ? `<span class="status-failed">${failedToday} en échec</span>` : "aucun échec"];
+}
+
+function endTile(view) {
+  const { nightEnd } = view.counts;
+  return ["Fin de la file", nightEnd ? clockText(nightEnd) : "—", nightEnd ? relativeText(nightEnd, view.now) : "rien à venir"];
+}
+
+/** The machine in tiles: the runner, the threads, the CPU, the memory, today, the queue's end. */
+export function machine(view) {
+  const { used, budget } = view.threads;
+  const threads = ["Fils", `${used}<small> / ${budget}</small>`, gauge(used / budget, used > budget ? "bad" : "")];
+  const tiles = [runnerTile(view), threads, cpuTile(view), memoryTile(view), todayTile(view), endTile(view)];
+  $("machine").innerHTML = tiles.map(([label, value, sub]) => `<div class="tile"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`).join("");
+}
+
+/** What must be looked at (a dead runner, a blocked job, a crash) and what to keep an eye on. */
+function alertsOf(view) {
+  const bad = view.runners.filter((one) => !one.alive).map((runner) => `Le lanceur ${runner.pid} est mort : ses jobs « en cours » reprendront au prochain lancement.`);
+  const warn = [];
+  for (const job of view.running) for (const warning of warningsOf(job)) (warning === "lanceur mort" ? bad : warn).push(`${job.id} : ${warning}`);
+  bad.push(...view.blocked.map((job) => `${job.id} est bloqué : ${job.reason}`));
+  bad.push(...view.traces.filter((one) => one.ended?.kind === "crash").map((trace) => `${trace.id ?? trace.name} a planté : ${trace.ended.message ?? ""}`));
+  const crashes = view.journal.filter((one) => one.kind === "crash" && view.now - Date.parse(one.at) < 86_400_000);
+  bad.push(...crashes.map((entry) => `Le lanceur a planté à ${clockText(Date.parse(entry.at))} : ${entry.message}`));
+  return { bad, warn };
+}
+
+const alertBlock = (items, level) => {
+  if (!items.length) return "";
+  const list = items.map((item) => `<li>${escape(item)}</li>`).join("");
+  return `<div class="alert ${level}"><strong>${level === "bad" ? "À regarder" : "À surveiller"}</strong><ul>${list}</ul></div>`;
+};
+
+export function alerts(view) {
+  const { bad, warn } = alertsOf(view);
+  $("alerts").innerHTML = alertBlock(bad, "bad") + alertBlock(warn, "");
+}

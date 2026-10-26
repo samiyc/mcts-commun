@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -142,27 +142,36 @@ export function alive(pid) {
   }
 }
 
-/** The slots file of `home` (slots.json) and its lock (a folder: mkdir is atomic). */
+/** The slots file of `home` (slots.json). */
 const slotsFile = (home) => path.join(home, "slots.json");
-const lockDir = (home) => path.join(home, "slots.lock");
+const STALE_LOCK_MS = 30_000;
 
-async function withLock(home, work) {
-  await mkdir(home, { recursive: true });
-  for (let tries = 0; ; tries += 1) {
-    try {
-      await mkdir(lockDir(home));
-      break;
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      // A lock older than a minute was left by a runner that died: taken over.
-      if (tries > 200) await rm(lockDir(home), { recursive: true, force: true });
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
+/** Takes the lock `name` of `home` (a folder `<name>.lock`: mkdir is atomic), or false when another holds it. */
+async function tryLock(dir) {
+  try {
+    await mkdir(dir);
+    return true;
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    // A lock held 30 s was left by a process that died (a holder keeps it a few milliseconds): taken over.
+    const info = await stat(dir).catch(() => null);
+    if (info && Date.now() - info.mtimeMs > STALE_LOCK_MS) await rm(dir, { recursive: true, force: true });
+    return false;
   }
+}
+
+/**
+ * Runs `work` holding the lock `name` of `home`, one process at a time on the machine: "slots" for slots.json,
+ * "queue" for the queue (Sami, 26/10/2026: a `--add` from another session while the runner wrote could lose either).
+ */
+export async function withLock(home, work, name = "slots") {
+  const dir = path.join(home, `${name}.lock`);
+  await mkdir(home, { recursive: true });
+  while (!(await tryLock(dir))) await new Promise((resolve) => setTimeout(resolve, 25));
   try {
     return await work();
   } finally {
-    await rm(lockDir(home), { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true });
   }
 }
 

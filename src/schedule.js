@@ -1,5 +1,5 @@
 /** A job that has ended, one way or another: it leaves the queue for the archive. */
-export const FINISHED = Object.freeze(["done", "failed", "timeout", "skipped"]);
+export const FINISHED = Object.freeze(["done", "failed", "timeout", "skipped", "cancelled"]);
 export const isFinished = (job) => FINISHED.includes(job.status);
 
 /**

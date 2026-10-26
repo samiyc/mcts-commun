@@ -22,6 +22,7 @@ export const STATUS = {
   failed: { icon: "✖", color: "red", word: "échec" },
   timeout: { icon: "⧗", color: "yellow", word: "trop long" },
   skipped: { icon: "↷", color: "gray", word: "sauté" },
+  cancelled: { icon: "⊘", color: "yellow", word: "annulé" },
 };
 export const statusOf = (status) => STATUS[status] ?? { icon: "?", color: "white", word: status };
 
