@@ -24,6 +24,7 @@ const FINE_ENDS = new Set(["done", "skipped"]);
 
 /** Minutes in an estimate as the queue writes them: "40 min", "1 h 30", "≤ 2 h", "1 à 2 h" (the most), "20 s". */
 export function minutesOf(estimate) {
+  /** @type {string[]} */
   const tokens = String(estimate ?? "").match(/\d+|\b(?:min|h|s)\b/g) ?? [];
   const before = (unit) => (tokens.indexOf(unit) > 0 ? Number(tokens[tokens.indexOf(unit) - 1]) : null);
   if (before("h") !== null) return before("h") * 60 + (Number(tokens[tokens.indexOf("h") + 1]) || 0);

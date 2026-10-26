@@ -73,7 +73,13 @@ export function waitCode(job) {
   return ["failed", "timeout"].includes(job.status) ? 1 : 2;
 }
 
-/** Polls job `id` every `everyMs` until it ends or `minutes` pass: its last status (null when unknown). */
+/**
+ * Polls job `id` every `everyMs` until it ends or `minutes` pass: its last status (null when unknown).
+ *
+ * @param {ReturnType<typeof import("./queue.js").createQueue>} queue
+ * @param {string} id
+ * @param {{ home: string, budget: number, minutes?: number, everyMs?: number }} options
+ */
 export async function waitFor(queue, id, { minutes = Infinity, everyMs = 2_000, ...context }) {
   const until = Date.now() + minutes * 60_000;
   for (;;) {

@@ -66,6 +66,7 @@ function traceDetail(row, field, { s }) {
   ];
 }
 
+/** @type {Array<(row: any, field: (name: string, value: any) => string[], context: { view: any, s: any }) => string[]>} */
 const DETAILS = [runningDetail, plannedDetail, blockedDetail, finishedDetail, journalDetail, traceDetail];
 
 /** What the panel below the table says of `row` in tab `index`, as lines; `tail` is the end of its output or trace. */

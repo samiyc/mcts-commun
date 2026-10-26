@@ -62,7 +62,7 @@ export async function readCpuTemperature({ url = heatSettings().url, timeoutMs =
   }
 }
 /** Reads the temperature every `everyMs`; `onAlert(celsius)` once at `alert` °C `holds` readings in a row. */
-export function watchHeat({ settings = heatSettings(), onAlert = () => {}, read = () => readCpuTemperature(settings) } = {}) {
+export function watchHeat({ settings = heatSettings(), onAlert = /** @type {(celsius: number) => void} */ (() => {}), read = () => readCpuTemperature(settings) } = {}) {
   const seen = [];
   let hot = 0;
   let fired = false;
@@ -105,7 +105,7 @@ export function memoryFloorGb(env = process.env) {
   return Number.isFinite(value) && value >= 0 ? value : 5;
 }
 /** Samples the free memory every `everyMs`; `onLow(gb)` once under `floorGb` for `holds` samples in a row. */
-export function watchMemory({ everyMs = 5_000, floorGb = 0, holds = 2, onLow = () => {}, read = () => os.freemem() } = {}) {
+export function watchMemory({ everyMs = 5_000, floorGb = 0, holds = 2, onLow = /** @type {(gb: number) => void} */ (() => {}), read = () => os.freemem() } = {}) {
   const start = read();
   let low = start;
   let under = 0;
@@ -211,7 +211,11 @@ async function dropSlot(home, pid, id) {
   await writeSlots(home, (await readSlots(home)).filter((slot) => !(slot.pid === pid && slot.id === id)));
 }
 
-/** Waits for `threads` free threads (checking every `everyMs`), then takes them; `onWait(slots)` once while it waits. */
+/**
+ * Waits for `threads` free threads (checking every `everyMs`), then takes them; `onWait(slots)` once while it waits.
+ *
+ * @param {{ everyMs?: number, onWait?: (slots: object[]) => void, home?: string, id: string, threads: number, budget?: number, runner?: string, pid?: number }} options
+ */
 export async function waitForSlot({ everyMs = 5_000, onWait = () => {}, ...asked }) {
   let told = false;
   for (;;) {

@@ -14,6 +14,8 @@ import { count, timed, trace } from "./trace.js";
  * where it was available, not its parent's visits. The tree stops at `depth` plies; the root plays its most
  * visited move. Moves are matched across worlds by `key`.
  *
+ * @typedef {import("./types.js").World} World
+ * @typedef {import("./types.js").Move} Move
  * @typedef {object} Problem
  * @property {(state, rng) => World} sample        a scenario consistent with what is known
  * @property {(world) => string} actor             who decides now: a robot, the human, an opponent

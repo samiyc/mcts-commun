@@ -51,6 +51,7 @@ function jobOfOptions() {
     process.exit(1);
   }
   const job = { id, cwd: path.resolve(option("--cwd")), command: args.slice(at + 1).join(" "), estimate: option("--estimate", "1 h"), status: "todo" };
+  /** @type {Record<string, [string, (text: string) => any]>} */
   const read = { "--threads": ["threads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String] };
   for (const [flag, [key, parse]] of Object.entries(read)) if (option(flag) !== null) job[key] = parse(option(flag));
   return job;
