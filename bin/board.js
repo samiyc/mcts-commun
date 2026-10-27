@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { READERS, isFor, projectOf, threadOf, threadsOf, unreadOf } from "../node/board.js";
 import { boardHome, createBoard } from "../node/board-store.js";
 import { boardText, hookText, inboxText, threadText } from "../node/board-text.js";
+import { backlogHome } from "../node/machine.js";
+import { machineLoad } from "../node/slot-run.js";
 
 /**
  * `mcts-board`: the board the Claude sessions of the mcts-* projects post to and read (Sami, 27/10/2026: five sessions,
@@ -117,6 +119,19 @@ async function hookFor(input) {
   const { text, shown } = hookText(await board.read(), who, COMMAND);
   if (text) console.log(text);
   await board.mark("shown", shown, who);
+  const load = await loadLine();
+  if (load) console.log(load);
+}
+
+/**
+ * One line on the machine's threads while anything holds them (Sami, 27/10/2026: a session's tests beside a queue at
+ * 18 of 18): how many are taken, and how to run a test or a measure within the budget; nothing when all are free.
+ */
+async function loadLine() {
+  const { used, budget, free } = await machineLoad(backlogHome());
+  if (used === 0) return "";
+  const advice = free > 0 ? `TEST_CONCURRENCY=${free} au plus` : "aucun fil libre : le test attendra";
+  return `── Machine : ${used}/${budget} fils pris par la file. Un test ou une mesure hors file passe par les créneaux : npx mcts-backlog --slot N -- commande (${advice}). ──`;
 }
 
 /** For Claude Code's hooks: never a failed prompt, whatever happens here. */

@@ -120,6 +120,19 @@ async function tui() {
   await runTui({ home, budget });
 }
 
+/** `--slot N [--id NOM] -- COMMANDE`: the command run in N of the machine's threads, once free (node/slot-run.js). */
+async function slot() {
+  const at = args.indexOf("--");
+  const threads = Number(option("--slot"));
+  if (at < 0 || !Number.isInteger(threads) || threads < 1) {
+    console.error("usage : mcts-backlog --slot N [--id NOM] -- COMMANDE   (N fils pris dans les créneaux de la machine)");
+    return 1;
+  }
+  const command = commandOf(args.slice(at + 1));
+  const { runInSlot } = await import("../node/slot-run.js");
+  return runInSlot({ home, budget, threads, id: option("--id", `session:${path.basename(process.cwd())}:${command.slice(0, 40)}`), command });
+}
+
 async function push() {
   const ids = await pushJobs({ home, queue, name: option("--push"), journal });
   console.log(ids.length ? `Envoyé à ${option("--push")} : ${ids.join(", ")}` : `Rien à envoyer à ${option("--push")} (des jobs avec --machine ${option("--push")}).`);
@@ -130,14 +143,15 @@ async function pull() {
   console.log(`${option("--pull")} : ${ended.length} fini(s) rapatrié(s)${ended.length ? " (" + ended.join(", ") + ")" : ""}, ${waiting.length} encore là-bas.`);
 }
 
-const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry };
-const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout"];
+const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry, "--slot": slot };
+const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout", "--id"];
 const USAGE = `mcts-backlog : la file de la machine (docs/backlog.md)
   mcts-backlog                       lance la file jusqu'au bout
   --list [--done N] [--json] | --tui la file, en texte, en JSON ou en direct
   --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 1|2|3] [--after A,B] [--due ISO] [--limit MIN] [--skip-if "COMMANDE"] [--machine M] -- COMMANDE…
   --add-file FICHIER.json [--tag T | --no-tag] [--machine M]
   --status ID [--json] · --wait ID [--timeout MIN] · --cancel ID · --retry ID
+  --slot N [--id NOM] -- COMMANDE    un test ou une mesure hors file, dans N fils libres des créneaux de la machine
   --push M · --pull M · --list --machine M
   options : --home DOSSIER, --budget FILS`;
 

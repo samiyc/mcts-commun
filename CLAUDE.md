@@ -27,6 +27,8 @@ where the ISMCTS was built and measured). The plan and the reasons live in lopin
   `bin/` included: a module that outgrows it is split along its seams, the limit is never raised.
 - **The fingerprints** (`tests/api.test.js` for the search, `tests/fingerprint.test.js` for the grid, the scheduler
   and the events) hold what the library does for every project: a refactor changes none.
+- **One CPU budget**: while the queue runs, a test or a measure beside it goes through `mcts-backlog --slot N -- cmd`
+  (waits for N free threads of the 18; `TEST_CONCURRENCY` as the board's hook advises).
 - **The backlog runs**: never restart a runner at work, never write to `~/.mcts-backlog` but through `mcts-backlog`,
   check on a `--home` of a temporary folder. Its contract for other tools: `docs/backlog.md`.
 - **The sessions' board** (`board/`, out of git): written only through `mcts-board`, never by hand; tests use

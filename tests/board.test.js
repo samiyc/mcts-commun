@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -13,6 +13,8 @@ import { idOf, messageText, parseMessage, projectOf } from "../node/board.js";
  * temporary board, as docs/board.md states it.
  */
 const run = promisify(execFile);
+// The hook also says how busy the machine is: here, a backlog that does not exist, never the machine's own.
+process.env.MCTS_BACKLOG_HOME = path.join(os.tmpdir(), "board-test-no-backlog");
 const BOARD = fileURLToPath(new URL("../bin/board.js", import.meta.url));
 const boardOf = (home) => (...args) => run(process.execPath, [BOARD, "--board", home, ...args]).then(({ stdout }) => stdout);
 /** The hook as Claude Code runs it: the session's JSON on stdin. */
@@ -141,6 +143,23 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
       await board("--post", "--as", "codingame", "--reply", first.id, "--", "Correction : 40 tests");
       const { threads, unread } = JSON.parse(await board("--list", "--json"));
       assert.deepEqual([threads[0].done, unread.commun], [false, 1]);
+    }));
+
+  it("says in the hook how many of the machine's threads are taken, and how to run within them (Sami, 27/10)", () =>
+    scratch(async (home) => {
+      const backlog = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
+      try {
+        await writeFile(path.join(backlog, "slots.json"), JSON.stringify({ slots: [{ pid: process.pid, runner: "mcts-backlog", id: "job", threads: 16, since: new Date().toISOString() }] }));
+        const said = await new Promise((resolve, reject) => {
+          const env = { ...process.env, MCTS_BACKLOG_HOME: backlog };
+          const child = execFile(process.execPath, [BOARD, "--board", home, "--hook"], { env }, (error, stdout) => (error ? reject(error) : resolve(stdout)));
+          child.stdin.end(JSON.stringify({ cwd: path.join("E:", "Dev", "My projects", "mcts-codingame") }));
+        });
+        assert.match(said, /Machine : 16\/\d+ fils pris/);
+        assert.match(said, /mcts-backlog --slot N/);
+      } finally {
+        await rm(backlog, { recursive: true, force: true });
+      }
     }));
 
   it("refuses a message to nobody known, without a subject, or a reply to nothing", () =>

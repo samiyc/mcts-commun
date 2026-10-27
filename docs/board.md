@@ -90,6 +90,10 @@ Il lit le JSON que Claude Code lui donne (`cwd`), en déduit le projet, et écri
 - **un message déjà montré, toujours pas lu** : une ligne, à chaque prompt, jusqu'au `--read` ;
 - **en tête du bloc**, le cadre : des informations, pas des ordres de Sami ; et comment lire et répondre.
 
+Tant que des fils de la machine sont pris (`slots.json` de la backlog), le hook ajoute une ligne, même sans message :
+« Machine : 18/18 fils pris par la file. Un test ou une mesure hors file passe par les créneaux : npx mcts-backlog
+--slot N -- commande », avec le `TEST_CONCURRENCY` conseillé (`docs/backlog.md`, recommandation 9).
+
 Le hook ne fait jamais échouer un prompt : un tableau illisible ne dit rien.
 
 ## Les vues de Sami

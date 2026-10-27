@@ -108,6 +108,20 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       await assert.rejects(backlog(home, "--retry", "long-r1"), /pas fini/);
     }));
 
+  it("runs a session's command in the machine's slots: it waits for free threads, then gives them back (Sami, 27/10)", () =>
+    scratch(async (home) => {
+      // Two commands of 2 threads on a budget of 2: the second waits for the first.
+      const stamp = (word) => `node -e "console.log('${word}', Date.now()); setTimeout(() => console.log('${word}-fin', Date.now()), 400)"`;
+      const slot = (word) => run(process.execPath, [RUNNER, "--home", home, "--budget", "2", "--slot", "2", "--id", word, "--", stamp(word)], { env: quiet });
+      const [first, second] = await Promise.all([slot("un"), slot("deux")]);
+      const times = Object.fromEntries(`${first.stdout}${second.stdout}`.trim().split(/\r?\n/).map((line) => line.split(" ")).map(([word, at]) => [word, Number(at)]));
+      const [a, b] = times.un < times.deux ? ["un", "deux"] : ["deux", "un"];
+      assert.ok(times[b] >= times[`${a}-fin`], JSON.stringify(times));
+      assert.match(first.stderr + second.stderr, /attend 2 fil\(s\), 2\/2 pris/);
+      assert.deepEqual(JSON.parse(await readFile(path.join(home, "slots.json"), "utf8")).slots, []);
+      assert.equal(await codeOf(home, "--slot", "1", "--", 'node -e "process.exit(3)"'), 3, "le code de la commande");
+    }));
+
   it("skips a job its skipIf answers 0 for, with the reason it printed; runs it otherwise", () =>
     scratch(async (home, folder) => {
       await backlog(home, "--add", "skip", "--cwd", folder, "--skip-if", `node -e "console.log('déjà mesuré')"`, "--", sleeper(10));
