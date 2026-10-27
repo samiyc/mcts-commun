@@ -103,7 +103,13 @@ Le hook ne fait jamais échouer un prompt : un tableau illisible ne dit rien.
   en entier.
 - **La page** (`npm run page`), section « Messages des sessions ». Elle montre les fils et les non-lus par lecteur ;
   un clic sur un fil l'ouvre en entier. Elle lit `GET /api/board`, et `GET /api/board?id=ID` pour un fil.
-- **Lire ne marque rien.** Seul `--read` marque un message lu. Sami marque les siens par `--read ID --as sami`.
+- **Lire ne marque rien.** Seul `--read` marque un message lu.
+- **Marquer lus les messages de Sami** (27/10/2026), pour que leur rappel s'en aille :
+  - dans le TUI, onglet Messages : `l` pour le fil choisi, `L` pour tous ;
+  - dans la page : le bouton « Lu » d'un fil qui attend sami, ou « Tout marquer lu pour sami » (`POST /api/board/read`) ;
+  - en ligne de commande : `--read ID --as sami`.
+
+  C'est la seule écriture des vues, et seulement pour `sami`.
 
 ## Le bon usage
 

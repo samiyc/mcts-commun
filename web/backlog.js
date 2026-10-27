@@ -25,7 +25,8 @@ async function showTail() {
 }
 document.addEventListener("click", (event) => {
   const row = /** @type {HTMLElement} */ (/** @type {Element} */ (event.target).closest("tr.click"));
-  if (!row) return;
+  // A button in a row (the board's "Lu") acts by itself, it does not open the row.
+  if (!row || /** @type {Element} */ (event.target).closest("button")) return;
   following = { id: row.dataset.id, kind: row.dataset.kind };
   $("tail-title").textContent = row.dataset.id;
   $("tail-lines").textContent = "…";

@@ -2,7 +2,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { CSI, RESET } from "./ansi.js";
 import { readBacklog, viewOf } from "./backlog-view.js";
-import { boardView } from "./board-store.js";
+import { boardView, markReadFor } from "./board-store.js";
 import { stylesOf } from "./backlog-text.js";
 import { tailOf } from "./tail.js";
 import { pagerOf, screenOf } from "./tui-screen.js";
@@ -14,7 +14,8 @@ export { TABS, fileOf, rowsOf } from "./tui-tabs.js";
 
 /**
  * `mcts-backlog --tui`: the machine's backlog in a terminal view that follows it live, after k9s and lazydocker (Sami,
- * 26/10/2026: `--list` was obscure). Read only: the runner may be at work, nothing here writes to its files. Drawn
+ * 26/10/2026: `--list` was obscure). Read only: the runner may be at work, nothing here writes to its files; the one
+ * write is the board's, l and L in the Messages tab, Sami's messages marked read through mcts-board's store. Drawn
  * with plain ANSI codes, no dependency; refreshed every 2 s.
  *
  * The screens are laid out by node/tui-screen.js (pure, tested), the tabs by node/tui-tabs.js and the panel below by
@@ -117,7 +118,19 @@ async function openPager(ctx) {
   draw(ctx);
 }
 
+const BOARD_TAB = TABS.findIndex((tab) => tab.title === "Messages");
+
+/** l: the chosen thread's messages to Sami marked read; L: all of them (Sami, 27/10/2026). Only in the Messages tab. */
+async function markSami(ctx, all) {
+  const row = chosenRow(ctx);
+  if (ctx.ui.tab !== BOARD_TAB || (!all && !row)) return;
+  const marked = await markReadFor("sami", { thread: all ? null : row.id });
+  ctx.ui.message = `${marked} message(s) marqué(s) lu(s) pour sami`;
+  await load(ctx);
+}
+
 const LIST_ACTIONS = {
+  l: (ctx, press) => markSami(ctx, press.text === "L"),
   q: (ctx) => ctx.quit(),
   escape: (ctx) => choose(ctx, (ui) => Object.assign(ui, { help: false, filter: "" })),
   "?": (ctx) => choose(ctx, (ui) => (ui.help = !ui.help)),
@@ -130,7 +143,7 @@ const LIST_ACTIONS = {
 
 function listKey(ctx, { name, text }) {
   const action = LIST_ACTIONS[name] ?? LIST_ACTIONS[text];
-  if (action) return action(ctx);
+  if (action) return action(ctx, { name, text });
   if (/^[1-7]$/.test(text ?? "")) return tabTo(ctx, Number(text) - 1);
   if (!STEPS[name]) return undefined;
   const count = ctx.view ? rowsOf(ctx.view, ctx.ui.tab, ctx.ui.filter).length : 0;

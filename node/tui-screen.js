@@ -9,8 +9,9 @@ const HELP = [
   "← →  Tab  1-7   changer d'onglet         Entrée           la sortie (ou la trace) en plein écran",
   "/               filtrer (Échap efface)   r                relire maintenant",
   "?               cette aide               q  Ctrl+C        quitter",
+  "l  L            (onglet Messages) marquer lus pour sami les messages du fil choisi, ou tous",
   "",
-  "Lecture seule : le lanceur peut tourner, rien ici n'écrit dans ses fichiers.",
+  "Lecture seule : le lanceur peut tourner, rien ici n'écrit dans ses fichiers ; seuls l et L écrivent, dans le tableau.",
   "Une trace bat toutes les 30 s : muette depuis 2 min, le job est sans doute coincé dans un calcul.",
 ];
 
@@ -62,6 +63,7 @@ function tableLines(list, shown, context) {
 function keysLine(ui, s) {
   if (ui.typing) return `${s.yellow("/")}${ui.filter}${s.inverse(" ")}  ${s.gray("Entrée garde, Échap efface")}`;
   if (ui.message) return s.red(ui.message);
+  if (ui.tab === TABS.findIndex((tab) => tab.title === "Messages")) return s.gray(" ↑↓ choisir  Entrée le dernier message  l lu pour sami (fil)  L tout lu  ? aide  q quitter");
   return s.gray(" ↑↓ choisir  ←→ onglets  Entrée sortie  / filtrer  ? aide  q quitter   (lecture seule)");
 }
 

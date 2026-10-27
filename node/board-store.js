@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { READERS, boardOf, checkNames, idOf, messageText, parseMessage, threadsOf, unreadOf } from "./board.js";
+import { READERS, boardOf, checkNames, idOf, isFor, messageText, parseMessage, threadOf, threadsOf, unreadOf } from "./board.js";
 import { withLock } from "./machine.js";
 
 /**
@@ -44,6 +44,19 @@ async function readJournal(file) {
 export async function boardView(home = boardHome()) {
   const board = await createBoard(home).read();
   return { threads: threadsOf(board), unread: Object.fromEntries(READERS.map((reader) => [reader, unreadOf(board, reader).length])) };
+}
+
+/**
+ * Marks read for `reader` the messages addressed to them, of `thread` or of the whole board: how many (Sami,
+ * 27/10/2026: a key in the TUI, a button on the page, so that his reminders go once read).
+ */
+export async function markReadFor(reader, { thread = null, home = boardHome() } = {}) {
+  const store = createBoard(home);
+  const board = await store.read();
+  const scope = thread && board.byId.has(thread) ? threadOf(board, thread) : board.messages;
+  const ids = scope.filter((message) => isFor(message, reader) && !board.read.has(`${message.id}|${reader}`)).map((message) => message.id);
+  await store.mark("read", ids, reader);
+  return ids.length;
 }
 
 /** The board kept in `home`: `read()` its state (node/board.js `boardOf`), `post(message)`, `mark(kind, ids, by)`. */

@@ -7,6 +7,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { idOf, messageText, parseMessage, projectOf } from "../node/board.js";
+import { markReadFor } from "../node/board-store.js";
 
 /**
  * The sessions' board (Sami, 27/10/2026: five Claude sessions passed their news by copy and paste): bin/board.js on a
@@ -160,6 +161,19 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
       } finally {
         await rm(backlog, { recursive: true, force: true });
       }
+    }));
+
+  it("marks read Sami's messages, a thread's or all, as the TUI's l and L and the page's buttons do (Sami, 27/10)", () =>
+    scratch(async (home, board) => {
+      await board("--post", "--as", "commun", "--to", "sami", "--subject", "Un", "--", "x");
+      await board("--post", "--as", "cuisine", "--to", "tous", "--subject", "Deux", "--", "y");
+      await board("--post", "--as", "entrepot", "--to", "commun", "--subject", "Pas pour Sami", "--", "z");
+      const [one] = JSON.parse(await board("--inbox", "--as", "sami", "--json")).filter((message) => message.subject === "Un");
+      assert.equal(await markReadFor("sami", { thread: one.id, home }), 1);
+      assert.equal(JSON.parse(await board("--list", "--json")).unread.sami, 1);
+      assert.equal(await markReadFor("sami", { home }), 1, "le reste, sans le message à commun");
+      const { unread } = JSON.parse(await board("--list", "--json"));
+      assert.deepEqual([unread.sami, unread.commun], [0, 2], "commun garde les siens : le message à tous et le sien");
     }));
 
   it("refuses a message to nobody known, without a subject, or a reply to nothing", () =>

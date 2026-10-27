@@ -3,7 +3,7 @@ import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { readBacklog, viewOf } from "../node/backlog-view.js";
-import { boardView, createBoard } from "../node/board-store.js";
+import { boardView, createBoard, markReadFor } from "../node/board-store.js";
 import { threadText } from "../node/board-text.js";
 import { backlogHome, threadBudget } from "../node/machine.js";
 import { tailOf } from "../node/tail.js";
@@ -105,6 +105,25 @@ async function board(url, response) {
   json(response, 200, { file: state.byId.get(id).file, lines: threadText(state, id).split("\n") });
 }
 
+/**
+ * `POST /api/board/read` with `{ "id": ID }` or `{}`: Sami's messages of that thread, or all, marked read (Sami,
+ * 27/10/2026: a button on the page). The page's one write, on 127.0.0.1, for sami alone.
+ */
+async function boardRead(request, response) {
+  let body = "";
+  for await (const chunk of request) {
+    body += chunk;
+    if (body.length > 4096) return json(response, 413, { error: "trop gros" });
+  }
+  let asked;
+  try {
+    asked = JSON.parse(body || "{}");
+  } catch {
+    return json(response, 400, { error: "pas du JSON" });
+  }
+  json(response, 200, { marked: await markReadFor("sami", { thread: typeof asked.id === "string" ? asked.id : null }) });
+}
+
 /** The file whose end `/api/backlog/tail` gives: a running or ended job's output, or a trace. */
 function tailFile(view, id, kind, home) {
   const inHome = (file) => (file ? path.join(home, file) : null);
@@ -140,6 +159,7 @@ const ROUTES = [
   { path: "/api/backlog", methods: ["GET"], handle: (request, response, url) => backlog(url, response) },
   { path: "/api/backlog/tail", methods: ["GET"], handle: (request, response, url) => backlog(url, response) },
   { path: "/api/board", methods: ["GET"], handle: (request, response, url) => board(url, response) },
+  { path: "/api/board/read", methods: ["POST"], handle: (request, response) => boardRead(request, response) },
 ];
 
 async function serve(request, response) {
