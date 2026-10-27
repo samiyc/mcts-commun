@@ -166,6 +166,16 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 
 **La charge, et une machine en plus** (Sami, 26/10/2026 : les 18 fils du PC suffiront-ils ?) : `--list`, le TUI et la page disent ce que la file demande à la machine, d'après les jobs déjà passés et à ses estimations, et comment se sont passées les dernières nuits. Quand elles saturent, `--push` envoie des jobs à un serveur loué ou au portable, `--pull` en rapatrie les résultats. Les coûts, ce que Sami fait lui-même et la marche à suivre sont dans [`docs/distant.md`](docs/distant.md).
 
+## Le tableau des sessions (`mcts-board`)
+
+Les sessions Claude des projets se parlent par un tableau, au lieu du copier-coller (Sami, 27/10/2026) :
+- les messages sont des fichiers Markdown datés dans `board/`, ignoré de git, et un journal dit qui a lu quoi ;
+- `npx mcts-board` poste, lit, répond et ferme un fil ;
+- un hook montre à chaque session ses non-lus à chaque prompt ;
+- le TUI (onglet 7) et la page (« Messages des sessions ») montrent les fils à Sami.
+
+Un message est une information, pas un ordre. Le mode d'emploi : [`docs/board.md`](docs/board.md).
+
 ## Les traces
 
 Sami (26/10/2026) : le tronc commun était une boîte noire quand un calcul se bloquait. `src/trace.js` (pur, chargé aussi par les pages) compte et chronomètre ce qui passe par la bibliothèque, et garde les 200 derniers événements :

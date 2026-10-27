@@ -2,6 +2,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { CSI, RESET } from "./ansi.js";
 import { readBacklog, viewOf } from "./backlog-view.js";
+import { boardView } from "./board-store.js";
 import { stylesOf } from "./backlog-text.js";
 import { tailOf } from "./tail.js";
 import { pagerOf, screenOf } from "./tui-screen.js";
@@ -52,7 +53,7 @@ async function load(ctx) {
   ctx.loading = true;
   const { ui } = ctx;
   try {
-    ctx.view = viewOf(await readBacklog(ctx.home, { budget: ctx.budget }));
+    ctx.view = { ...viewOf(await readBacklog(ctx.home, { budget: ctx.budget })), board: await boardView().catch(() => null) };
     // Keep the row chosen on its job when the list moves.
     const index = rowsOf(ctx.view, ui.tab, ui.filter).findIndex((row) => rowKey(row) === ctx.chosen.get(ui.tab));
     if (index >= 0) ui.selected = index;
@@ -130,7 +131,7 @@ const LIST_ACTIONS = {
 function listKey(ctx, { name, text }) {
   const action = LIST_ACTIONS[name] ?? LIST_ACTIONS[text];
   if (action) return action(ctx);
-  if (/^[1-6]$/.test(text ?? "")) return tabTo(ctx, Number(text) - 1);
+  if (/^[1-7]$/.test(text ?? "")) return tabTo(ctx, Number(text) - 1);
   if (!STEPS[name]) return undefined;
   const count = ctx.view ? rowsOf(ctx.view, ctx.ui.tab, ctx.ui.filter).length : 0;
   const page = Math.max(3, Math.round((size(ctx).rows - 6) * 0.55));

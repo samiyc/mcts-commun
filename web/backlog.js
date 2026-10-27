@@ -1,5 +1,6 @@
 // The backlog's page (Sami, 26/10/2026: the backlog was a black box): GET /api/backlog every 2 s (bin/serve.js), drawn,
 // a module a section. The words are the terminal's (node/backlog-text.js imports nothing of Node: the page loads it).
+import { board } from "./backlog-board.js";
 import { $ } from "./backlog-html.js";
 import { finished, held, running } from "./backlog-jobs.js";
 import { journal, traces } from "./backlog-log.js";
@@ -13,7 +14,8 @@ const dialog = () => /** @type {HTMLDialogElement} */ ($("tail"));
 let following = null;
 async function showTail() {
   if (!following) return;
-  const response = await fetch(`/api/backlog/tail?id=${encodeURIComponent(following.id)}&kind=${following.kind}`);
+  const id = encodeURIComponent(following.id);
+  const response = await fetch(following.kind === "board" ? `/api/board?id=${id}` : `/api/backlog/tail?id=${id}&kind=${following.kind}`);
   const body = await response.json();
   const pre = $("tail-lines");
   const atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 8;
@@ -41,6 +43,11 @@ async function refresh() {
     const view = await response.json();
     if (!response.ok) throw new Error(view.error ?? response.statusText);
     for (const draw of [machine, alerts, running, night, nights, held, finished, journal, traces]) draw(view);
+    // The board apart: a board that cannot be read leaves the backlog drawn.
+    await fetch("/api/board", { cache: "no-store" })
+      .then((answer) => answer.json())
+      .then(board)
+      .catch(() => {});
     await showTail();
     pulse.className = "pulse beat";
     pulse.textContent = `en direct · ${new Date(view.now).toLocaleTimeString("fr-FR")}`;

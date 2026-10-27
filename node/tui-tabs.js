@@ -1,5 +1,6 @@
 import path from "node:path";
 import { clip } from "./ansi.js";
+import { threadState, when } from "./board-text.js";
 import { alarmsOf, clockText, durationText, fit, maybe, noticesOf, notesText, paren, progressNote, progressText, relativeText, stampText, statusOf, tagsOf } from "./backlog-text.js";
 
 /**
@@ -84,6 +85,15 @@ function traceRow(trace, w, s) {
   return `${clip(traceState(trace, s), 14)} ${fit(trace.id ?? trace.name, w.id + 18)} ${incidents}${s.gray(countersText(trace.counters))}`;
 }
 
+/** A thread of the board: its last message's time and ends, its subject, its state (closed, waiting on whom, read). */
+function boardRow(thread, w, s) {
+  let color = "green";
+  if (thread.done) color = "gray";
+  else if (thread.waiting.length > 0) color = "yellow";
+  const ends = thread.last.from + " → " + thread.last.to.join(", ");
+  return `${s.gray(fit(when(thread.last.at), 12))} ${fit(ends, 24)} ${fit(thread.subject, w.id + 10)} ${s[color](threadState(thread))}`;
+}
+
 /** The tabs: what each lists, its columns, a row's line, and what an empty one says. */
 export const TABS = [
   { title: "En cours", rows: (view) => view.running, head: (w) => headOf(["", "projet", "job", "fils", "avancement", "à surveiller"], [2, 10, w.id, 5, 24, 40]), line: runningRow },
@@ -112,17 +122,26 @@ export const TABS = [
     head: (w) => headOf(["état", "trace", "appels de la bibliothèque"], [14, w.id + 18, 40]),
     line: traceRow,
   },
+  {
+    title: "Messages",
+    rows: (view) => view.board?.threads ?? [],
+    empty: "Aucun message : les sessions postent par npx mcts-board --post (docs/board.md).",
+    head: (w) => headOf(["dernier", "de → à", "sujet", "état"], [12, 24, w.id + 10, 30]),
+    line: boardRow,
+  },
 ];
 
-const textOf = (row) => [row.id, row.project, row.command, row.reason, row.kind, row.name, row.message].filter(Boolean).join(" ").toLowerCase();
+const textOf = (row) => [row.id, row.project, row.command, row.reason, row.kind, row.name, row.message, row.subject].filter(Boolean).join(" ").toLowerCase();
 /** The rows of tab `index`, the filter applied. */
 export const rowsOf = (view, index, filter = "") => TABS[index].rows(view).filter((row) => !filter || textOf(row).includes(filter.toLowerCase()));
 
-/** The file whose end the panel shows for `row`: a job's output, a trace. */
-export function fileOf(index, row, home) {
-  if (!row) return null;
-  if (index === 0) return row.output;
-  if (index === 3 && row.output) return path.join(home, row.output);
-  if (index === 5) return row.file;
-  return null;
-}
+/** By tab, the file whose end the panel shows: a job's output, a trace, a thread's last message. */
+const FILES = {
+  0: (row) => row.output,
+  3: (row, home) => (row.output ? path.join(home, row.output) : null),
+  5: (row) => row.file,
+  6: (row) => row.last?.file,
+};
+
+/** The file whose end the panel shows for `row` in tab `index`, or null. */
+export const fileOf = (index, row, home) => (row && FILES[index] ? (FILES[index](row, home) ?? null) : null);

@@ -25,9 +25,15 @@ describe("the backlog's terminal view (node/tui.js, Sami 26/10: like k9s, read o
     alivePids: [1],
   });
 
+  // The sessions' board (27/10/2026), read beside the backlog: a thread waiting on the kitchen.
+  const last = { id: "2026-10-26T1950-commun-essai", at: "2026-10-26T19:50:00", from: "commun", to: ["cuisine"], subject: "Essai", file: null };
+  view.board = { threads: [{ id: last.id, subject: last.subject, first: last, last, count: 1, done: false, waiting: ["cuisine"] }], unread: { cuisine: 1 } };
+
   it("lays every tab out on exactly the terminal's size, whatever it holds", () => {
+    const board = screenOf(view, { tab: 6, selected: 0, offset: 0, filter: "", tail: [] }, { cols: 120, rows: 20 }).map(visible).join("\n");
+    for (const words of ["7 Messages 1", "commun → cuisine", "attend cuisine", "npx mcts-board --read"]) assert.ok(board.includes(words), words);
     for (const [cols, rows] of [[120, 30], [60, 12], [200, 50]]) {
-      for (let tab = 0; tab < 6; tab += 1) {
+      for (let tab = 0; tab < 7; tab += 1) {
         const lines = screenOf(view, { tab, selected: 0, offset: 0, filter: "", tail: ["une ligne de sortie"] }, { cols, rows });
         assert.equal(lines.length, rows);
         lines.forEach((line, i) => assert.equal(visible(line).length, i === rows - 1 ? cols - 1 : cols, `onglet ${tab}, ligne ${i} : ${visible(line)}`));

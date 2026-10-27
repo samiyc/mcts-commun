@@ -54,6 +54,12 @@
         <p class="hint">Chaque job lancé par le lanceur (et chaque <code>MCTS_TRACE=1</code> à la main) trace ce qui passe par <code>mcts-commun</code> : les appels de la recherche et d'A*, leurs erreurs, les appels lents, un battement toutes les 30 s. Une trace muette depuis 2 min : le calcul est sans doute coincé.</p>
         <div class="scroll"><table id="traces"></table></div>
       </details>
+
+      <details open id="board-card">
+        <summary>Messages des sessions <span class="count" id="board-count"></span></summary>
+        <p class="hint">Le tableau des sessions Claude (<code>npx mcts-board</code>, docs/board.md), en lecture seule ; chaque session voit ses non-lus à chaque prompt. Non lus : <span id="board-unread"></span></p>
+        <div class="scroll"><table id="board"></table></div>
+      </details>
     </main>
 
     <dialog id="tail">

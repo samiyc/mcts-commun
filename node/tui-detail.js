@@ -67,14 +67,17 @@ function traceDetail(row, field, { s }) {
   ];
 }
 
+/** A thread of the board: its messages, whom it waits on; the panel's end is its last message. */
+const boardDetail = (row, field, { s }) => [`${s.bold(row.subject)}  ${s.gray(row.id)}`, ...field("messages", row.count), ...field("état", row.done ? "fermé" : row.waiting.join(", ") || "lu par tous"), ...field("lire", `npx mcts-board --read ${row.last.id}`)];
+
 /** @type {Array<(row: any, field: (name: string, value: any) => string[], context: { view: any, s: any }) => string[]>} */
-const DETAILS = [runningDetail, plannedDetail, blockedDetail, finishedDetail, journalDetail, traceDetail];
+const DETAILS = [runningDetail, plannedDetail, blockedDetail, finishedDetail, journalDetail, traceDetail, boardDetail];
 
 /** What the panel below the table says of `row` in tab `index`, as lines; `tail` is the end of its output or trace. */
 export function detailOf(index, row, { view, s, tail }) {
   if (!row) return [s.gray("Rien à montrer ici.")];
   const field = fieldOf(s);
   const head = index <= 3 ? [`${s.bold(row.id)}  ${s.gray(row.project)}`, ...field("commande", row.command), ...field("dossier", row.cwd)] : [];
-  const end = tail?.length ? [s.gray(`── fin de ${index === 5 ? "la trace" : "la sortie"} ${"─".repeat(40)}`), ...tail.map((line) => s.gray(line))] : [];
+  const end = tail?.length ? [s.gray(`── fin de ${["la sortie", "la trace", "son dernier message"][Math.max(0, index - 4)]} ${"─".repeat(40)}`), ...tail.map((line) => s.gray(line))] : [];
   return [...head, ...DETAILS[index](row, field, { view, s }), ...end];
 }

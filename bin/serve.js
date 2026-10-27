@@ -3,6 +3,8 @@ import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { readBacklog, viewOf } from "../node/backlog-view.js";
+import { boardView, createBoard } from "../node/board-store.js";
+import { threadText } from "../node/board-text.js";
 import { backlogHome, threadBudget } from "../node/machine.js";
 import { tailOf } from "../node/tail.js";
 
@@ -91,6 +93,18 @@ async function backlog(url, response) {
   json(response, 200, { file, lines: await tailOf(file, { lines: Number(url.searchParams.get("lines") ?? 400) }) });
 }
 
+/**
+ * The sessions' board (Sami, 27/10/2026; docs/board.md), read only: its threads and unread by reader, or with `id` a
+ * thread in full, as `/api/backlog/tail` gives a file's end. Reading marks nothing: only `mcts-board --read` does.
+ */
+async function board(url, response) {
+  const id = url.searchParams.get("id");
+  if (!id) return json(response, 200, await boardView());
+  const state = await createBoard().read();
+  if (!state.byId.has(id)) return json(response, 404, { error: `pas de message ${id}` });
+  json(response, 200, { file: state.byId.get(id).file, lines: threadText(state, id).split("\n") });
+}
+
 /** The file whose end `/api/backlog/tail` gives: a running or ended job's output, or a trace. */
 function tailFile(view, id, kind, home) {
   const inHome = (file) => (file ? path.join(home, file) : null);
@@ -125,6 +139,7 @@ const ROUTES = [
   { path: "/api/replays", methods: ["GET", "POST"], handle: (request, response) => replays(request, response) },
   { path: "/api/backlog", methods: ["GET"], handle: (request, response, url) => backlog(url, response) },
   { path: "/api/backlog/tail", methods: ["GET"], handle: (request, response, url) => backlog(url, response) },
+  { path: "/api/board", methods: ["GET"], handle: (request, response, url) => board(url, response) },
 ];
 
 async function serve(request, response) {

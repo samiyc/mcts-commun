@@ -6,7 +6,7 @@ import { TABS, rowsOf } from "./tui-tabs.js";
 /** The terminal view's screens (node/tui.js), as lines: the main one and the pager. Pure. */
 const HELP = [
   "↑ ↓  j k        choisir une ligne        PgUp PgDn  g G   défiler, début, fin",
-  "← →  Tab  1-6   changer d'onglet         Entrée           la sortie (ou la trace) en plein écran",
+  "← →  Tab  1-7   changer d'onglet         Entrée           la sortie (ou la trace) en plein écran",
   "/               filtrer (Échap efface)   r                relire maintenant",
   "?               cette aide               q  Ctrl+C        quitter",
   "",
@@ -27,7 +27,8 @@ function tabsLine(view, ui, s) {
     const label = ` ${index + 1} ${tab.title} ${rowsOf(view, index, ui.filter).length} `;
     return index === ui.tab ? s.inverse(s.bold(label)) : s.gray(label);
   });
-  return labels.join(" ") + (ui.filter ? s.yellow("  filtre : " + ui.filter) : "");
+  // The filter first: seven tabs fill a narrow terminal, and what is cut must not be what was typed.
+  return (ui.filter ? s.yellow(" filtre : " + ui.filter + " ") : "") + labels.join(" ");
 }
 
 /** Keeps the row chosen inside the list and in sight among `shown` rows. */
