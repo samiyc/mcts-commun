@@ -183,29 +183,50 @@ const sizeOf = (node) => 1 + [...node.children.values()].reduce((sum, child) => 
  * `common`: judge the root's moves on common worlds (`iterateCommon`), when the root's moves are known in
  * every world and the worlds' noise dwarfs the moves' differences (a whole shift, a whole day to come).
  *
+ * `deadline` (Sami, 27/10/2026: a CodinGame bot has 50 ms a turn, not a number of iterations): iterate until
+ * `now()` reaches it, `budget` then optional and a cap; at least one iteration, so a move comes back even late.
+ * `now` is `performance.now` unless given (a test's clock). Without `deadline`, nothing changes.
+ *
  * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }}
  */
-export function search(state, problem, { budget, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false }) {
+export function search(state, problem, { budget, deadline, now = clock, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false }) {
   // Traced (src/trace.js): counted and timed; an error or a slow search kept with its settings.
-  return timed("search", () => searchTree(state, problem, { budget, rng, depth, explore, common }), () => ({ budget, depth, explore, common }));
+  const limit = { budget, deadline, now };
+  return timed("search", () => searchTree(state, problem, { limit, rng, depth, explore, common }), () => ({ budget, deadline, depth, explore, common }));
 }
 
-function searchTree(state, problem, { budget, rng, depth, explore, common }) {
+const clock = () => globalThis.performance.now();
+
+/** Throws unless `budget` is a whole number of iterations, or absent with a `deadline` to stop the search. */
+function checkLimit({ budget, deadline }) {
+  if (budget === undefined && Number.isFinite(deadline)) return;
   if (!Number.isInteger(budget) || budget < 1) throw new Error(`budget: a whole number of iterations, not ${budget}`);
+}
+
+function searchTree(state, problem, { limit, rng, depth, explore, common }) {
+  checkLimit(limit);
   checkProblem(problem);
-  count("search", "iterations", budget);
   const root = createNode(null, "", "");
   const settings = { problem, rng, depth, explore };
   if (common) settings.common = commonRoot(state, problem, rng);
-  iterateAll(root, state, settings, budget);
+  count("search", "iterations", iterateAll(root, state, settings, limit));
   return resultOf(root);
 }
 
-/** `budget` iterations, on common worlds when asked (none when the root has no move known in every world). */
-function iterateAll(root, state, settings, budget) {
-  if (settings.common?.moves.size === 0) return;
+/**
+ * Iterates up to `budget` and until `deadline`, on common worlds when asked (none when the root has no move
+ * known in every world); returns how many iterations it ran.
+ */
+function iterateAll(root, state, settings, { budget = Infinity, deadline, now }) {
+  if (settings.common?.moves.size === 0) return 0;
   const once = settings.common ? iterateCommon : iterate;
-  for (let i = 0; i < budget; i += 1) once(root, state, settings);
+  const late = deadline === undefined ? () => false : () => now() >= deadline;
+  let done = 0;
+  do {
+    once(root, state, settings);
+    done += 1;
+  } while (done < budget && !late());
+  return done;
 }
 
 /** What `search` returns, read from the root's children. */

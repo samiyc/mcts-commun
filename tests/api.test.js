@@ -50,7 +50,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     const stated = [...README.matchAll(/@property \{[^}]*\} \[?(\w+)\]?/g)].map((match) => match[1]);
     assert.deepEqual(stated.sort(), [...mcts.PROBLEM.required, ...mcts.PROBLEM.optional].sort());
     assert.match(README, /\[shortlist\]/);
-    assert.match(README, /export function search\(state, problem, \{ budget, rng, depth = 5, explore = 0\.7, common = false \}\)/);
+    assert.match(README, /export function search\(state, problem, \{ budget, deadline, now, rng, depth = 5, explore = 0\.7, common = false \}\)/);
     assert.match(README, /move: Move \| null, value: number, visits: Map<string, number>, stats: object\[\], size: number/);
   });
 

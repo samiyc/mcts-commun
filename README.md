@@ -54,8 +54,13 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  */
 
 /** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }} */
-export function search(state, problem, { budget, rng, depth = 5, explore = 0.7, common = false }) {}
+export function search(state, problem, { budget, deadline, now, rng, depth = 5, explore = 0.7, common = false }) {}
 ```
+
+**Le temps plutôt que les itérations** (Sami, 27/10/2026, pour les bots CodinGame : 50 ms par tour) : avec
+`deadline` (un instant de `now()`, `performance.now` par défaut), la recherche itère jusqu'à cette heure ; `budget`
+devient facultatif et sert de plafond. Elle fait toujours au moins une itération, pour rendre un coup même en
+retard. Sans `deadline`, rien ne change.
 
 Ce que fait une itération : elle tire un monde compatible avec ce qu'on sait (`sample`), descend l'arbre sur
 les coups que ce monde permet (UCB1, compté sur les itérations où le coup était possible), ajoute le premier

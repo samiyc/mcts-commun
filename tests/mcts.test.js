@@ -32,6 +32,24 @@ describe("the tree search over hidden information (src/mcts.js)", () => {
     assert.throws(() => search({ pile: 3, toMove: "A" }, nim, { budget: 0 }), /budget/);
   });
 
+  it("stops at its deadline, budget then optional and a cap, and plays at least once", () => {
+    const ticking = () => {
+      let time = 0;
+      return () => (time += 1);
+    };
+    const spent = (found) => found.stats.reduce((sum, one) => sum + one.visits, 0);
+    const state = { pile: 9, toMove: "A" };
+    assert.equal(spent(search(state, nim, { deadline: 100, now: ticking() })), 100);
+    assert.equal(spent(search(state, nim, { budget: 30, deadline: 100, now: ticking() })), 30);
+    assert.equal(spent(search(state, nim, { deadline: 0, now: ticking() })), 1);
+    assert.deepEqual(
+      search(state, nim, { deadline: 500, now: ticking(), rng: createRng(8) }).stats,
+      search(state, nim, { budget: 500, rng: createRng(8) }).stats,
+    );
+    assert.ok(spent(search(state, nim, { deadline: performance.now() + 20 })) > 0);
+    assert.throws(() => search(state, nim, { deadline: Number.NaN }), /budget/);
+  });
+
   it("keeps to the shortlist and to its depth", () => {
     const wide = { ...nim, moves: (world) => [1, 2, 3, 4, 5].filter((take) => take <= world.pile), shortlist: (world, moves) => moves.slice(0, 2) };
     const found = search({ pile: 20, toMove: "A" }, wide, { budget: 300, depth: 1 });
