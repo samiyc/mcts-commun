@@ -111,7 +111,7 @@ dialog#tail { width: min(1100px, calc(100vw - 32px)); max-height: calc(100vh - 4
 dialog#tail::backdrop { background: rgb(0 0 0 / 0.35); }
 dialog#tail header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--accent-soft); border-bottom: 1px solid var(--line); }
 dialog#tail header button { margin-left: auto; }
-dialog#tail pre { margin: 0; padding: 12px 14px; max-height: calc(100vh - 140px); overflow: auto; font: 0.8rem/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre; }
+dialog#tail pre { margin: 0; padding: 12px 14px; max-height: calc(100vh - 140px); overflow: auto; font: 0.8rem/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
   .journal li { grid-template-columns: 8ch 1fr; }

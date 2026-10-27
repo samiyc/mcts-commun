@@ -1,6 +1,6 @@
 import path from "node:path";
 import readline from "node:readline";
-import { CSI, RESET } from "./ansi.js";
+import { CSI, RESET, wrapLines } from "./ansi.js";
 import { readBacklog, viewOf } from "./backlog-view.js";
 import { boardView, markReadFor } from "./board-store.js";
 import { stylesOf } from "./backlog-text.js";
@@ -45,8 +45,14 @@ async function loadTail(ctx) {
   const { pager } = ctx;
   if (!pager?.file) return;
   const atEnd = pager.top >= pager.lines.length - pagerRows(ctx);
-  pager.lines = await tailOf(pager.file, WHOLE);
+  pagerLines(ctx, await tailOf(pager.file, WHOLE));
   if (atEnd) pager.top = Math.max(0, pager.lines.length - pagerRows(ctx));
+}
+
+/** The pager's lines, kept as read (`raw`) and wrapped to the screen's width (`lines`); `raw` alone wraps them again. */
+function pagerLines(ctx, raw = ctx.pager.raw) {
+  Object.assign(ctx.pager, { raw, lines: wrapLines(raw, size(ctx).cols) });
+  ctx.pager.top = Math.min(ctx.pager.top, Math.max(0, ctx.pager.lines.length - pagerRows(ctx)));
 }
 
 async function load(ctx) {
@@ -90,11 +96,13 @@ function keyName(text, key) {
 const STEPS = { down: (at) => at + 1, up: (at) => at - 1, pagedown: (at, page) => at + page, pageup: (at, page) => at - page, home: () => 0, end: (_at, _page, last) => last };
 const stepTo = (step, at, page, last) => Math.max(0, Math.min(last, step(at, page, last)));
 
-function pagerKey(ctx, { name }) {
+async function pagerKey(ctx, { name }) {
   const { pager } = ctx;
   const step = STEPS[name === "space" ? "pagedown" : name];
-  if (["q", "escape", "return"].includes(name)) ctx.pager = null;
-  else if (step) pager.top = stepTo(step, pager.top, pagerRows(ctx), Math.max(0, pager.lines.length - pagerRows(ctx)));
+  // l on a message opened from the Messages tab: its thread's messages to Sami marked read (27/10/2026).
+  if (name === "l" && pager.thread) pager.note = `${await markReadFor("sami", { thread: pager.thread })} message(s) marqué(s) lu(s) pour sami`;
+  else if (["q", "escape", "return"].includes(name)) ctx.pager = null;
+  else if (step) Object.assign(pager, { note: "", top: stepTo(step, pager.top, pagerRows(ctx), Math.max(0, pager.lines.length - pagerRows(ctx))) });
   draw(ctx);
 }
 
@@ -113,7 +121,9 @@ const tabTo = (ctx, index) => choose(ctx, (ui) => Object.assign(ui, { tab: (inde
 async function openPager(ctx) {
   const file = ctx.view && fileOf(ctx.ui.tab, chosenRow(ctx), ctx.home);
   if (!file) return;
-  ctx.pager = { file, title: path.basename(file), lines: await tailOf(file, WHOLE), top: 0 };
+  const thread = ctx.ui.tab === BOARD_TAB ? chosenRow(ctx).id : null;
+  ctx.pager = { file, title: path.basename(file), thread, note: "", top: 0 };
+  pagerLines(ctx, await tailOf(file, WHOLE));
   ctx.pager.top = Math.max(0, ctx.pager.lines.length - pagerRows(ctx));
   draw(ctx);
 }
@@ -184,7 +194,10 @@ export async function runTui({ home, budget }) {
       draw(ctx);
     });
   });
-  stdout.on("resize", () => draw(ctx));
+  stdout.on("resize", () => {
+    if (ctx.pager) pagerLines(ctx);
+    draw(ctx);
+  });
   process.on("exit", restore);
   stdout.write(`${CSI}?1049h${CSI}?25l${CSI}2J${CSI}1;1H${stylesOf(ui.color).gray(" lecture de la backlog…")}`);
   const timer = setInterval(() => load(ctx), REFRESH_MS);

@@ -44,6 +44,26 @@ export const visible = (text) =>
     .map((part) => part.text)
     .join("");
 
+/** One plain line cut into pieces of `width` at most, at a space when one lies in its second half. */
+function wrapOne(line, width) {
+  const pieces = [];
+  let rest = line;
+  while (rest.length > width) {
+    const space = rest.lastIndexOf(" ", width);
+    const cut = space > width / 2 ? space : width;
+    pieces.push(rest.slice(0, cut));
+    rest = rest.slice(cut === space ? cut + 1 : cut);
+  }
+  pieces.push(rest);
+  return pieces;
+}
+
+/**
+ * `lines` wrapped to `width` (Sami, 27/10/2026: a message opened full screen ran off the right edge). A line holding
+ * colour codes (a coloured output) is left whole, cut where it is drawn.
+ */
+export const wrapLines = (lines, width) => (width < 2 ? lines : lines.flatMap((line) => (line.includes(ESC) || line.length <= width ? [line] : wrapOne(line, width))));
+
 /** `text` (colour codes allowed) cut or padded to `width` visible characters. */
 export function clip(text, width) {
   let out = "";

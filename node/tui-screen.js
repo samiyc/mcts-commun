@@ -91,6 +91,8 @@ export function pagerOf(pager, { cols, rows }, color = true) {
   const body = lines.slice(top, top + rows - 2);
   const out = [s.inverse(s.bold(` ${title} `)) + s.gray(` ${Math.min(lines.length, top + 1)}-${Math.min(lines.length, top + rows - 2)} sur ${lines.length}`)];
   for (let i = 0; i < rows - 2; i += 1) out.push(body[i] ?? "");
-  out.push(s.gray(" ↑↓ PgUp PgDn g G défiler · en bas, la sortie suit · q Échap retour"));
+  // A message from the Messages tab: l first, before a narrow screen cuts the line.
+  const keys = pager.thread ? " l lu pour sami · ↑↓ PgUp PgDn défiler · q Échap retour" : " ↑↓ PgUp PgDn g G défiler · en bas, la sortie suit · q Échap retour";
+  out.push(pager.note ? s.yellow(` ${pager.note}`) : s.gray(keys));
   return out.map((line, i) => clip(line, i === rows - 1 ? cols - 1 : cols));
 }

@@ -6,8 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { viewOf } from "../node/backlog-view.js";
-import { visible } from "../node/ansi.js";
-import { clip, screenOf } from "../node/tui.js";
+import { visible, wrapLines } from "../node/ansi.js";
+import { clip, pagerOf, screenOf } from "../node/tui.js";
 
 const run = promisify(execFile);
 const TUI = new URL("../node/tui.js", import.meta.url).href;
@@ -49,6 +49,18 @@ describe("the backlog's terminal view (node/tui.js, Sami 26/10: like k9s, read o
   it("cuts a coloured text on its visible characters", () => {
     assert.equal(visible(clip("\x1b[31mrouge\x1b[39m et noir", 8)), "rouge e…");
     assert.equal(clip("court", 7), "court  ");
+  });
+
+  it("wraps a message opened full screen to the terminal's width, at a space when it can (Sami, 27/10)", () => {
+    const long = "Sami a demandé un moyen de se parler entre sessions sans copier-coller : voici le tableau.";
+    const wrapped = wrapLines([long, "court", "\x1b[31mune sortie colorée reste entière, coupée où elle se dessine\x1b[39m"], 30);
+    assert.ok(wrapped.slice(0, -2).every((line) => line.length <= 30), JSON.stringify(wrapped));
+    assert.equal(wrapped.slice(0, -2).join(" "), long, "rien de perdu, les coupures aux espaces");
+    assert.equal(wrapped.at(-2), "court");
+    assert.equal(wrapLines(["x".repeat(65)], 30).length, 3, "un mot plus long que l'écran est coupé net");
+    const screen = pagerOf({ title: "message", lines: wrapLines([long], 40), top: 0, thread: "t", note: "" }, { cols: 40, rows: 8 }, false);
+    assert.ok(screen.every((line) => visible(line).length <= 40));
+    assert.match(screen.at(-1), /l lu pour sami/);
   });
 
   it("runs on a terminal: draws, follows the keys, quits on q, writes nothing", async () => {
