@@ -41,6 +41,20 @@ describe("plans and paths (src/grid.js)", () => {
     assert.ok(astar(corridor, { x: 3, y: 1 }, { x: 1, y: 1 }, { passable: open, reservations, unit: "r2" }));
   });
 
+  it("gives up at once on a target walled off by a unit parked for good, not before it parks (27/10/2026)", () => {
+    const tee = parsePlan(["#######", "#.....#", "###.###", "###.###", "#######"].join("\n"));
+    const reservations = createReservations();
+    const down = [0, 1, 2, 3].map((t) => ({ x: 3, y: 3, t }));
+    reservations.reserve("r1", [...down, { x: 3, y: 2, t: 4 }, { x: 3, y: 1, t: 5 }], { stay: true });
+    assert.deepEqual(reservations.stayAt(3, 1), { unit: "r1", from: 5 });
+    assert.equal(reservations.stayAt(1, 1), null);
+    // Before it parks, the way is open; after, there is none, and a horizon of a million steps costs nothing.
+    assert.ok(astar(tee, { x: 1, y: 1 }, { x: 5, y: 1 }, { passable: open, reservations, unit: "r2", park: true }));
+    const begin = performance.now();
+    assert.equal(astar(tee, { x: 1, y: 1 }, { x: 5, y: 1 }, { passable: open, reservations, unit: "r2", start: 6, horizon: 1e6, park: true }), null);
+    assert.ok(performance.now() - begin < 200);
+  });
+
   it("waits or steps aside rather than swap cells with another unit", () => {
     const reservations = createReservations();
     const wide = parsePlan("#####\n#...#\n#...#\n#####");

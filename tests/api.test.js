@@ -27,7 +27,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     assert.deepEqual(Object.keys(random).sort(), ["createRng", "streamOf"]);
     assert.deepEqual(Object.keys(events), ["createEvents"]);
     assert.deepEqual(Object.keys(grid).sort(), ["astar", "createReservations", "parsePlan"]);
-    assert.deepEqual(Object.keys(grid.createReservations()).sort(), ["clone", "freeFrom", "isFree", "release", "reserve", "swaps"]);
+    assert.deepEqual(Object.keys(grid.createReservations()).sort(), ["clone", "freeFrom", "isFree", "release", "reserve", "stayAt", "swaps"]);
     assert.deepEqual(Object.keys(measure).sort(), ["paired", "wilson"]);
     assert.deepEqual(Object.keys(events.createEvents()).sort(), ["clone", "next", "now", "peek", "schedule", "size"]);
     assert.deepEqual(Object.keys(measure.paired([1], [0])), ["n", "mean", "low", "high", "wins", "ties", "losses"]);

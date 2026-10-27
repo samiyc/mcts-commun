@@ -93,8 +93,13 @@ Les seuils, et pourquoi :
 
 **A* ou la recherche ?** A* est appelé dans les simulations de la recherche : son temps est compté dans `astar`
 **et** dans `search`. La part d'A* dans un job, c'est `astar.ms` sur sa durée ; ce qui reste de `search.ms`, c'est
-l'arbre et les simulations hors chemins. `astar.notFound` compte les chemins introuvables : chacun parcourt tout
-l'espace-temps jusqu'à son horizon, et c'est souvent là que part le temps.
+l'arbre et les simulations hors chemins. `astar.notFound` compte les chemins introuvables : chacun parcourait tout
+l'espace-temps jusqu'à son horizon, et c'est là que partait le temps en couloir (une sur deux, 2,5 ms chacune).
+Depuis le 27/10, A* s'arrête tôt quand la cible est hors d'atteinte. Une unité garée pour de bon est un mur à partir
+du moment où elle se gare (`stayAt`). Le test se fait une fois, quand la recherche a vu autant de nœuds que le plan a
+de cases. La réponse est la même, `null`, et `astar.givenUp` compte ces arrêts. Sur la cuisine en couloir, 3 services
+des règles : A* passe de 4,6 s à 0,33 s. Au grand détour avec tables, un service de la recherche, de 18,7 s à 8,0 s.
+Les empreintes n'ont pas bougé.
 
 ## Recommandations aux projets
 

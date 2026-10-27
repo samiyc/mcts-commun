@@ -1,5 +1,7 @@
 import { createEvents } from "./events.js";
-import { count, timed, trace } from "./trace.js";
+import { count, timed } from "./trace.js";
+
+export { createReservations } from "./reservations.js";
 
 /**
  * Plans drawn as text and paths found on them (Sami, 22/10/2026: change the warehouse, the kitchen or the
@@ -40,133 +42,13 @@ const STEPS = [
 const cellKey = (x, y) => `${x},${y}`;
 
 /**
- * Reservations of cells and moves in time, by unit: `reserve(unit, path, { stay })` holds each step of `path`
- * (`[{ x, y, t }]`) and each move between two steps, and with `stay` the last cell from then on;
- * `release(unit)` frees all of a unit's; `isFree(x, y, t, unit)`, `swaps(from, to, t, unit)`: may `unit` be
- * there at `t`, move from → to between `t` and `t + 1` without meeting a unit moving to → from?
- * `freeFrom(x, y, t, unit)`: may `unit` park there from `t` on, nobody else due there later?
- *
- * `shared` cells (a truck's dock, a doorway's far side) hold any number of units: nobody holds them, but a
- * move into or out of one is still reserved, so two units never cross on its edge.
- *
- * `clone()` copies the table, for a search that plays a world forward without touching the real one.
- */
-export function createReservations({ shared = [] } = {}) {
-  return tableOf({ sharedKeys: new Set(shared.map(({ x, y }) => cellKey(x, y))), cells: new Map(), byCell: new Map(), moves: new Map(), stays: new Map(), byUnit: new Map() });
-}
-
-const OVERBOOKED_TRACED = 20;
-let overbookings = 0;
-function overbooked(cell, unit, other, clone) {
-  count("grid", "overbooked");
-  if (clone) count("grid", "overbookedInClone");
-  overbookings += 1;
-  if (overbookings <= OVERBOOKED_TRACED) trace("grid", "warn", { message: "case réservée par-dessus une autre unité", cell, unit, other, clone });
-}
-
-const moveKey = (from, to, t) => `${cellKey(from.x, from.y)}>${cellKey(to.x, to.y)}@${t}`;
-
-/** The reservations' methods over their maps (createReservations, and each clone). */
-function tableOf(maps) {
-  return { ...bookingOf(maps), ...queriesOf(maps), clone: () => tableOf({ ...copyOf(maps), cloned: true }) };
-}
-
-/** `reserve` and `release`: the maps written. */
-function bookingOf(maps) {
-  const { sharedKeys, byUnit } = maps;
-  return {
-    reserve(unit, path, { stay = false } = {}) {
-      const kept = path.filter(({ x, y }) => !sharedKeys.has(cellKey(x, y)));
-      const keys = holdCells(maps, unit, kept);
-      const edges = holdMoves(maps, unit, path);
-      byUnit.set(unit, { keys, steps: kept, edges, stay: parkAt(maps, unit, path.at(-1), stay) });
-    },
-    release(unit) {
-      const held = byUnit.get(unit);
-      if (!held) return;
-      for (const key of held.keys) dropHeld(maps.cells, key, unit);
-      for (const { x, y, t } of held.steps) dropHeld(maps.byCell.get(cellKey(x, y)), t, unit);
-      for (const edge of held.edges) dropHeld(maps.moves, edge, unit);
-      if (held.stay && maps.stays.get(held.stay)?.unit === unit) maps.stays.delete(held.stay);
-      byUnit.delete(unit);
-    },
-  };
-}
-
-/** Holds each step of `kept` for `unit`, by cell and time: the keys held. */
-function holdCells({ cells, byCell, cloned = false }, unit, kept) {
-  const keys = kept.map(({ x, y, t }) => `${cellKey(x, y)},${t}`);
-  // A cell booked over another unit is how two robots met (23/10): counted, and the first ones traced, saying whether
-  // a search's clone booked it or the world itself (27/10).
-  for (const key of keys) {
-    if (cells.has(key) && cells.get(key) !== unit) overbooked(key, unit, cells.get(key), cloned);
-    cells.set(key, unit);
-  }
-  for (const { x, y, t } of kept) {
-    if (!byCell.has(cellKey(x, y))) byCell.set(cellKey(x, y), new Map());
-    byCell.get(cellKey(x, y)).set(t, unit);
-  }
-  return keys;
-}
-
-/** Holds each move of `path` (a wait is no move) for `unit`: the edges held. */
-function holdMoves({ moves }, unit, path) {
-  const edges = path.slice(1).flatMap((step, i) => (step.x === path[i].x && step.y === path[i].y ? [] : [moveKey(path[i], step, path[i].t)]));
-  for (const edge of edges) moves.set(edge, unit);
-  return edges;
-}
-
-/** Parks `unit` on `last` from its time on, unless it is shared: the cell parked on, or null. */
-function parkAt({ sharedKeys, stays }, unit, last, stay) {
-  if (!stay || !last || sharedKeys.has(cellKey(last.x, last.y))) return null;
-  stays.set(cellKey(last.x, last.y), { unit, from: last.t });
-  return cellKey(last.x, last.y);
-}
-
-const dropHeld = (map, key, unit) => {
-  if (map?.get(key) === unit) map.delete(key);
-};
-
-/** `isFree`, `freeFrom` and `swaps`: the maps read. */
-function queriesOf({ sharedKeys, cells, byCell, moves, stays }) {
-  return {
-    isFree(x, y, t, unit) {
-      if (sharedKeys.has(cellKey(x, y))) return true;
-      // A step and a stay are both checked: a unit planning again still holds its old steps, which must not hide
-      // another unit parked there since (Sami's warehouse, 23/10: two robots met on a cell).
-      const held = cells.get(`${cellKey(x, y)},${t}`);
-      if (held !== undefined && held !== unit) return false;
-      const stay = stays.get(cellKey(x, y));
-      return !stay || t < stay.from || stay.unit === unit;
-    },
-    freeFrom(x, y, t, unit) {
-      if (sharedKeys.has(cellKey(x, y))) return true;
-      const stay = stays.get(cellKey(x, y));
-      if (stay && stay.unit !== unit) return false;
-      for (const [time, holder] of byCell.get(cellKey(x, y)) ?? []) if (time >= t && holder !== unit) return false;
-      return true;
-    },
-    swaps(from, to, t, unit) {
-      const other = moves.get(moveKey(to, from, t));
-      return other !== undefined && other !== unit;
-    },
-  };
-}
-
-const copyOf = ({ sharedKeys, cells, byCell, moves, stays, byUnit }) => ({
-  sharedKeys,
-  cells: new Map(cells),
-  byCell: new Map([...byCell].map(([key, times]) => [key, new Map(times)])),
-  moves: new Map(moves),
-  stays: new Map(stays),
-  byUnit: new Map(byUnit),
-});
-
-/**
  * The shortest path in time from `from` to `to` (`{ x, y }`), leaving at `start`: `[{ x, y, t }]` from the start
  * to the arrival, waits included, or null. `passable(char, x, y)` says which cells a unit may enter;
  * `reservations` and `unit`, whose cells to avoid; `horizon`, how many steps to look ahead at most; `park`,
  * the unit stays at `to` once there, so it arrives only when nobody else is due there later.
+ *
+ * A target walled off by units parked for good gives null without searching to the horizon (Sami, 27/10/2026: on the
+ * kitchen's corridor one call in two found no path, 2.5 ms each against 0.07): the same answer, sooner.
  *
  * @param {{ passable: (char: string, x: number, y: number) => boolean, reservations?: object | null, unit?: any, start?: number, horizon?: number, park?: boolean }} options
  */
@@ -176,6 +58,11 @@ export function astar(plan, from, to, options) {
   if (!path) count("astar", "notFound");
   return path;
 }
+
+const giveUp = () => {
+  count("astar", "givenUp");
+  return null;
+};
 
 /** The search's settings: the options given, their defaults where left out. */
 function settingsOf(plan, to, options) {
@@ -199,6 +86,8 @@ function shortestPath(plan, from, to, options) {
     const key = `${cellKey(node.x, node.y)},${node.t}`;
     if (seen.has(key) || node.t - start >= horizon) continue;
     seen.add(key);
+    // Once the search has seen as many nodes as the plan has cells, a target out of reach is likely: checked once.
+    if (seen.size === plan.width * plan.height && outOfReach(settings, from)) return giveUp();
     expand(node, settings, open);
   }
   return null;
@@ -210,6 +99,31 @@ function expand(node, settings, open) {
     const step = { x: node.x + dx, y: node.y + dy, t: node.t + 1 };
     if (canStep(node, step, settings)) open.schedule(step.t - settings.start + distanceTo(settings.to, step.x, step.y), { ...step, parent: node });
   }
+}
+
+/**
+ * Can `to` be reached within the horizon at all? A lower bound on the arrival: the cells where another unit is
+ * parked for good are walls from the time it parks (`isFree` is false there from then on), the steps of the units
+ * on the move left out. A path in time keeps to it, so none when it is out of reach, or when the unit must park
+ * where another already is (`freeFrom` is false there for good).
+ */
+function outOfReach({ plan, to, passable, reservations, unit, start, horizon, park }, from) {
+  if (!reservations) return false;
+  const parkedAt = (x, y) => {
+    const stay = reservations.stayAt(x, y);
+    return stay === null || stay.unit === unit ? Infinity : stay.from;
+  };
+  if (park && parkedAt(to.x, to.y) !== Infinity) return true;
+  const enters = (x, y, t) => plan.inside(x, y) && passable(plan.at(x, y), x, y) && t < parkedAt(x, y);
+  const seen = new Set([cellKey(from.x, from.y)]);
+  let layer = [from];
+  for (let t = start; layer.length > 0 && t - start <= horizon; t += 1) {
+    if (layer.some((cell) => cell.x === to.x && cell.y === to.y)) return false;
+    const around = layer.flatMap((cell) => STEPS.slice(1).map(([dx, dy]) => ({ x: cell.x + dx, y: cell.y + dy })));
+    layer = around.filter(({ x, y }) => !seen.has(cellKey(x, y)) && enters(x, y, t + 1));
+    for (const { x, y } of layer) seen.add(cellKey(x, y));
+  }
+  return true;
 }
 
 function canStep(node, { x, y, t }, { plan, passable, reservations, unit }) {
