@@ -112,8 +112,12 @@ describe("the machine's runner (bin/backlog.js) and its slots (node/machine.js),
     assert.deepEqual(Object.keys(byId).sort(), ["a", "b", "bad", "c"]);
     assert.equal(byId.bad.status, "failed");
     assert.ok(["a", "b", "c"].every((id) => byId[id].status === "done"));
-    // a and b (1 + 2 threads) ran side by side: the whole queue took far less than their sum and c.
-    assert.ok(Date.now() - started < 3000, `${Date.now() - started} ms`);
+    // a and b (1 + 2 threads) ran side by side: each started before the other ended. Read in the journal, not on the
+    // clock: with the machine's 18 threads busy, the whole run took 3.1 s against 3 (27/10/2026).
+    const journal = (await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+    const at = (kind, id) => Date.parse(journal.find((entry) => entry.kind === kind && entry.id === id).at);
+    assert.ok(at("job-started", "b") < at("job-ended", "a") && at("job-started", "a") < at("job-ended", "b"), "a et b côte à côte");
+    assert.ok(Date.now() - started < 15_000, `${Date.now() - started} ms`);
     const output = await readFile(path.join(home, byId.b.output), "utf8");
     assert.match(output, new RegExp(`b ${folder.replace(/\\/g, "\\\\")} 2`));
     const log = await readFile(path.join(home, "job-log", (await readdir(path.join(home, "job-log")))[0]), "utf8");
