@@ -9,12 +9,13 @@
 /** The projects a session works in, and their folders; `sami` reads and posts too, `tous` is everyone. */
 export const PROJECTS = Object.freeze(["commun", "cuisine", "entrepot", "urgences", "codingame", "lopin"]);
 export const READERS = Object.freeze([...PROJECTS, "sami"]);
-const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", lopin: "lopin" };
+// Matched without case (Windows: Lopin or lopin); CodinGame's bots live in "Algo code in game" until renamed (27/10/2026).
+const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", "algo code in game": "codingame", lopin: "lopin" };
 
 /** The project folder `dir` is in (the nearest parent named like one), or null outside them. */
 export function projectOf(dir) {
   const parts = String(dir ?? "").split(/[\\/]+/).filter(Boolean);
-  for (let i = parts.length - 1; i >= 0; i -= 1) if (FOLDERS[parts[i]]) return FOLDERS[parts[i]];
+  for (let i = parts.length - 1; i >= 0; i -= 1) if (FOLDERS[parts[i].toLowerCase()]) return FOLDERS[parts[i].toLowerCase()];
   return null;
 }
 

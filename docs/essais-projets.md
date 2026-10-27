@@ -122,6 +122,10 @@ DyRo-MCTS.
 
 ## CodinGame
 
+Écrit avant de savoir que les bots existaient déjà dans `E:DevAlgo code in game` (`algo-code-in-game`, lié à mcts-commun,
+qui a déjà son build en un seul fichier et son arène locale). Ce prompt reste valable pour ce dépôt, en remplaçant
+« nouveau projet mcts-codingame » par lui, le build et l'arène existants par les points 3 et 4.
+
 ```text
 Nouveau projet, à côté des autres dans E:\Dev\My projects : mcts-codingame. Un bot CodinGame en JavaScript, construit
 sur la lib commune (`"mcts-commun": "file:../mcts-commun"`), un terrain d'entraînement pour elle (lopin,

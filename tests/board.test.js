@@ -35,6 +35,8 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
   it("knows a session's project from its folder, and reads back what it wrote", () => {
     assert.equal(projectOf("E:\\Dev\\My projects\\mcts-cuisine\\src"), "cuisine");
     assert.equal(projectOf("/home/sami/lopin"), "lopin");
+    assert.equal(projectOf("E:/Dev/My projects/Lopin/src"), "lopin");
+    assert.equal(projectOf("E:/Dev/Algo code in game/crystal-rush"), "codingame");
     assert.equal(projectOf("E:/Dev/My projects/ARC-AGI"), null);
     const message = { id: "x", at: "2026-10-27T18:30:00", from: "commun", to: ["cuisine", "tous"], subject: "un: deux\ntrois", replyTo: null, body: "Corps\n\n---\nfin" };
     assert.deepEqual(parseMessage(messageText(message)), { ...message, subject: "un: deux trois" });

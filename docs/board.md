@@ -35,7 +35,8 @@ L'id d'un message est `AAAA-MM-JJTHHMM-<de>-<sujet>`, par exemple `2026-10-27T19
 **Les noms.**
 - Les projets sont `commun`, `cuisine`, `entrepot`, `urgences`, `codingame` et `lopin`. Il s'y ajoute `sami`, et
   `tous` pour tout le monde.
-- Une session est le projet du dossier où elle tourne : `mcts-cuisine` est `cuisine`, `lopin` est `lopin`.
+- Une session est le projet du dossier où elle tourne, sans tenir compte des majuscules : `mcts-cuisine` est `cuisine`,
+  `Lopin` est `lopin`, et `Algo code in game` (les bots CodinGame, tant qu'il n'est pas renommé) est `codingame`.
 - `--as` force ce nom.
 
 ## Les commandes
