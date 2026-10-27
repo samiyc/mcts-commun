@@ -20,6 +20,15 @@ async function readMessages(folder) {
   return texts.map((text, i) => ({ ...parseMessage(text), file: path.join(folder, names[i]) })).filter((message) => message.id);
 }
 
+/** The sessions' map, `{ [session id]: { project, at } }`; {} when there is none. */
+async function readSessions(file) {
+  try {
+    return JSON.parse(await readFile(file, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
 async function readJournal(file) {
   const text = await readFile(file, "utf8").catch(() => "");
   return text.split("\n").flatMap((line) => {
@@ -43,13 +52,24 @@ export function createBoard(home = boardHome()) {
   const journalFile = path.join(home, "journal.jsonl");
   const note = (kind, ids, by) => appendFile(journalFile, ids.map((id) => `${JSON.stringify({ at: new Date().toISOString(), kind, id, by })}\n`).join(""));
   const read = async () => boardOf(await readMessages(folder), await readJournal(journalFile));
+  const sessionsFile = path.join(home, "sessions.json");
   return {
     home,
     read,
+    /** The project a Claude session started in, as its hook saw it (27/10/2026, urgences: the folder of the moment drifts). */
+    sessionOf: async (session) => (await readSessions(sessionsFile))[session]?.project ?? null,
+    /** Keeps which project `session` started in; written only when it changes. */
+    async rememberSession(session, project) {
+      if ((await readSessions(sessionsFile))[session]?.project === project) return;
+      await withLock(home, async () => {
+        const all = await readSessions(sessionsFile);
+        await writeFile(sessionsFile, JSON.stringify({ ...all, [session]: { project, at: new Date().toISOString() } }, null, 1));
+      }, "board");
+    },
     /** Writes a new message from `from` to `to` (a reply to `replyTo`): the message, with its id and file. */
     post: ({ from, to, subject, body, replyTo = null }) =>
       withLock(home, async () => {
-        checkNames([from]);
+        checkNames([from], { everyone: false });
         checkNames(to);
         if (!String(subject ?? "").trim()) throw new Error("un message a un sujet (--subject)");
         const board = await read();

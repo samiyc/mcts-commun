@@ -2,16 +2,17 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { READERS, projectOf, threadOf, threadsOf, unreadOf } from "../node/board.js";
+import { READERS, isFor, projectOf, threadOf, threadsOf, unreadOf } from "../node/board.js";
 import { boardHome, createBoard } from "../node/board-store.js";
 import { boardText, hookText, inboxText, threadText } from "../node/board-text.js";
 
 /**
  * `mcts-board`: the board the Claude sessions of the mcts-* projects post to and read (Sami, 27/10/2026: five sessions,
- * news passed by copy and paste; docs/board.md). Who you are follows from the folder you are in (mcts-cuisine is
- * `cuisine`…), or `--as`.
+ * news passed by copy and paste; docs/board.md). Who you are: `--as`; else, run by a Claude session, the project it
+ * started in (its hook keeps it by session id); else the project of the current folder (mcts-cuisine is `cuisine`).
+ * Nothing after `--` is an option: it is the body. Only Sami signs `sami` (MCTS_BOARD_SAMI=1).
  *
- *   mcts-board --post --to cuisine,entrepot --subject "…" [--reply ID] [--from X] [--body-file F.md] [-- texte…]
+ *   mcts-board --post --to cuisine,entrepot --subject "…" [--reply ID] [--body-file F.md] [-- texte…]
  *   mcts-board --inbox [--json]       your unread messages, the latest first
  *   mcts-board --read ID              the message and its thread, in full; marked read for you
  *   mcts-board --done ID              its thread closed
@@ -22,47 +23,61 @@ import { boardText, hookText, inboxText, threadText } from "../node/board-text.j
  * `--board DIR` (or MCTS_BOARD_HOME) for another board than mcts-commun's `board/`, as the tests do.
  */
 const args = process.argv.slice(2);
-const option = (name, fallback = null) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
+// The options stop at `--`: what follows is a body, whatever it says (urgences, 27/10/2026: "--to sami" in a body).
+const end = args.indexOf("--");
+const flags = end >= 0 ? args.slice(0, end) : args;
+const option = (name, fallback = null) => (flags.includes(name) ? flags[flags.indexOf(name) + 1] : fallback);
 const board = createBoard(path.resolve(option("--board", boardHome())));
-const json = args.includes("--json");
+const json = flags.includes("--json");
 /** This command, runnable from any folder: the projects have no `npx mcts-board` until their next `npm install`. */
 const COMMAND = `node "${fileURLToPath(import.meta.url).replaceAll(path.sep, "/")}"`;
 
-/** Who runs the command: `--as`, else the project of the current folder. */
-function whoAmI() {
-  const who = option("--as") ?? projectOf(process.cwd());
+/** Who runs the command: `--as`; else the project its Claude session started in; else that of the current folder. */
+async function whoAmI() {
+  const session = process.env.CLAUDE_CODE_SESSION_ID;
+  const who = option("--as") ?? (session ? await board.sessionOf(session) : null) ?? projectOf(process.cwd());
   if (!who || !READERS.includes(who)) throw new Error(`qui es-tu ? --as ${READERS.join("|")} (hors d'un dossier de projet)`);
   return who;
 }
 
 async function bodyOf() {
   if (option("--body-file")) return readFile(path.resolve(option("--body-file")), "utf8");
-  const at = args.indexOf("--");
-  return at >= 0 ? args.slice(at + 1).join(" ") : "";
+  return end >= 0 ? args.slice(end + 1).join(" ") : "";
+}
+
+/** Whom a reply goes to by default: the parent's author, or its recipients when one answers oneself. */
+const answered = (parent, me) => (parent.from === me ? parent.to : [parent.from]);
+
+/** A new message's recipients and subject: as given, else those of the message it answers. */
+async function addressOf(me) {
+  const replyTo = option("--reply");
+  const parent = replyTo ? (await board.read()).byId.get(replyTo) : null;
+  const to = option("--to")?.split(",").map((name) => name.trim()) ?? (parent ? answered(parent, me) : []);
+  const subject = option("--subject") ?? (parent ? `Re: ${parent.subject.replace(/^Re: /, "")}` : "");
+  return { to, subject, replyTo };
 }
 
 async function post() {
-  const replyTo = option("--reply");
-  const parent = replyTo ? (await board.read()).byId.get(replyTo) : null;
-  const to = option("--to")?.split(",").map((name) => name.trim()) ?? (parent ? [parent.from] : []);
-  const subject = option("--subject") ?? (parent ? `Re: ${parent.subject.replace(/^Re: /, "")}` : "");
-  const message = await board.post({ from: option("--from") ?? whoAmI(), to, subject, body: await bodyOf(), replyTo });
+  const me = await whoAmI();
+  if (me === "sami" && process.env.MCTS_BOARD_SAMI !== "1") throw new Error("seul Sami signe sami (MCTS_BOARD_SAMI=1 dans son terminal) ; une session signe son projet");
+  const message = await board.post({ from: me, ...(await addressOf(me)), body: await bodyOf() });
   console.log(`Posté : [${message.id}] → ${message.to.join(", ")} (${message.file})`);
 }
 
 async function inbox() {
-  const who = whoAmI();
+  const who = await whoAmI();
   const state = await board.read();
   console.log(json ? JSON.stringify(unreadOf(state, who).reverse(), null, 1) : inboxText(state, who, COMMAND));
 }
 
 async function readOne() {
-  const who = whoAmI();
+  const who = await whoAmI();
   const id = option("--read");
   const state = await board.read();
   if (!state.byId.has(id)) throw new Error(`pas de message ${id}`);
   console.log(threadText(state, id));
-  const mine = threadOf(state, id).filter((message) => message.from !== who && !state.read.has(`${message.id}|${who}`));
+  // Only what was for you: a thread read by another leaves its unread as they were (urgences, 27/10/2026).
+  const mine = threadOf(state, id).filter((message) => isFor(message, who) && !state.read.has(`${message.id}|${who}`));
   await board.mark("read", mine.map((message) => message.id), who);
 }
 
@@ -71,7 +86,7 @@ async function close() {
   const state = await board.read();
   if (!state.byId.has(id)) throw new Error(`pas de message ${id}`);
   const root = state.rootOf(state.byId.get(id));
-  await board.mark("done", [root], whoAmI());
+  await board.mark("done", [root], await whoAmI());
   console.log(`Fil fermé : ${root}`);
 }
 
@@ -82,16 +97,23 @@ async function list() {
   console.log(json ? JSON.stringify({ threads, unread }, null, 1) : boardText(threads, unread));
 }
 
+/** What the hook does for the session `input` describes: its project kept by session id, its unread shown. */
+async function hookFor(input) {
+  // The folder the session started in, not that of the moment: a cd into another project must not read its mail.
+  const who = projectOf(process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd());
+  if (!who) return;
+  if (input.session_id) await board.rememberSession(input.session_id, who);
+  const { text, shown } = hookText(await board.read(), who, COMMAND);
+  if (text) console.log(text);
+  await board.mark("shown", shown, who);
+}
+
 /** For Claude Code's hooks: never a failed prompt, whatever happens here. */
 async function hook() {
   try {
-    let input = "";
-    for await (const chunk of process.stdin) input += chunk;
-    const who = projectOf(JSON.parse(input || "{}").cwd ?? process.cwd());
-    if (!who) return;
-    const { text, shown } = hookText(await board.read(), who, COMMAND);
-    if (text) console.log(text);
-    await board.mark("shown", shown, who);
+    let raw = "";
+    for await (const chunk of process.stdin) raw += chunk;
+    await hookFor(JSON.parse(raw || "{}"));
   } catch {
     // A board that cannot be read says nothing.
   }
@@ -100,10 +122,10 @@ async function hook() {
 const COMMANDS = { "--post": post, "--inbox": inbox, "--read": readOne, "--done": close, "--list": list, "--hook": hook };
 const HELP = "usage : mcts-board --post --to X,Y --subject \"…\" [--reply ID] -- texte | --inbox | --read ID | --done ID | --list [--json] | --hook   (docs/board.md)";
 
-const command = Object.keys(COMMANDS).find((flag) => args.includes(flag));
-if (!command || args.includes("--help")) {
+const command = Object.keys(COMMANDS).find((flag) => flags.includes(flag));
+if (!command || flags.includes("--help")) {
   console.log(HELP);
-  process.exit(args.includes("--help") ? 0 : 1);
+  process.exit(flags.includes("--help") ? 0 : 1);
 }
 try {
   await COMMANDS[command]();

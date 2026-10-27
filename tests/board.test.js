@@ -88,6 +88,35 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
       assert.equal(await hook(home, kitchen), "");
     }));
 
+  it("fixes what urgences found the first evening: the body, the signature, the drifting folder, reads, self-replies", () =>
+    scratch(async (home, board) => {
+      const as = (env, cwd, ...args) => run(process.execPath, [BOARD, "--board", home, ...args], { env: { ...process.env, CLAUDE_CODE_SESSION_ID: "", ...env }, cwd }).then(({ stdout }) => stdout);
+      // 1. Nothing after -- is an option.
+      await board("--post", "--as", "commun", "--to", "cuisine", "--subject", "Corps", "--", "lis", "--to", "sami", "et", "--as", "urgences");
+      const [body] = JSON.parse(await board("--inbox", "--as", "cuisine", "--json"));
+      assert.deepEqual([body.from, body.to, body.body], ["commun", ["cuisine"], "lis --to sami et --as urgences"]);
+      // 2. Only Sami signs sami; nobody signs tous.
+      await assert.rejects(board("--post", "--as", "sami", "--to", "commun", "--subject", "x"), /seul Sami/);
+      await as({ MCTS_BOARD_SAMI: "1" }, undefined, "--post", "--as", "sami", "--to", "commun", "--subject", "De Sami");
+      await assert.rejects(board("--post", "--as", "tous", "--to", "commun", "--subject", "x"), /qui es-tu/);
+      // 3. A session is the project it started in, whatever folder its hook or its commands run from.
+      const projects = path.join("E:", "Dev", "My projects");
+      await new Promise((resolve, reject) => {
+        const child = execFile(process.execPath, [BOARD, "--board", home, "--hook"], { env: { ...process.env, CLAUDE_PROJECT_DIR: path.join(projects, "mcts-urgences") } }, (error, stdout) => (error ? reject(error) : resolve(stdout)));
+        child.stdin.end(JSON.stringify({ cwd: path.join(projects, "mcts-commun"), session_id: "s-urgences" }));
+      });
+      assert.match(await as({ CLAUDE_CODE_SESSION_ID: "s-urgences" }, os.tmpdir(), "--inbox"), /pour urgences/);
+      // 4. Reading a thread marks read only what was for the reader.
+      await board("--post", "--as", "urgences", "--to", "commun", "--subject", "Pour commun", "--", "x");
+      const [forCommun] = JSON.parse(await board("--inbox", "--as", "commun", "--json"));
+      await board("--read", forCommun.id, "--as", "cuisine");
+      assert.equal(JSON.parse(await board("--list", "--json")).unread.commun, 2, "cuisine n'a rien lu pour commun");
+      // 5. Answering one's own message goes to its recipients, not to oneself.
+      await board("--post", "--as", "urgences", "--reply", forCommun.id, "--", "Et encore ceci");
+      const thread = JSON.parse(await board("--list", "--json")).threads.find((one) => one.id === forCommun.id);
+      assert.deepEqual(thread.last.to, ["commun"]);
+    }));
+
   it("refuses a message to nobody known, without a subject, or a reply to nothing", () =>
     scratch(async (home, board) => {
       await assert.rejects(board("--post", "--as", "commun", "--to", "personne", "--subject", "x"), /destinataire inconnu/);

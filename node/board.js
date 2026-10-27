@@ -19,9 +19,9 @@ export function projectOf(dir) {
   return null;
 }
 
-/** Throws unless every name of `names` is a reader or `tous`. */
-export function checkNames(names) {
-  const unknown = names.filter((name) => name !== "tous" && !READERS.includes(name));
+/** Throws unless every name of `names` is a reader, or `tous` among recipients (`everyone`); `tous` never signs. */
+export function checkNames(names, { everyone = true } = {}) {
+  const unknown = names.filter((name) => !(everyone && name === "tous") && !READERS.includes(name));
   if (unknown.length > 0 || names.length === 0) throw new Error(`destinataire inconnu : ${unknown.join(", ") || "aucun"} (${[...READERS, "tous"].join(", ")})`);
   return names;
 }
