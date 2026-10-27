@@ -39,7 +39,9 @@ describe("the library's contract (tests/api.test.js)", () => {
 
   it("returns the search's result in its stated shape", () => {
     const found = search({}, doors, { budget: 50 });
-    assert.deepEqual(Object.keys(found), ["move", "value", "visits", "stats", "size", "iterations", "depth", "levels", "ms"]);
+    assert.deepEqual(Object.keys(found), ["move", "value", "visits", "stats", "size", "iterations", "depth", "levels", "ms", "stopped", "margin"]);
+    assert.equal(found.stopped, "budget");
+    assert.deepEqual(Object.keys(found.margin), ["mean", "low", "high", "n", "paired"]);
     assert.ok(found.visits instanceof Map);
     assert.deepEqual(Object.keys(found.stats[0]), ["key", "move", "visits", "mean"]);
     assert.equal(typeof found.value, "number");
@@ -55,7 +57,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     assert.deepEqual(stated.sort(), [...mcts.PROBLEM.required, ...mcts.PROBLEM.optional].sort());
     assert.match(README, /\[shortlist\]/);
     assert.match(README, /export function search\(state, problem, \{ budget, deadline, now, rng, depth = 5, explore = 0\.7, common = false, widening = 0, earlyStop = false \}\)/);
-    assert.match(README, /move: Move \| null, value: number, visits: Map<string, number>, stats: object\[\], size: number, iterations: number, depth: number, levels: number\[\], ms: number/);
+    assert.match(README, /move: Move \| null, value: number, visits: Map<string, number>, stats: object\[\], size: number, iterations: number, depth: number, levels: number\[\], ms: number, stopped: string, margin: object \| null/);
   });
 
   it("keeps its fingerprint: the same moves and visits on the seeded toy problems", () => {

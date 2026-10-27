@@ -116,12 +116,30 @@ describe("the tree search over hidden information (src/mcts.js)", () => {
   it("diagnoses what a search saw: too few iterations, a flat score, a close call, a shallow tree (27/10/2026)", () => {
     const codes = (found, depth) => diagnose(found, { depth }).map((hint) => hint.code);
     assert.deepEqual(codes(search({}, doors, { budget: 2000, rng: createRng(3) }), 1), []);
-    assert.deepEqual(codes(search({}, doors, { budget: 10, rng: createRng(3) }), 1), ["fewIterations"]);
+    // Ten iterations tell nothing: too few, and B tried once leaves its interval wide.
+    assert.deepEqual(codes(search({}, doors, { budget: 10, rng: createRng(3) }), 1), ["fewIterations", "closeCall"]);
     assert.deepEqual(codes(search({}, { ...doors, score: () => 0.5 }, { budget: 200 }), 1), ["flatScore"]);
     const evens = { ...doors, sample: (state, rng) => ({ prize: rng.next() < 0.5 ? "A" : "B", opened: null }) };
     assert.deepEqual(codes(search({}, evens, { budget: 200, rng: createRng(3) }), 1), ["closeCall"]);
     const wide = { ...nim, moves: (world) => [1, 2, 3, 4, 5].filter((take) => take <= world.pile) };
     assert.ok(codes(search({ pile: 30, toMove: "A" }, wide, { budget: 30, rng: createRng(2) }), 5).includes("shallow"));
     for (const hint of diagnose(search({}, doors, { budget: 10 }))) assert.match(hint.message, /\S/);
+  });
+
+  it("judges a close call by the margin's interval, by pairs on common worlds; never too few after earlyStop (the projects, 27/10)", () => {
+    const codes = (found) => diagnose(found, { depth: 1 }).map((hint) => hint.code);
+    // A is 0.05 better under a luck worth far more: by pairs the gap is exact, so never close.
+    for (let seed = 1; seed <= 10; seed += 1) {
+      const found = search({}, loudLuck, { budget: 24, rng: createRng(seed), common: true });
+      assert.deepEqual([found.margin.paired, Math.round(100 * found.margin.low), Math.round(100 * found.margin.high)], [true, 5, 5]);
+      assert.ok(!codes(found).includes("closeCall"), `graine ${seed}`);
+    }
+    const plain = search({}, loudLuck, { budget: 24, rng: createRng(2) });
+    assert.deepEqual([plain.margin.paired, codes(plain).includes("closeCall")], [false, true], "sans mondes communs, la chance couvre l'écart");
+    // Settled by earlyStop after 18 iterations of 30: 9 a move, the saving, not a fault.
+    const early = search({}, doors, { budget: 30, rng: createRng(3), earlyStop: true });
+    assert.deepEqual([early.stopped, early.iterations, codes(early)], ["settled", 18, []]);
+    assert.ok(codes(search({}, doors, { budget: 18, rng: createRng(3) })).includes("fewIterations"));
+    assert.equal(search({}, doors, { deadline: 3, now: (() => { let t = 0; return () => (t += 1); })() }).stopped, "deadline");
   });
 });

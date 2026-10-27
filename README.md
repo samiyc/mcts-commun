@@ -56,7 +56,7 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  * @property {(world, actor) => number} score      the reward of a finished world, 0 to 1
  */
 
-/** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number }} */
+/** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null }} */
 export function search(state, problem, { budget, deadline, now, rng, depth = 5, explore = 0.7, common = false, widening = 0, earlyStop = false }) {}
 
 /** What a result says of the problem searched: [{ code, message }], codes fewIterations, flatScore, closeCall, shallow. */
@@ -77,7 +77,9 @@ que les coups et les visites ne changent pas :
   d'itérations qu'il n'en reste. Le même coup, plus tôt.
 
 Le résultat dit aussi ce que la recherche a vu, lu une fois l'arbre fini (rien ne coûte par itération) :
-`iterations`, `depth` (le niveau le plus profond atteint), `levels` (les nœuds de chaque niveau), `ms`.
+`iterations`, `depth` (le niveau le plus profond atteint), `levels` (les nœuds de chaque niveau), `ms`, `stopped`
+(pourquoi elle s'est arrêtée : `budget`, `deadline`, `settled` par `earlyStop`, `empty`) et `margin` (l'écart du coup
+joué sur le suivant, avec son intervalle à 95 %, par paires sur les mondes communs).
 `diagnose(result, { depth })` en tire des pistes, en français, à écrire dans le journal du bot : trop peu
 d'itérations par coup, un score qui ne départage rien, deux coups à égalité au bruit près, un arbre qui n'atteint
 pas sa profondeur. Le mode d'emploi et ce que dit la recherche récente : [`docs/recherche.md`](docs/recherche.md).

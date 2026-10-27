@@ -93,7 +93,10 @@ function step(node, world, { problem, explore, widening }, atRoot) {
   return { child, world: problem.play(world, offered.get(child.key)), fresh: false };
 }
 
-/** Credits every move of `path` with its actor's score in the finished world. */
+/**
+ * Credits every move of `path` with its actor's score in the finished world. A root move also keeps each score, in
+ * order: its k-th is that of the k-th world on common worlds, so two root moves compare by pairs (`margin`).
+ */
 function backpropagate(root, path, end, problem) {
   const scores = new Map();
   const scoreOf = (actor) => {
@@ -105,6 +108,10 @@ function backpropagate(root, path, end, problem) {
     node.visits += 1;
     node.total += scoreOf(node.actor);
   }
+  const [first] = path;
+  if (!first) return;
+  first.scores ??= [];
+  first.scores.push(scoreOf(first.actor));
 }
 
 /** One iteration: a world drawn, the walk down the tree, one move added, the rollout, the credit. */
@@ -187,7 +194,9 @@ function iterateCommon(root, state, settings) {
  * by key, every root move's `{ key, move, visits, mean }` from the most visited, and the tree's `size` in
  * nodes. A root move's object is the one of the world where it was first tried. And what the search saw
  * (27/10/2026), read once it is done: the `iterations` run, the deepest level reached (`depth`), the nodes of each
- * level (`levels`), the `ms` spent; `diagnose` reads them.
+ * level (`levels`), the `ms` spent, why it `stopped` (`budget`, `deadline`, `settled` by `earlyStop`, `empty`), and the
+ * `margin` of its move over the next most visited with its 95 % interval (by pairs on common worlds); `diagnose`
+ * reads them.
  *
  * `common`: judge the root's moves on common worlds (`iterateCommon`), when the root's moves are known in
  * every world and the worlds' noise dwarfs the moves' differences (a whole shift, a whole day to come).
@@ -200,7 +209,7 @@ function iterateCommon(root, state, settings) {
  * `earlyStop`: with a `budget`, stop once the most visited root move leads by more than the iterations left: the
  * same move, sooner (Lopin's `smart`). Both off by default: the same moves and visits.
  *
- * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number }}
+ * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null }}
  */
 export function search(state, problem, { budget, deadline, now = clock, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false, widening = 0, earlyStop = false }) {
   // Traced (src/trace.js): counted and timed; an error or a slow search kept with its settings.
@@ -230,32 +239,35 @@ function searchTree(state, problem, { limit, rng, depth, explore, common, wideni
   const root = createNode(null, "", "");
   const settings = { problem, rng, depth, explore, widening };
   if (common) settings.common = commonRoot(state, problem, rng);
-  const iterations = iterateAll(root, state, settings, limit);
+  const { iterations, stopped } = iterateAll(root, state, settings, limit);
   count("search", "iterations", iterations);
-  return resultOf(root, { iterations, ms: clock() - begin });
+  return resultOf(root, { iterations, ms: clock() - begin, stopped, common: Boolean(common) });
 }
 
 /**
  * Iterates up to `budget` and until `deadline`, on common worlds when asked (none when the root has no move
- * known in every world), with `earlyStop` until the root's leader is settled; returns how many iterations it ran.
+ * known in every world), with `earlyStop` until the root's leader is settled: how many iterations it ran, and why it
+ * stopped (`budget`, `deadline`, `settled`; `empty` with no move to judge).
  */
 function iterateAll(root, state, settings, limit) {
-  if (settings.common?.moves.size === 0) return 0;
+  if (settings.common?.moves.size === 0) return { iterations: 0, stopped: "empty" };
   const once = settings.common ? iterateCommon : iterate;
   const stops = stopsOf(root, limit);
   let done = 0;
+  let stopped = null;
   do {
     once(root, state, settings);
     done += 1;
-  } while (!stops(done));
-  return done;
+    stopped = stops(done);
+  } while (!stopped);
+  return { iterations: done, stopped };
 }
 
-/** Whether the search stops after `done` iterations: its budget spent, its deadline passed, its leader settled. */
+/** Why the search stops after `done` iterations, or null: its budget spent, its deadline passed, its leader settled. */
 function stopsOf(root, { budget = Infinity, deadline, now, earlyStop }) {
   const late = deadline === undefined ? () => false : () => now() >= deadline;
   const sure = earlyStop && Number.isFinite(budget) ? (done) => settled(root, budget - done) : () => false;
-  return (done) => done >= budget || late() || sure(done);
+  return (done) => (done >= budget && "budget") || (late() && "deadline") || (sure(done) && "settled") || null;
 }
 
 /** Whether the most visited root move leads the next by more than `left` iterations: nobody can catch it. */

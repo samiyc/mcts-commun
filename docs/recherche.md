@@ -91,17 +91,31 @@ const path = astar(plan, me, target, { passable, horizon: 30, maxNodes: 3000, pa
 - `iterations` : les itérations faites ;
 - `depth` : le niveau le plus profond atteint ;
 - `levels` : les nœuds par niveau, `levels[0]` étant les coups de la racine ;
-- `ms` : le temps réel.
+- `ms` : le temps réel. Pour juger une épargne, les itérations valent mieux : le code joué en second est déjà chaud
+  (urgences, 27/10) ;
+- `stopped` : pourquoi la recherche s'est arrêtée (`budget`, `deadline`, `settled` quand `earlyStop` a vu le coup
+  acquis, `empty` sans coup à juger) ;
+- `margin` : l'écart du coup joué sur le suivant le plus visité, `{ mean, low, high, n, paired }`, avec son
+  intervalle à 95 %. Sur les mondes communs, il se mesure par paires (`paired` de `src/measure.js`), la chance des
+  mondes retirée ; sinon, avec la variance mesurée de chaque coup.
 
 Tout est lu une fois l'arbre fini : rien ne coûte pendant les itérations. `diagnose(result, { depth })` en tire des
 pistes, `[{ code, message }]`, en français. Il ne dit rien quand la racine avait moins de deux coups.
 
 | Code | Quand | La piste |
 |---|---|---|
-| `fewIterations` | moins de 20 itérations par coup de la racine | un rollout plus rapide, une liste courte plus courte, plus de temps |
+| `fewIterations` | moins de 20 itérations par coup de la racine, sauf quand `earlyStop` a arrêté la recherche (`stopped: "settled"`) : c'est alors l'épargne | un rollout plus rapide, une liste courte plus courte, plus de temps |
 | `flatScore` | tous les coups de la racine ont le même score (tous à 0, par exemple) | une récompense graduée (un retard, une marge) plutôt qu'un 0 ou 1 |
-| `closeCall` | les deux premiers coups sont à égalité, à deux erreurs types près | le choix est un tirage : des mondes communs (`common`), plus d'itérations |
+| `closeCall` | l'intervalle de `margin` contient 0 : le coup joué ne se distingue pas du suivant | le choix est un tirage : des mondes communs (`common`) s'ils manquent, plus d'itérations |
 | `shallow` | l'arbre n'atteint pas la profondeur demandée | si le problème va plus loin, `widening` ou une liste courte plus courte |
+
+**Corrigé le soir du 27/10, après les essais des trois projets** :
+- `closeCall` se jugeait avec la borne `p(1 − p)`, sans tenir compte des mondes communs. Il sortait dans 56 à 100 %
+  des décisions de la cuisine, de l'entrepôt et des urgences : il ne disait plus rien ;
+- `fewIterations` sortait sur les recherches qu'`earlyStop` avait arrêtées exprès : 79 % au Plan blanc, 40 % au bord
+  étroit.
+
+Les comptes de ce soir-là sont donc à refaire avec la nouvelle version.
 
 `flatScore` vient des post-mortems de CodinGame. Un joueur du Summer Challenge 2024 avait des scores qui restaient
 à 0 la plupart de la partie : sa beam search choisissait au hasard, jusqu'à ce qu'une heuristique remplace le
