@@ -17,7 +17,7 @@ planificateur de cette même file, puis aux urgences.
 | `mcts-urgences` | l'organisation des urgences d'un hôpital en crise | `random`, `events`, `schedule`, `mcts`, `measure`, puis `grid` |
 | `mcts-entrepot` | des robots d'entrepôt et un cariste | `random`, `events`, `mcts`, `grid`, `measure` |
 | `mcts-cuisine` | une cuisine à la *Overcooked*, un cuisinier et des robots | les mêmes que l'entrepôt |
-| `E:DevAlgo code in game` (`algo-code-in-game`, à renommer `mcts-codingame` ?) | les bots CodinGame de Sami, un dossier par jeu, leur build en un seul fichier et une arène locale | `mcts`, `grid`, `random` |
+| `mcts-codingame` (venu de `E:\Dev\Algo code in game` le 27/10/2026) | les bots CodinGame de Sami, un dossier par jeu, leur build en un seul fichier et une arène locale | `mcts`, `grid`, `random` |
 
 Les essais demandés à chacun le 27/10 au soir, après les réglages pour un temps court : [`docs/essais-projets.md`](docs/essais-projets.md).
 

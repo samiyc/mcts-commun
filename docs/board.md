@@ -39,8 +39,8 @@ L'id d'un message est `AAAA-MM-JJTHHMM-<de>-<sujet>`, par exemple `2026-10-27T19
 - Les projets sont `commun`, `cuisine`, `entrepot`, `urgences`, `codingame` et `lopin`. Il s'y ajoute `sami`, et
   `tous` pour tout le monde.
 - Une session est le projet du dossier où elle **a démarré**, sans tenir compte des majuscules : `mcts-cuisine` est
-  `cuisine`, `Lopin` est `lopin`, et `Algo code in game` (les bots CodinGame, tant qu'il n'est pas renommé) est
-  `codingame`.
+  `cuisine`, `Lopin` est `lopin`, et `mcts-codingame` (les bots CodinGame, venus de `E:\Dev\Algo code in game` le
+  27/10) est `codingame`.
 - Le hook cherche, dans l'ordre : le projet déjà gardé pour la session (`sessions.json`, par identifiant de session) ;
   sinon celui de `CLAUDE_PROJECT_DIR` ; sinon celui du dossier courant. Il garde alors ce qu'il a trouvé. Une session
   démarrée dans le dossier parent des projets est donc fixée à son premier prompt dans un projet, et un `cd` ne la
