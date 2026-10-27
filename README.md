@@ -53,14 +53,31 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  * @property {(world, actor) => number} score      the reward of a finished world, 0 to 1
  */
 
-/** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }} */
-export function search(state, problem, { budget, deadline, now, rng, depth = 5, explore = 0.7, common = false }) {}
+/** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number }} */
+export function search(state, problem, { budget, deadline, now, rng, depth = 5, explore = 0.7, common = false, widening = 0, earlyStop = false }) {}
+
+/** What a result says of the problem searched: [{ code, message }], codes fewIterations, flatScore, closeCall, shallow. */
+export function diagnose(result, { depth = 5 }) {}
 ```
 
 **Le temps plutôt que les itérations** (Sami, 27/10/2026, pour les bots CodinGame : 50 ms par tour) : avec
 `deadline` (un instant de `now()`, `performance.now` par défaut), la recherche itère jusqu'à cette heure ; `budget`
 devient facultatif et sert de plafond. Elle fait toujours au moins une itération, pour rendre un coup même en
 retard. Sans `deadline`, rien ne change.
+
+**Les réglages du 27/10** (Sami : « limiter les cycles, les cases parcourues »), éteints par défaut, si bien
+que les coups et les visites ne changent pas :
+- `widening: k`, l'élargissement progressif de Lopin (la seule variante qu'il a gardée, +2 à 4 points) : sous la
+  racine, un nœud n'offre que les `⌊k + √visites⌋` premiers coups de sa liste courte ; l'arbre descend au lieu
+  de s'étaler ;
+- `earlyStop: true` : avec un `budget`, la recherche s'arrête dès que le coup le plus visité mène de plus
+  d'itérations qu'il n'en reste. Le même coup, plus tôt.
+
+Le résultat dit aussi ce que la recherche a vu, lu une fois l'arbre fini (rien ne coûte par itération) :
+`iterations`, `depth` (le niveau le plus profond atteint), `levels` (les nœuds de chaque niveau), `ms`.
+`diagnose(result, { depth })` en tire des pistes, en français, à écrire dans le journal du bot : trop peu
+d'itérations par coup, un score qui ne départage rien, deux coups à égalité au bruit près, un arbre qui n'atteint
+pas sa profondeur. Le mode d'emploi et ce que dit la recherche récente : [`docs/recherche.md`](docs/recherche.md).
 
 Ce que fait une itération : elle tire un monde compatible avec ce qu'on sait (`sample`), descend l'arbre sur
 les coups que ce monde permet (UCB1, compté sur les itérations où le coup était possible), ajoute le premier
@@ -80,11 +97,17 @@ export function createEvents(start) {}              // { schedule(at, event), ne
 export function readyTasks(tasks, done, free) {}    // prerequisites finished, resources free
 export function smithOrder(tasks) {}                // most weight per minute first
 export function parsePlan(text) {}                  // { width, height, lines, at(x, y), inside(x, y), find(char) }
-export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park } → [{ x, y, t }] | null
+export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park, maxNodes, partial } → [{ x, y, t }] | null
 export function createReservations() {}             // ({ shared }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, stayAt(x, y), clone }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
 ```
+
+**A* borné** (27/10/2026, pour un bot pressé) : `horizon` est la distance la plus longue permise, en pas ; une
+cible plus loin rend null sans rien chercher, et A* ne fait jamais un pas d'où la cible n'est plus joignable à
+temps (les mêmes chemins, plus vite). `maxNodes` plafonne les cases-instants explorées (null au-delà, compté
+`capped`) ; avec `partial: true`, A* rend plutôt le chemin vers la case explorée la plus proche de la cible
+(compté `partial`), pour avancer quand même. Une cible murée, avec ou sans réservations, rend null tôt.
 
 ## Comment les projets s'en servent
 
@@ -143,7 +166,7 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 ## Les traces
 
 Sami (26/10/2026) : le tronc commun était une boîte noire quand un calcul se bloquait. `src/trace.js` (pur, chargé aussi par les pages) compte et chronomètre ce qui passe par la bibliothèque, et garde les 200 derniers événements :
-- `search` et `astar` : appels, itérations, millisecondes, le plus long, les chemins introuvables (`notFound`, dont `givenUp` : ceux qu'A* a abandonnés tôt, la cible hors d'atteinte avant l'horizon, 27/10/2026) ; une erreur (`Problem incomplet`, un coup manquant en `common`) ou un appel lent est gardé avec ses réglages, puis l'erreur repart comme avant. **Lent**, c'est plus de 2 s **et** plus de 10 fois la moyenne des appels d'avant du même scope (27/10/2026 : à 2 s seules, les recherches ordinaires d'une cuisine faisaient 3 391 alertes en une matinée, 13 par cette règle). A* est appelé dans la recherche : son temps est compté aussi dans celui de `search` ;
+- `search` et `astar` : appels, itérations, millisecondes, le plus long, les chemins introuvables (`notFound`, dont `givenUp` : ceux qu'A* a abandonnés tôt, la cible hors d'atteinte avant l'horizon, 27/10/2026), les cases explorées (`expanded` ; `expanded / calls`, ce que coûte un appel), les recherches plafonnées (`capped`) et les chemins partiels (`partial`) ; une erreur (`Problem incomplet`, un coup manquant en `common`) ou un appel lent est gardé avec ses réglages, puis l'erreur repart comme avant. **Lent**, c'est plus de 2 s **et** plus de 10 fois la moyenne des appels d'avant du même scope (27/10/2026 : à 2 s seules, les recherches ordinaires d'une cuisine faisaient 3 391 alertes en une matinée, 13 par cette règle). A* est appelé dans la recherche : son temps est compté aussi dans celui de `search` ;
 - `grid` : une case réservée par-dessus une autre unité (les deux robots du 23/10), en disant si c'est dans un clone de la recherche (`clone`, compté à part dans `overbookedInClone`) ; `events` : un événement dans le passé ;
 - `progress(scope, done, of, details)` : un projet dit où en est son calcul (`progress("compare", 12, 30, { unit: "service" })`), au plus une fois toutes les 5 s, la première et la dernière toujours. Le TUI, `--list`, la page et `--status --json` en tirent « service 12/30, fin vers 10:20 ».
 

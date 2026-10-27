@@ -1,4 +1,5 @@
 import { createRng, streamOf } from "./random.js";
+import { hintsOf, meanOf, resultOf } from "./search-report.js";
 import { count, timed, trace } from "./trace.js";
 
 /**
@@ -44,7 +45,6 @@ export function checkProblem(problem) {
 }
 
 const createNode = (move, key, actor) => ({ move, key, actor, visits: 0, total: 0, available: 0, children: new Map() });
-const meanOf = (node) => (node.visits > 0 ? node.total / node.visits : 0);
 
 /** The moves the search considers in `world`, by key, in the shortlist's order. */
 function candidates(problem, world) {
@@ -68,9 +68,18 @@ function select(node, offered, explore) {
   return best;
 }
 
-/** One step down from `node` in `world`: the child added (`fresh`) or chosen, and the world after its move. */
-function step(node, world, { problem, explore }) {
-  const offered = candidates(problem, world);
+/**
+ * Progressive widening below the root (Lopin's, 15/10/2026, the one variant it kept: lopin/src/sim/mcts/widening.js):
+ * a node offers the first ⌊widening + √visits⌋ of the shortlist, so its first visits go deeper instead of wider.
+ */
+function widened(offered, node, widening) {
+  if (!widening) return offered;
+  return new Map([...offered].slice(0, Math.max(1, Math.floor(widening + Math.sqrt(node.visits)))));
+}
+
+/** One step down from `node` in `world` (`atRoot`: never widened): the child added (`fresh`) or chosen, and the world after its move. */
+function step(node, world, { problem, explore, widening }, atRoot) {
+  const offered = widened(candidates(problem, world), node, atRoot ? 0 : widening);
   if (offered.size === 0) return null;
   for (const child of node.children.values()) if (offered.has(child.key)) child.available += 1;
   const untried = [...offered.keys()].find((key) => !node.children.has(key));
@@ -105,7 +114,7 @@ function iterate(root, state, settings) {
   let node = root;
   const path = [];
   for (let ply = 0; ply < depth && !problem.over(world); ply += 1) {
-    const next = step(node, world, settings);
+    const next = step(node, world, settings, ply === 0);
     if (!next) break;
     ({ child: node, world } = next);
     path.push(node);
@@ -162,7 +171,7 @@ function iterateCommon(root, state, settings) {
   let node = child;
   const path = [child];
   for (let ply = 1; ply < depth && !problem.over(world); ply += 1) {
-    const next = step(node, world, settings);
+    const next = step(node, world, settings, false);
     if (!next) break;
     ({ child: node, world } = next);
     path.push(node);
@@ -172,13 +181,13 @@ function iterateCommon(root, state, settings) {
   backpropagate(root, path, end, problem);
 }
 
-const sizeOf = (node) => 1 + [...node.children.values()].reduce((sum, child) => sum + sizeOf(child), 0);
-
 /**
  * Searches `state` for `budget` iterations. Returns the move to play (the root child most visited, the
  * better mean between equals; null when there is none), its mean score (`value`), each root move's visits
  * by key, every root move's `{ key, move, visits, mean }` from the most visited, and the tree's `size` in
- * nodes. A root move's object is the one of the world where it was first tried.
+ * nodes. A root move's object is the one of the world where it was first tried. And what the search saw
+ * (27/10/2026), read once it is done: the `iterations` run, the deepest level reached (`depth`), the nodes of each
+ * level (`levels`), the `ms` spent; `diagnose` reads them.
  *
  * `common`: judge the root's moves on common worlds (`iterateCommon`), when the root's moves are known in
  * every world and the worlds' noise dwarfs the moves' differences (a whole shift, a whole day to come).
@@ -187,12 +196,22 @@ const sizeOf = (node) => 1 + [...node.children.values()].reduce((sum, child) => 
  * `now()` reaches it, `budget` then optional and a cap; at least one iteration, so a move comes back even late.
  * `now` is `performance.now` unless given (a test's clock). Without `deadline`, nothing changes.
  *
- * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number }}
+ * `widening` (27/10/2026): below the root, a node offers the first ⌊widening + √visits⌋ of its shortlist (`widened`).
+ * `earlyStop`: with a `budget`, stop once the most visited root move leads by more than the iterations left: the
+ * same move, sooner (Lopin's `smart`). Both off by default: the same moves and visits.
+ *
+ * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number }}
  */
-export function search(state, problem, { budget, deadline, now = clock, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false }) {
+export function search(state, problem, { budget, deadline, now = clock, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false, widening = 0, earlyStop = false }) {
   // Traced (src/trace.js): counted and timed; an error or a slow search kept with its settings.
-  const limit = { budget, deadline, now };
-  return timed("search", () => searchTree(state, problem, { limit, rng, depth, explore, common }), () => ({ budget, deadline, depth, explore, common }));
+  const limit = { budget, deadline, now, earlyStop };
+  const shape = { depth, explore, common, widening };
+  return timed("search", () => searchTree(state, problem, { limit, rng, ...shape }), () => ({ budget, deadline, earlyStop, ...shape }));
+}
+
+/** What `search`'s result says of the problem searched, asked at `depth`: `[{ code, message }]` (src/search-report.js). */
+export function diagnose(result, { depth = SEARCH.depth } = {}) {
+  return hintsOf(result, depth);
 }
 
 const clock = () => globalThis.performance.now();
@@ -203,42 +222,49 @@ function checkLimit({ budget, deadline }) {
   if (!Number.isInteger(budget) || budget < 1) throw new Error(`budget: a whole number of iterations, not ${budget}`);
 }
 
-function searchTree(state, problem, { limit, rng, depth, explore, common }) {
+function searchTree(state, problem, { limit, rng, depth, explore, common, widening }) {
   checkLimit(limit);
   checkProblem(problem);
+  // Real time, not `now`: a test's clock counts its own ticks.
+  const begin = clock();
   const root = createNode(null, "", "");
-  const settings = { problem, rng, depth, explore };
+  const settings = { problem, rng, depth, explore, widening };
   if (common) settings.common = commonRoot(state, problem, rng);
-  count("search", "iterations", iterateAll(root, state, settings, limit));
-  return resultOf(root);
+  const iterations = iterateAll(root, state, settings, limit);
+  count("search", "iterations", iterations);
+  return resultOf(root, { iterations, ms: clock() - begin });
 }
 
 /**
  * Iterates up to `budget` and until `deadline`, on common worlds when asked (none when the root has no move
- * known in every world); returns how many iterations it ran.
+ * known in every world), with `earlyStop` until the root's leader is settled; returns how many iterations it ran.
  */
-function iterateAll(root, state, settings, { budget = Infinity, deadline, now }) {
+function iterateAll(root, state, settings, limit) {
   if (settings.common?.moves.size === 0) return 0;
   const once = settings.common ? iterateCommon : iterate;
-  const late = deadline === undefined ? () => false : () => now() >= deadline;
+  const stops = stopsOf(root, limit);
   let done = 0;
   do {
     once(root, state, settings);
     done += 1;
-  } while (done < budget && !late());
+  } while (!stops(done));
   return done;
 }
 
-/** What `search` returns, read from the root's children. */
-function resultOf(root) {
-  const stats = [...root.children.values()]
-    .map((child) => ({ key: child.key, move: child.move, visits: child.visits, mean: meanOf(child) }))
-    .sort((a, b) => b.visits - a.visits || b.mean - a.mean);
-  return {
-    move: stats[0]?.move ?? null,
-    value: stats[0]?.mean ?? 0,
-    visits: new Map(stats.map((one) => [one.key, one.visits])),
-    stats,
-    size: sizeOf(root),
-  };
+/** Whether the search stops after `done` iterations: its budget spent, its deadline passed, its leader settled. */
+function stopsOf(root, { budget = Infinity, deadline, now, earlyStop }) {
+  const late = deadline === undefined ? () => false : () => now() >= deadline;
+  const sure = earlyStop && Number.isFinite(budget) ? (done) => settled(root, budget - done) : () => false;
+  return (done) => done >= budget || late() || sure(done);
+}
+
+/** Whether the most visited root move leads the next by more than `left` iterations: nobody can catch it. */
+function settled(root, left) {
+  let first = 0;
+  let second = 0;
+  for (const { visits } of root.children.values()) {
+    if (visits > first) [first, second] = [visits, first];
+    else if (visits > second) second = visits;
+  }
+  return first - second > left;
 }

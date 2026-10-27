@@ -48,9 +48,15 @@ const cellKey = (x, y) => `${x},${y}`;
  * the unit stays at `to` once there, so it arrives only when nobody else is due there later.
  *
  * A target walled off by units parked for good gives null without searching to the horizon (Sami, 27/10/2026: on the
- * kitchen's corridor one call in two found no path, 2.5 ms each against 0.07): the same answer, sooner.
+ * kitchen's corridor one call in two found no path, 2.5 ms each against 0.07): the same answer, sooner. So does a
+ * target further than the horizon, and a step from which the target can no longer be reached within it is never
+ * taken: `horizon` is the furthest the unit may go.
  *
- * @param {{ passable: (char: string, x: number, y: number) => boolean, reservations?: object | null, unit?: any, start?: number, horizon?: number, park?: boolean }} options
+ * Bounds for a bot short of time (Sami, 27/10/2026: CodinGame's 50 ms a turn): `maxNodes`, the cells-in-time explored
+ * at most, null beyond (counted `capped`); `partial`, the path to the explored cell nearest the target rather than
+ * null, when the search is capped or finds no way (counted `partial`; the horizon then cuts only by time).
+ *
+ * @param {{ passable: (char: string, x: number, y: number) => boolean, reservations?: object | null, unit?: any, start?: number, horizon?: number, park?: boolean, maxNodes?: number, partial?: boolean }} options
  */
 export function astar(plan, from, to, options) {
   // Traced (src/trace.js): counted and timed, the paths not found counted, a slow or failing call kept with its ends.
@@ -59,45 +65,81 @@ export function astar(plan, from, to, options) {
   return path;
 }
 
-const giveUp = () => {
-  count("astar", "givenUp");
-  return null;
-};
-
-/** The search's settings: the options given, their defaults where left out. */
+/** The search's settings: the options given, their defaults where left out; `reach`, the furthest an arrival may be. */
 function settingsOf(plan, to, options) {
   const given = (name, fallback) => (options[name] === undefined ? fallback : options[name]);
-  return { plan, to, passable: options.passable, reservations: given("reservations", null), unit: given("unit", null), start: given("start", 0), horizon: given("horizon", 4 * plan.width * plan.height), park: given("park", false) };
+  const horizon = given("horizon", 4 * plan.width * plan.height);
+  const partial = given("partial", false);
+  const bounds = { maxNodes: given("maxNodes", Infinity), partial, reach: partial ? Infinity : horizon };
+  return { plan, to, passable: options.passable, reservations: given("reservations", null), unit: given("unit", null), start: given("start", 0), horizon, park: given("park", false), ...bounds };
 }
 
 const distanceTo = (to, x, y) => Math.abs(x - to.x) + Math.abs(y - to.y);
 
+/** The path, its nodes explored counted once a call (`expanded / calls`: what a call costs). */
 function shortestPath(plan, from, to, options) {
   const settings = settingsOf(plan, to, options);
-  const { reservations, unit, start, horizon, park } = settings;
-  const arrived = (node) => node.x === to.x && node.y === to.y && (!park || !reservations || reservations.freeFrom(to.x, to.y, node.t, unit));
+  const seen = new Set();
+  const path = explore(settings, from, seen);
+  count("astar", "expanded", seen.size);
+  return path;
+}
+
+/** A* from `from`, each node explored kept in `seen`. */
+function explore(settings, from, seen) {
+  const { to, start, horizon } = settings;
+  const nearest = { node: null, distance: Infinity };
+  if (distanceTo(to, from.x, from.y) > settings.reach) return short(settings, nearest, "givenUp");
   // A consistent heuristic pops f in non-decreasing order: the event queue serves as the open list.
   const open = createEvents();
-  const seen = new Set();
   open.schedule(distanceTo(to, from.x, from.y), { x: from.x, y: from.y, t: start, parent: null });
   for (let next = open.next(); next; next = open.next()) {
     const node = next.event;
-    if (arrived(node)) return pathOf(node);
+    if (arrived(settings, node)) return pathOf(node);
     const key = `${cellKey(node.x, node.y)},${node.t}`;
-    if (seen.has(key) || node.t - start >= horizon) continue;
+    if (seen.has(key)) continue;
+    // A node at the horizon is not explored, but a partial path may end there.
+    closer(nearest, node, to);
+    if (node.t - start >= horizon) continue;
     seen.add(key);
-    // Once the search has seen as many nodes as the plan has cells, a target out of reach is likely: checked once.
-    if (seen.size === plan.width * plan.height && outOfReach(settings, from)) return giveUp();
+    const stop = stopAfter(settings, seen, from);
+    if (stop) return short(settings, nearest, stop);
     expand(node, settings, open);
   }
-  return null;
+  return short(settings, nearest, null);
 }
 
-/** Schedules every step `node` may take: a wait or a move to a passable cell, free then, swapping with nobody. */
+const arrived = ({ to, park, reservations, unit }, node) => node.x === to.x && node.y === to.y && (!park || !reservations || reservations.freeFrom(to.x, to.y, node.t, unit));
+
+/** Why the search stops once `seen` holds its latest node: "capped", "givenUp", or null to go on. */
+function stopAfter(settings, seen, from) {
+  if (seen.size > settings.maxNodes) return "capped";
+  // Once the search has seen as many nodes as the plan has cells, a target out of reach is likely: checked once.
+  return seen.size === settings.plan.width * settings.plan.height && outOfReach(settings, from) ? "givenUp" : null;
+}
+
+/** Keeps in `nearest` the first node explored at the least distance from `to`. */
+function closer(nearest, node, to) {
+  const distance = distanceTo(to, node.x, node.y);
+  if (distance >= nearest.distance) return;
+  nearest.node = node;
+  nearest.distance = distance;
+}
+
+/** A search ended without arriving (`why`, a counter, or null when no way was left): null, or the partial path. */
+function short({ partial }, nearest, why) {
+  if (why) count("astar", why);
+  if (!partial || !nearest.node) return null;
+  count("astar", "partial");
+  return pathOf(nearest.node);
+}
+
+/** Schedules every step `node` may take: a wait or a move to a passable cell, free then, swapping with nobody, from which the target can still be reached in time. */
 function expand(node, settings, open) {
   for (const [dx, dy] of STEPS) {
     const step = { x: node.x + dx, y: node.y + dy, t: node.t + 1 };
-    if (canStep(node, step, settings)) open.schedule(step.t - settings.start + distanceTo(settings.to, step.x, step.y), { ...step, parent: node });
+    const arrival = step.t - settings.start + distanceTo(settings.to, step.x, step.y);
+    if (arrival <= settings.reach && canStep(node, step, settings)) open.schedule(arrival, { ...step, parent: node });
   }
 }
 
@@ -108,9 +150,9 @@ function expand(node, settings, open) {
  * where another already is (`freeFrom` is false there for good).
  */
 function outOfReach({ plan, to, passable, reservations, unit, start, horizon, park }, from) {
-  if (!reservations) return false;
+  // Without reservations, the walls alone (27/10/2026: a walled target, 217 ms at horizon 80 on a 40 × 20 plan).
   const parkedAt = (x, y) => {
-    const stay = reservations.stayAt(x, y);
+    const stay = reservations ? reservations.stayAt(x, y) : null;
     return stay === null || stay.unit === unit ? Infinity : stay.from;
   };
   if (park && parkedAt(to.x, to.y) !== Infinity) return true;

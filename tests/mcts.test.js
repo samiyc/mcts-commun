@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { search } from "../src/mcts.js";
+import { diagnose, search } from "../src/mcts.js";
 import { createRng } from "../src/random.js";
 import { doors, loudLuck, nim, twoJobs } from "./fixtures/problems.js";
 
@@ -86,5 +86,42 @@ describe("the tree search over hidden information (src/mcts.js)", () => {
     const found = search({ pile: 0, toMove: "A" }, nim, { budget: 10 });
     assert.equal(found.move, null);
     assert.equal(found.size, 1);
+    assert.deepEqual(diagnose(found), []);
+  });
+
+  it("widens below the root as its nodes are visited, never at the root (27/10/2026)", () => {
+    const wide = { ...nim, moves: (world) => [1, 2, 3, 4, 5].filter((take) => take <= world.pile) };
+    const run = (widening) => search({ pile: 30, toMove: "A" }, wide, { budget: 400, rng: createRng(4), depth: 12, widening });
+    const plain = run(0);
+    const narrow = run(1);
+    assert.equal(narrow.levels[0], 5, "la racine garde ses cinq coups");
+    assert.ok(narrow.levels[1] < plain.levels[1], `${narrow.levels} contre ${plain.levels}`);
+    assert.ok(narrow.depth > plain.depth, `${narrow.depth} contre ${plain.depth}`);
+    assert.equal(narrow.iterations, 400);
+  });
+
+  it("stops early once its leader cannot be caught, with the same move (27/10/2026)", () => {
+    for (const common of [false, true]) {
+      const full = search({}, doors, { budget: 2000, rng: createRng(3), common });
+      const early = search({}, doors, { budget: 2000, rng: createRng(3), common, earlyStop: true });
+      assert.equal(early.move, full.move);
+      assert.ok(early.iterations < 2000, `${early.iterations}`);
+      assert.equal(early.stats.reduce((sum, one) => sum + one.visits, 0), early.iterations);
+    }
+    // Without a budget there is nothing left to count: a deadline alone ignores it.
+    let time = 0;
+    assert.equal(search({}, doors, { deadline: 50, now: () => (time += 1), earlyStop: true }).iterations, 50);
+  });
+
+  it("diagnoses what a search saw: too few iterations, a flat score, a close call, a shallow tree (27/10/2026)", () => {
+    const codes = (found, depth) => diagnose(found, { depth }).map((hint) => hint.code);
+    assert.deepEqual(codes(search({}, doors, { budget: 2000, rng: createRng(3) }), 1), []);
+    assert.deepEqual(codes(search({}, doors, { budget: 10, rng: createRng(3) }), 1), ["fewIterations"]);
+    assert.deepEqual(codes(search({}, { ...doors, score: () => 0.5 }, { budget: 200 }), 1), ["flatScore"]);
+    const evens = { ...doors, sample: (state, rng) => ({ prize: rng.next() < 0.5 ? "A" : "B", opened: null }) };
+    assert.deepEqual(codes(search({}, evens, { budget: 200, rng: createRng(3) }), 1), ["closeCall"]);
+    const wide = { ...nim, moves: (world) => [1, 2, 3, 4, 5].filter((take) => take <= world.pile) };
+    assert.ok(codes(search({ pile: 30, toMove: "A" }, wide, { budget: 30, rng: createRng(2) }), 5).includes("shallow"));
+    for (const hint of diagnose(search({}, doors, { budget: 10 }))) assert.match(hint.message, /\S/);
   });
 });

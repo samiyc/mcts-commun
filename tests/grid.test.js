@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { astar, createReservations, parsePlan } from "../src/grid.js";
+import { resetTrace, traceSnapshot } from "../src/trace.js";
 
 const open = (char) => char !== "#";
 const PLAN = parsePlan(`
@@ -63,6 +64,25 @@ describe("plans and paths (src/grid.js)", () => {
     const begin = performance.now();
     assert.equal(astar(wide, { x: 2, y: 2 }, { x: 35, y: 10 }, { passable: open, reservations: createReservations(), unit: "a", horizon: 80 }), null);
     assert.ok(performance.now() - begin < 1000, `${Math.round(performance.now() - begin)} ms`);
+    // The walls alone, without reservations, give the same answer as soon.
+    assert.equal(astar(wide, { x: 2, y: 2 }, { x: 35, y: 10 }, { passable: open, horizon: 80 }), null);
+  });
+
+  it("bounds a search short of time: beyond the horizon, beyond maxNodes, or the partial path towards the target (27/10/2026)", () => {
+    const hall = parsePlan(["############", "#..........#", "#..........#", "############"].join("\n"));
+    const far = { x: 10, y: 2 };
+    resetTrace();
+    assert.equal(astar(hall, { x: 1, y: 1 }, far, { passable: open, horizon: 5 }), null, "10 pas pour un horizon de 5");
+    assert.equal(traceSnapshot().counters.astar.expanded, 0, "rien d'exploré");
+    assert.equal(astar(hall, { x: 1, y: 1 }, far, { passable: open, maxNodes: 4 }), null);
+    assert.equal(traceSnapshot().counters.astar.capped, 1);
+    const partial = astar(hall, { x: 1, y: 1 }, far, { passable: open, maxNodes: 4, partial: true });
+    assert.ok(Math.abs(partial.at(-1).x - far.x) + Math.abs(partial.at(-1).y - far.y) < 10, JSON.stringify(partial));
+    // Out of time but not of patience: towards the target as far as the horizon lets it.
+    const towards = astar(hall, { x: 1, y: 1 }, far, { passable: open, horizon: 5, partial: true });
+    assert.deepEqual(towards.at(-1), { x: 6, y: 1, t: 5 });
+    assert.equal(traceSnapshot().counters.astar.partial, 2);
+    assert.deepEqual(astar(hall, { x: 1, y: 1 }, far, { passable: open, maxNodes: 100 }), astar(hall, { x: 1, y: 1 }, far, { passable: open }));
   });
 
   it("waits or steps aside rather than swap cells with another unit", () => {

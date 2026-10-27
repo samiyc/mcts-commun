@@ -105,6 +105,20 @@ de cases. La réponse est la même, `null`, et `astar.givenUp` compte ces arrêt
 des règles : A* passe de 4,6 s à 0,33 s. Au grand détour avec tables, un service de la recherche, de 18,7 s à 8,0 s.
 Les empreintes n'ont pas bougé.
 
+Le soir du 27/10, ce test se révèle coûteux sur un plan plus large. Ses couches comptaient une case autant de fois
+qu'elle avait de voisins déjà atteints, et grossissaient ainsi à chaque pas (`a9a4c99`) :
+
+| Plan, un coin muré, horizon 80 | Avant | Après |
+|---|---|---|
+| 13 × 7 | 72 ms | 3 ms |
+| 16 × 7 (les quais de l'entrepôt) | 266 ms | 8 ms |
+| 24 × 12 | plus de 4 Go de mémoire, arrêté | 12 ms |
+
+L'entrepôt en a sans doute payé le prix : ses `ligne-retours` ont pris 38 min pour 23 annoncées dans la journée.
+Ce soir-là, A* coupe aussi les pas d'où la cible n'est plus joignable avant l'horizon. Il compte les cases explorées
+(`astar.expanded`), et `expanded / calls` dit ce que coûte un appel. Avec `maxNodes`, les appels plafonnés
+sont comptés dans `astar.capped`, et les chemins partiels dans `astar.partial` (le README, « A* borné »).
+
 ## Recommandations aux projets
 
 Pour les jobs que cuisine, entrepot, urgences ou lopin mettent dans la file (Sami, 27/10/2026 : un job ne disait rien
@@ -233,6 +247,7 @@ inchangées. Mesuré par la session cuisine :
 Les durées apprises de ces commandes (la médiane de leurs 5 derniers passages) restent celles d'avant pendant
 quelques passages : la file surestimera couloir et tables-detour jusqu'à ce que les nouveaux passages les remplacent.
 Le prochain lot dira le gain réel, à 18 jobs côte à côte, par `astar.givenUp` et la part d'A* dans chaque trace.
+Le correctif du soir (`a9a4c99`, § « A* ou la recherche ? ») touche surtout l'entrepôt, aux plans plus larges.
 
 **Les alertes ne disaient rien** : 3 391 recherches « lentes » (de 2 à 38 s, budget 64, profondeur 2), le TUI à
 « 20 incidents » en rouge sur presque chaque job. D'où la règle relative et les deux niveaux (§ « Ce que disent les

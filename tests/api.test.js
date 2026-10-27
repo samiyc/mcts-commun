@@ -31,7 +31,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     assert.deepEqual(Object.keys(measure).sort(), ["paired", "wilson"]);
     assert.deepEqual(Object.keys(events.createEvents()).sort(), ["clone", "next", "now", "peek", "schedule", "size"]);
     assert.deepEqual(Object.keys(measure.paired([1], [0])), ["n", "mean", "low", "high", "wins", "ties", "losses"]);
-    assert.deepEqual(Object.keys(mcts).sort(), ["PROBLEM", "SEARCH", "checkProblem", "search"]);
+    assert.deepEqual(Object.keys(mcts).sort(), ["PROBLEM", "SEARCH", "checkProblem", "diagnose", "search"]);
     assert.deepEqual(Object.keys(createRng(1)).sort(), ["clone", "getState", "int", "next", "normal", "setState", "shuffle"]);
     assert.deepEqual(mcts.SEARCH, { depth: 5, explore: 0.7 });
     assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "progress", "resetTrace", "setTraceLevel", "timed", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
@@ -39,19 +39,23 @@ describe("the library's contract (tests/api.test.js)", () => {
 
   it("returns the search's result in its stated shape", () => {
     const found = search({}, doors, { budget: 50 });
-    assert.deepEqual(Object.keys(found), ["move", "value", "visits", "stats", "size"]);
+    assert.deepEqual(Object.keys(found), ["move", "value", "visits", "stats", "size", "iterations", "depth", "levels", "ms"]);
     assert.ok(found.visits instanceof Map);
     assert.deepEqual(Object.keys(found.stats[0]), ["key", "move", "visits", "mean"]);
     assert.equal(typeof found.value, "number");
     assert.equal(typeof found.size, "number");
+    assert.equal(found.iterations, 50);
+    assert.deepEqual([found.depth, found.levels], [1, [2]]);
+    assert.ok(found.ms >= 0);
+    assert.ok(Array.isArray(mcts.diagnose(found)));
   });
 
   it("states in the README the same Problem and the same search as the code", () => {
     const stated = [...README.matchAll(/@property \{[^}]*\} \[?(\w+)\]?/g)].map((match) => match[1]);
     assert.deepEqual(stated.sort(), [...mcts.PROBLEM.required, ...mcts.PROBLEM.optional].sort());
     assert.match(README, /\[shortlist\]/);
-    assert.match(README, /export function search\(state, problem, \{ budget, deadline, now, rng, depth = 5, explore = 0\.7, common = false \}\)/);
-    assert.match(README, /move: Move \| null, value: number, visits: Map<string, number>, stats: object\[\], size: number/);
+    assert.match(README, /export function search\(state, problem, \{ budget, deadline, now, rng, depth = 5, explore = 0\.7, common = false, widening = 0, earlyStop = false \}\)/);
+    assert.match(README, /move: Move \| null, value: number, visits: Map<string, number>, stats: object\[\], size: number, iterations: number, depth: number, levels: number\[\], ms: number/);
   });
 
   it("keeps its fingerprint: the same moves and visits on the seeded toy problems", () => {
