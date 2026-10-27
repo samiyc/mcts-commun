@@ -111,17 +111,19 @@ export function warningsOf(job) {
 const percent = (fraction) => `${Math.round(fraction * 100)} %`;
 const hours = (value) => `${decimal(value)} h`;
 
-/** The load in a sentence: what the queue asks of the machine, at the estimates and at the pace measured, against 8:00. */
+const ratioText = (ratio) => (ratio === null ? "" : `, les derniers jobs en ont pris ×${decimal(Math.round(ratio * 100) / 100)}`);
+
+/** The load in a sentence: what the queue asks of the machine, learned from the archive, at its estimates, against 8:00. */
 export function loadText(load) {
-  const measured = load.measuredHours === null ? "" : `, ≈ ${hours(load.measuredHours)} au rythme mesuré (les jobs prennent ×${decimal(Math.round(load.estimateRatio * 100) / 100)} de leur estimation)`;
+  const given = load.givenHours === load.queueHours ? "" : ` (${hours(load.givenHours)} à ses estimations${ratioText(load.estimateRatio)})`;
   const morning = load.pastMorningMin > 0 ? `elle finirait ${durationText(load.pastMorningMin)} après 8 h` : "elle tient avant 8 h";
-  return `La file demande ${hours(load.queueHours)} de la machine entière à ses estimations${measured} ; ${morning}.`;
+  return `La file demande ${hours(load.queueHours)} de la machine entière d'après les jobs déjà passés${given} ; ${morning}.`;
 }
 
-/** The load in a few words, for a header: the queue's hours, measured, past 8:00. */
+/** The load in a few words, for a header: the queue's hours, at its estimates, past 8:00. */
 export function loadShort(load) {
-  const measured = load.measuredHours === null ? "" : ` (≈ ${hours(load.measuredHours)} mesurées)`;
-  return `charge ${hours(load.queueHours)}${measured}${load.pastMorningMin > 0 ? ", après 8 h" : ""}`;
+  const given = load.givenHours === load.queueHours ? "" : ` (${hours(load.givenHours)} annoncées)`;
+  return `charge ${hours(load.queueHours)}${given}${load.pastMorningMin > 0 ? ", après 8 h" : ""}`;
 }
 
 /** A night in a few words: its date, how busy, how far past the morning. */
@@ -132,8 +134,16 @@ export function nightText(night) {
 }
 
 /** A planned job's notes: its priority when not normal, its threads, its due time, its prerequisites. */
+/** How a learned estimate was learned: "annoncé 6 h 00, appris de 4 passages". */
+export function learnedText(job) {
+  if (!job.learned) return "";
+  const { basis, runs } = job.learned;
+  const from = basis === "command" ? `de ${runs} ${plural(runs, "passage")}` : "du rythme du projet";
+  return `annoncé ${durationText(job.givenMin)}, appris ${from}`;
+}
+
 export function tagsOf(job) {
-  return [job.priority !== 2 ? `priorité ${job.priority}` : "", job.threads > 1 ? `${job.threads} fils` : "", maybe(job.due, "pour "), maybe(job.after.join(", "), "après ")].filter(Boolean).join(", ");
+  return [learnedText(job), job.priority !== 2 ? `priorité ${job.priority}` : "", job.threads > 1 ? `${job.threads} fils` : "", maybe(job.due, "pour "), maybe(job.after.join(", "), "après ")].filter(Boolean).join(", ");
 }
 
 /** `mcts-backlog --list`: the machine, then the sections, aligned to `width`. */

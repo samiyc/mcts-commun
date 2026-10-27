@@ -49,6 +49,12 @@ function traceBadge(trace) {
   if (trace.ended?.kind === "crash") return badge("planté", "bad");
   if (trace.ended?.code === 0) return badge("fini", "ok");
   if (trace.ended) return badge(`fini (${trace.ended.code})`);
+  return liveBadge(trace);
+}
+
+/** A trace still written: started (no library call yet), silent, beating. */
+function liveBadge(trace) {
+  if (!Object.keys(trace.counters ?? {}).length) return badge("lancée");
   return trace.quietMin >= 2 ? badge(`muette ${durationText(trace.quietMin)}`) : badge("bat", "ok");
 }
 

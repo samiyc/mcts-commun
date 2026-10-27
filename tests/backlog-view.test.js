@@ -36,7 +36,7 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
       slots: [{ pid: 11, runner: "mcts-backlog", id: "long", threads: 1, since: new Date(NOW - 3_600_000).toISOString() }],
       journal: [],
       outputs: { long: { file: "runs/x_long.txt", mtimeMs: NOW - 4 * 60_000, last: "jour 12/100" } },
-      traces: [{ id: "long", name: "x_long.jsonl", mtimeMs: NOW - 5 * 60_000, lastBeat: { at: new Date(NOW - 5 * 60_000).toISOString() }, counters: {}, problems: [{ kind: "slow" }] }],
+      traces: [{ id: "long", name: "x_long.jsonl", mtimeMs: NOW - 5 * 60_000, lastBeat: { at: new Date(NOW - 5 * 60_000).toISOString() }, counters: { search: { calls: 3 } }, problems: [{ kind: "slow" }] }],
       alivePids: [11],
       machine: null,
     };
@@ -49,6 +49,8 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     assert.equal(long.quietMin, 4);
     assert.deepEqual(warningsOf(long), ["près de la limite (48 min)", "trace muette 5 min", "1 incident tracé"]);
     assert.deepEqual(warningsOf(dead), ["lanceur mort"]);
+    const idle = viewOf({ ...state, traces: [{ ...state.traces[0], counters: {}, problems: [] }] }).running[0];
+    assert.deepEqual(warningsOf(idle), ["près de la limite (48 min)"], "no library call yet: its silence says nothing");
     assert.deepEqual(view.planned.map((one) => one.id), ["next"]);
     assert.deepEqual(view.finished.map((one) => one.id), ["fresh", "old"]);
     assert.deepEqual(view.threads, { used: 1, budget: 4 });

@@ -41,12 +41,18 @@ const JOURNAL_TEXT = {
 /** A journal entry in a few words. */
 export const journalText = (entry) => JOURNAL_TEXT[entry.kind]?.(entry) ?? entry.ids?.join(", ") ?? entry.id ?? entry.message ?? "";
 
+/** How a trace file of a process still there stands: started (no library call yet), silent, beating. */
+function liveState(trace, s) {
+  if (!Object.keys(trace.counters ?? {}).length) return s.gray("○ lancé");
+  if (trace.quietMin !== null && trace.quietMin >= 2) return s.yellow(`◌ muet ${durationText(trace.quietMin)}`);
+  return s.green("● bat");
+}
+
 /** How a trace file stands: beating, ended, crashed, silent. */
 export function traceState(trace, s) {
   if (trace.ended?.kind === "crash") return s.red("✖ planté");
   if (trace.ended) return trace.ended.code === 0 ? s.green("✔ fini") : s.yellow(`■ fini (${trace.ended.code})`);
-  if (trace.quietMin !== null && trace.quietMin >= 2) return s.yellow(`◌ muet ${durationText(trace.quietMin)}`);
-  return s.green("● bat");
+  return liveState(trace, s);
 }
 
 const counterText = ([scope, one]) => `${scope} ${one.calls ?? 0}${maybe(one.errors, " ✖")}${maybe(one.slow, " ⧗")}`;

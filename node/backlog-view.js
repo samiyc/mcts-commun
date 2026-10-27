@@ -1,3 +1,4 @@
+import { withLearned } from "../src/estimate.js";
 import { holdOf, indexJobs, isFinished, minutesOf, nextJob } from "../src/schedule.js";
 import { loadOf } from "./backlog-load.js";
 
@@ -76,11 +77,14 @@ function runningOf(job, context) {
   };
 }
 
+/** The estimate a job was given, and how the one it holds was learned (src/estimate.js), or null. */
+const givenOf = (job) => ({ givenMin: minutesOf(job.given ?? job.estimate), learned: job.learned ?? null });
+
 /** Its time: elapsed, estimated, its limit, how far, past its estimate or not. */
 function timeOf(job, now) {
   const elapsedMin = minutesSince(now, startOf(job)) ?? 0;
   const estimateMin = minutesOf(job.estimate);
-  return { elapsedMin, estimateMin, limitMin: job.limit ?? 120, progress: estimateMin > 0 ? elapsedMin / estimateMin : 0, over: elapsedMin > estimateMin };
+  return { elapsedMin, estimateMin, ...givenOf(job), limitMin: job.limit ?? 120, progress: estimateMin > 0 ? elapsedMin / estimateMin : 0, over: elapsedMin > estimateMin };
 }
 
 /** Its output (the file, its last line, how long it has been quiet) and its trace (the last heartbeat, incidents). */
@@ -91,14 +95,17 @@ function outputOf(output, now) {
   return { output: output.file ?? null, lastLine: output.last ?? "", quietMin: minutesSince(now, output.mtimeMs) };
 }
 
+/** A process that has not called the library yet beats only when idle: its silence says nothing (27/10/2026). */
+const usesLibrary = (trace) => Object.keys(trace.counters ?? {}).length > 0;
+
 function traceStateOf(trace, now) {
   if (!trace) return { beatMin: null, problems: 0 };
-  return { beatMin: trace.lastBeat ? minutesSince(now, Date.parse(trace.lastBeat.at)) : null, problems: trace.problems.length };
+  return { beatMin: trace.lastBeat && usesLibrary(trace) ? minutesSince(now, Date.parse(trace.lastBeat.at)) : null, problems: trace.problems.length };
 }
 
 const processesOf = (job) => ({ runnerPid: job.runnerPid ?? null, childPid: job.childPid ?? null });
 
-const plannedOf = ({ job, start, end, late }) => ({ ...named(job), start, end, late, estimateMin: minutesOf(job.estimate), threads: job.threads ?? 1, priority: job.priority ?? 2, due: job.due ?? null, after: job.after ?? [] });
+const plannedOf = ({ job, start, end, late }) => ({ ...named(job), start, end, late, estimateMin: minutesOf(job.estimate), ...givenOf(job), threads: job.threads ?? 1, priority: job.priority ?? 2, due: job.due ?? null, after: job.after ?? [] });
 /** The jobs for another machine (node/remote.js), waiting there or to be sent. */
 const elsewhere = (jobs) =>
   jobs
@@ -147,7 +154,9 @@ function countsOf({ now, archive, running, planned, held, order }) {
 
 /** What the views show, from `readBacklog`'s state: pure. */
 export function viewOf(state) {
-  const { now, budget, jobs, archive, slots, journal = [], outputs = {}, traces = [], alivePids = [], machine = null } = state;
+  const { now, budget, archive, slots, journal = [], outputs = {}, traces = [], alivePids = [], machine = null } = state;
+  // Each job's length learned from the archive, as the runner orders them (src/estimate.js, 27/10/2026).
+  const jobs = withLearned(state.jobs, archive);
   const traceById = new Map(traces.filter((one) => one.id).map((one) => [one.id, one]));
   const running = jobs
     .filter((job) => job.status === "running")

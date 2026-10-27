@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { withLearned } from "../src/estimate.js";
 import { nextJob } from "../src/schedule.js";
 import { alive, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, waitUntilCool, watchHeat, watchMemory } from "./machine.js";
 import { stamp } from "./queue.js";
@@ -98,11 +99,14 @@ function stopCancelled({ running, journal }, jobs) {
   }
 }
 
-/** The next job by lopin's order, among those not running; a job for another machine (`machine`, node/remote.js) is left. */
+/**
+ * The next job by lopin's order, among those not running, each by its length learned from the archive
+ * (src/estimate.js); a job for another machine (`machine`, node/remote.js) is left.
+ */
 async function pickNext({ queue, running }, current) {
   const archive = await queue.readArchive();
   const waiting = current.jobs.filter((job) => job.status !== "running" && !running.has(job.id) && !job.machine);
-  return nextJob(waiting, [...archive, ...current.jobs.filter((one) => one.status === "running")], Date.now());
+  return nextJob(withLearned(waiting, archive), [...archive, ...current.jobs.filter((one) => one.status === "running")], Date.now());
 }
 
 /** Starts `job` if its threads are free, or skips it on its `skipIf`: true if it did either. */

@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { commandOf } from "../node/backlog-commands.js";
 import { readSlots, takeSlot, threadBudget, watchMemory } from "../node/machine.js";
 
 const run = promisify(execFile);
@@ -143,6 +144,28 @@ describe("the machine's runner (bin/backlog.js) and its slots (node/machine.js),
     assert.match(lib.trace, /^traces[\\/].*_lib\.jsonl$/);
     const trace = (await readFile(path.join(home, lib.trace), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
     assert.deepEqual(trace.map(({ scope, kind }) => `${scope}/${kind}`), ["process/start", "search/error", "process/heartbeat", "process/end"]);
+    await rm(home, { recursive: true, force: true });
+    await rm(folder, { recursive: true, force: true });
+  });
+
+  it("answers --help and refuses an option it does not know, without starting a runner (27/10)", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
+    assert.match((await backlog(home, "--help")).stdout, /--add ID --cwd DOSSIER/);
+    await assert.rejects(backlog(home, "--lsit"), (error) => error.code === 1 && /option inconnue : --lsit/.test(error.stderr));
+    assert.deepEqual(await readdir(home), [], "no runner, no journal");
+    await rm(home, { recursive: true, force: true });
+  });
+
+  it("keeps the quotes of a command given in several words after -- (27/10: node -e lost its code)", async () => {
+    assert.equal(commandOf(["npm run compare -- --plan petit"]), "npm run compare -- --plan petit", "one word: the shell's line");
+    assert.equal(commandOf(["npm", "run", "compare", "--", "--plan", "petit"]), "npm run compare -- --plan petit");
+    assert.equal(commandOf(["node", "-e", 'console.log("a b")']), 'node -e "console.log(\\"a b\\")"');
+    const home = await mkdtemp(path.join(os.tmpdir(), "backlog-"));
+    const folder = await mkdtemp(path.join(os.tmpdir(), "projet-"));
+    await backlog(home, "--add", "q", "--cwd", folder, "--estimate", "1 min", "--", "node", "-e", "console.log('a  b'.length)");
+    await backlog(home);
+    const runs = await readdir(path.join(home, "runs"));
+    assert.match(await readFile(path.join(home, "runs", runs[0]), "utf8"), /^4/, "the two spaces kept");
     await rm(home, { recursive: true, force: true });
     await rm(folder, { recursive: true, force: true });
   });

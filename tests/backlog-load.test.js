@@ -16,18 +16,19 @@ describe("the machine's load (node/backlog-load.js, Sami 26/10: will 18 threads 
     assert.equal(morningAfter(at("2026-10-27T08:00")), at("2026-10-28T08:00"));
   });
 
-  it("says what the queue asks of the machine, at its estimates and at the pace measured, against 8:00", () => {
+  it("says what the queue asks of the machine, learned from the jobs done and at its estimates, against 8:00", () => {
     const now = at("2026-10-27T06:00");
-    const running = [{ estimateMin: 60, elapsedMin: 30, threads: 2, startedAt: "2026-10-27T05:30" }];
-    const planned = [{ estimateMin: 120, threads: 3 }];
+    // Their lengths learned from the archive (src/estimate.js): 60 and 120 min; they were given 2 h and 4 h.
+    const running = [{ estimateMin: 60, givenMin: 120, elapsedMin: 30, threads: 2, startedAt: "2026-10-27T05:30" }];
+    const planned = [{ estimateMin: 120, givenMin: 240, threads: 3 }];
     const finished = [job("a", ["2026-10-26T21:00", "2026-10-26T21:30"], 30), job("b", ["2026-10-26T21:00", "2026-10-26T21:15"], 15), job("c", ["2026-10-26T21:00", "2026-10-26T21:45"], 45)];
     const load = loadOf({ now, budget: 4, running, planned, finished, archive: finished, nightEnd: at("2026-10-27T09:30") });
-    // (30 × 2 + 120 × 3) / 60 / 4 = 1.75 h of the whole machine; the jobs took half their estimate.
+    // (30 × 2 + 120 × 3) / 60 / 4 = 1.75 h of the whole machine; (90 × 2 + 240 × 3) / 60 / 4 = 3.75 h given.
     assert.equal(load.queueHours, 1.8);
+    assert.equal(load.givenHours, 3.8);
     assert.equal(load.estimateRatio, 0.5);
-    assert.equal(load.measuredHours, 0.9);
     assert.equal(load.pastMorningMin, 90);
-    assert.match(loadText(load), /1,8 h de la machine entière.*≈ 0,9 h au rythme mesuré.*×0,5.*1 h 30 après 8 h/);
+    assert.equal(loadText(load), "La file demande 1,8 h de la machine entière d'après les jobs déjà passés (3,8 h à ses estimations, les derniers jobs en ont pris ×0,5) ; elle finirait 1 h 30 après 8 h.");
   });
 
   it("measures the last nights: how busy from 20:00 to 8:00, how far past 8:00, the one under way to now", () => {

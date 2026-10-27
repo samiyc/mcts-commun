@@ -76,16 +76,18 @@ function nightsOf({ archive, running, budget, now }) {
 }
 
 /**
- * The machine's load: `{ queueHours, measuredHours, morning, pastMorningMin, estimateRatio, nights }`; `measuredHours`,
- * the queue's hours at the pace the last jobs kept against their estimates.
+ * The machine's load: `{ queueHours, givenHours, morning, pastMorningMin, estimateRatio, nights }`. `queueHours` at the
+ * estimates learned from the archive (src/estimate.js, 27/10/2026: they replace the pace measured over every job),
+ * `givenHours` at the ones the jobs were given, `estimateRatio` what the last jobs took against those.
  */
 export function loadOf({ now, budget, running, planned, finished, archive, nightEnd }) {
   const morning = morningAfter(now);
+  const given = (job) => ({ ...job, estimateMin: job.givenMin ?? job.estimateMin });
   const hours = queueHours(running, planned, budget);
   const ratio = estimateRatio(finished);
   return {
     queueHours: Math.round(hours * 10) / 10,
-    measuredHours: ratio === null ? null : Math.round(hours * ratio * 10) / 10,
+    givenHours: Math.round(queueHours(running.map(given), planned.map(given), budget) * 10) / 10,
     morning,
     pastMorningMin: nightEnd && nightEnd > morning ? Math.round((nightEnd - morning) / MINUTE) : 0,
     estimateRatio: ratio,

@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
  * A job's process for the runner (node/runner.js): its command in its folder, its output to a file, stopped with every
@@ -8,6 +9,7 @@ import path from "node:path";
  * before it starts.
  */
 export const LIMIT = 120;
+const PRELOAD = pathToFileURL(fileURLToPath(new URL("./trace-preload.js", import.meta.url))).href;
 
 /** Stops `child` and every process it started. */
 function kill(child) {
@@ -16,12 +18,13 @@ function kill(child) {
 }
 
 /**
- * Runs `job` in its folder, its output in `out`, its trace in `trace` (MCTS_TRACE_FILE): `{ pid, done }`, `done`
- * resolving with its exit code, "timeout" or "aborted".
+ * Runs `job` in its folder, its output in `out`, its trace in `trace` (MCTS_TRACE_FILE, opened first in each of its
+ * Node processes: node/trace-preload.js): `{ pid, done }`, `done` resolving with its exit code, "timeout" or
+ * "aborted".
  */
 export function runJob(job, { out, trace }, { signal, threads, home }) {
   const output = createWriteStream(out);
-  const env = { ...process.env, MCTS_THREADS: String(threads), LOPIN_THREADS: String(threads), MCTS_TRACE_FILE: trace, MCTS_BACKLOG_HOME: home };
+  const env = { ...process.env, MCTS_THREADS: String(threads), LOPIN_THREADS: String(threads), MCTS_TRACE_FILE: trace, MCTS_BACKLOG_HOME: home, NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${PRELOAD}`].filter(Boolean).join(" ") };
   const child = spawn(job.command, { cwd: job.cwd, shell: true, env });
   const done = new Promise((resolve) => {
     let ended = null;

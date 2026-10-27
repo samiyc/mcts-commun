@@ -8,7 +8,8 @@
  * call (`debug`, the first `DEBUG_CAP` of a scope). Counters cost an addition: they are always on.
  *
  * Under Node, with `MCTS_TRACE` (1, on, debug) or `MCTS_TRACE_FILE` set, the file sink (node/trace-file.js) is
- * loaded by a dynamic import: no static `node:*` here, the page loads this module unchanged.
+ * loaded by a dynamic import: no static `node:*` here, the page loads this module unchanged. That import ends only
+ * when the process first yields: a backlog job loads the sink before its modules (node/trace-preload.js).
  */
 export const RING = 200;
 export const SLOW_MS = 2000;
@@ -19,8 +20,18 @@ function levelOf(value) {
   if (value === "debug") return "debug";
   return value && value !== "0" && value !== "off" ? "on" : "off";
 }
-const state = { level: levelOf(env.MCTS_TRACE || (env.MCTS_TRACE_FILE ? "on" : "")), since: Date.now(), counters: new Map(), recent: [], sinks: new Set(), debugs: new Map() };
+const state = { level: levelOf(env.MCTS_TRACE || (env.MCTS_TRACE_FILE ? "on" : "")), since: Date.now(), counters: new Map(), recent: [], sinks: new Set(), debugs: new Map(), pulses: new Map() };
 const clock = () => globalThis.performance?.now() ?? Date.now();
+
+/** Calls each pulse whose time has come, from within the library's calls. */
+function pulse(now) {
+  if (state.pulses.size === 0) return;
+  for (const [beat, timing] of state.pulses) {
+    if (now - timing.last < timing.everyMs) continue;
+    timing.last = now;
+    beat();
+  }
+}
 
 /** The trace level: "off" (counters and ring only), "on" (a sink writes them), "debug" (every call too). */
 export const traceLevel = () => state.level;
@@ -69,14 +80,26 @@ export function timed(scope, run, details = () => ({})) {
     trace(scope, "error", { message: error.message, stack: error.stack, ...details() });
     throw error;
   } finally {
-    const ms = clock() - begin;
+    const end = clock();
+    const ms = end - begin;
     counters.ms += ms;
     if (ms > counters.maxMs) counters.maxMs = ms;
     if (ms > SLOW_MS) {
       counters.slow += 1;
       trace(scope, "slow", { ms: Math.round(ms), ...details() });
     } else if (state.level === "debug") trace(scope, "debug", { ms: Math.round(ms * 1000) / 1000, ...details() });
+    pulse(end);
   }
+}
+
+/**
+ * Calls `beat()` at most every `everyMs` from the library's calls (node/trace-file.js: the heartbeat). A synchronous
+ * computation never lets a timer fire (27/10: a night's job traced only at its end): its calls beat for it.
+ * Returns what removes it.
+ */
+export function onPulse(beat, everyMs) {
+  state.pulses.set(beat, { everyMs, last: clock() });
+  return () => state.pulses.delete(beat);
 }
 
 /** Hands every event to `sink(event)` from now on, the ring's first; returns what removes it. */
@@ -99,6 +122,7 @@ export function resetTrace() {
   state.recent.length = 0;
   state.sinks.clear();
   state.debugs.clear();
+  state.pulses.clear();
   state.since = Date.now();
 }
 

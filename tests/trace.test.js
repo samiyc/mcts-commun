@@ -94,6 +94,26 @@ describe("the library's trace (src/trace.js, node/trace-file.js), Sami 26/10", (
     await rm(folder, { recursive: true, force: true });
   });
 
+  it("opens a job's trace first and beats through a computation that never yields (the night of 26/10)", async () => {
+    const folder = await mkdtemp(path.join(os.tmpdir(), "trace-"));
+    const file = path.join(folder, "job.jsonl");
+    const code = `
+      const { search } = await import(${JSON.stringify(MCTS)});
+      const problem = (await import(${JSON.stringify(new URL("./fixtures/problems.js", import.meta.url).href)})).doors;
+      const until = Date.now() + 400;
+      while (Date.now() < until) search({}, problem, { budget: 20 });
+    `;
+    const preload = `--import=${new URL("../node/trace-preload.js", import.meta.url).href}`;
+    await run(process.execPath, [preload, "--input-type=module", "-e", code], { env: { ...process.env, MCTS_TRACE_FILE: file, MCTS_TRACE: "", MCTS_TRACE_BEAT_MS: "100" } });
+    const events = (await readFile(file, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+    assert.equal(events[0].kind, "start");
+    assert.equal(events.filter((event) => event.kind === "start").length, 1, "the preload and src/trace.js open it once");
+    const beats = events.filter((event) => event.kind === "heartbeat");
+    assert.ok(beats.length >= 3, `${beats.length} heartbeats while it computed`);
+    assert.ok(beats[0].counters.search.calls < beats.at(-1).counters.search.calls);
+    await rm(folder, { recursive: true, force: true });
+  });
+
   it("puts a hand-run trace in the project's logs/, one file a process", () => {
     const file = traceFileOf({}, "/projet", 42, new Date("2026-10-26T12:00:00Z"));
     assert.equal(file, path.join("/projet", "logs", "trace-2026-10-26-42.jsonl"));

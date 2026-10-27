@@ -1,5 +1,5 @@
 // The backlog page's night (web/backlog.js): the running jobs from their start, the planned ones after, on one axis.
-import { clockText, durationText } from "../node/backlog-text.js";
+import { clockText, durationText, learnedText } from "../node/backlog-text.js";
 import { $, escape, gauge, levelOf, project, projectColor, table } from "./backlog-html.js";
 
 const NIGHT_LANES = 70;
@@ -7,7 +7,7 @@ const HOUR = 3_600_000;
 
 /** The lanes: a running job from its start to its estimate (a minute from now at the soonest), then the planned. */
 function lanesOf(view) {
-  const running = view.running.map((job) => ({ id: job.id, project: job.project, start: view.now - job.elapsedMin * 60_000, end: Math.max(view.now + 60_000, view.now + (job.estimateMin - job.elapsedMin) * 60_000), planned: false }));
+  const running = view.running.map((job) => ({ id: job.id, project: job.project, start: view.now - job.elapsedMin * 60_000, end: Math.max(view.now + 60_000, view.now + (job.estimateMin - job.elapsedMin) * 60_000), planned: false, learned: job.learned, givenMin: job.givenMin }));
   return [...running, ...view.planned.map((job) => ({ ...job, planned: true }))];
 }
 
@@ -22,7 +22,7 @@ function hoursOf(from, to) {
 function laneHtml(one, x) {
   const late = one.late ? " late" : "";
   const kind = one.planned ? " planned" : "";
-  const title = `${one.id} · ${clockText(one.start)} → ${clockText(one.end)}${one.planned ? " (prévu)" : " (en cours)"}${one.late ? " · en retard sur son échéance" : ""}`;
+  const title = `${one.id} · ${clockText(one.start)} → ${clockText(one.end)}${one.planned ? " (prévu)" : " (en cours)"}${one.late ? " · en retard sur son échéance" : ""}${one.learned ? " · " + learnedText(one) : ""}`;
   const due = one.due ? `<span class="due" style="left: ${x(Date.parse(one.due))}" title="échéance ${escape(one.due)}"></span>` : "";
   const bar = `<span class="bar${kind}${late}" style="--project: ${projectColor(one.project)}; left: ${x(one.start)}; width: calc(${x(one.end)} - ${x(one.start)})" title="${escape(title)}"></span>`;
   return `<div class="lane"><div class="name" title="${escape(one.id)}">${escape(one.id)}</div><div class="track">${bar}${due}</div></div>`;

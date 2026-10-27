@@ -118,7 +118,7 @@ npx mcts-backlog --status ent-sami --json   # où en est un job ; --wait l'atten
 
 Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, command, estimate }] }`) : `--add-file` les ajoute, lancées dans le dossier du fichier, chaque id suivi de la date (`--tag` pour une autre), pour qu'on puisse remettre la même série la nuit suivante.
 
-- **L'ordre** est celui de Lopin (`schedule`) : les prérequis (`--after`), une échéance (`--due`) qu'il raterait, puis la règle de Smith sur `--priority` et `--estimate`.
+- **L'ordre** est celui de Lopin (`schedule`) : les prérequis (`--after`), une échéance (`--due`) qu'il raterait, puis la règle de Smith sur `--priority` et la durée : celle qu'apprend l'archive (les derniers passages de la même commande, sinon le rythme du projet), `--estimate` faute de mieux (27/10/2026 ; voir [`docs/backlog.md`](docs/backlog.md)).
 - **Côte à côte** : les mesures des projets n'ont qu'un fil ; les jobs tournent ensemble tant que leurs fils (`--threads`, 1 par défaut) tiennent dans ce que prête la machine (tous les cœurs moins 3, 18 au plus ; `--budget`). Le banc de Lopin du 22/10 l'avait montré : deux jobs côte à côte battent un job sur 18 fils.
 - **Les créneaux** (`slots.json`) disent ce qui tourne sur la machine, quel que soit le lanceur : celui de Lopin prend les siens dans le même fichier, si bien que deux lanceurs ne demandent jamais plus de fils que la machine n'en prête. Un job qui en demande plus que tout le budget tourne seul.
 - **Les gardes**, comme dans Lopin : sous 5 Go de RAM libre deux fois de suite, le job le plus récent s'arrête et finit `failed` ; à 90 °C (le serveur web de LibreHardwareMonitor), tous les jobs s'arrêtent, retournent dans la file, et elle repart sous 75 °C. Un job dure au plus `--limit` minutes (120).
@@ -133,7 +133,7 @@ Le lanceur qui tournait avant le 26/10 n'écrit ni journal ni traces : il le fer
 
 **Se brancher depuis un autre outil** (Sami, 26/10/2026) : tout passe par la commande, jamais par `queue.json` à la main, parce que la commande tient le verrou de la file (`queue.lock`). `--status`, `--wait` (son code de sortie dit comment le job a fini), `--cancel`, `--retry`, et `skipIf` sur un job, une commande du projet qui peut l'annuler juste avant son départ. Le contrat complet est dans [`docs/backlog.md`](docs/backlog.md).
 
-**La charge, et une machine en plus** (Sami, 26/10/2026 : les 18 fils du PC suffiront-ils ?) : `--list`, le TUI et la page disent ce que la file demande à la machine, au rythme mesuré, et comment se sont passées les dernières nuits. Quand elles saturent, `--push` envoie des jobs à un serveur loué ou au portable, `--pull` en rapatrie les résultats. Les coûts, ce que Sami fait lui-même et la marche à suivre sont dans [`docs/distant.md`](docs/distant.md).
+**La charge, et une machine en plus** (Sami, 26/10/2026 : les 18 fils du PC suffiront-ils ?) : `--list`, le TUI et la page disent ce que la file demande à la machine, d'après les jobs déjà passés et à ses estimations, et comment se sont passées les dernières nuits. Quand elles saturent, `--push` envoie des jobs à un serveur loué ou au portable, `--pull` en rapatrie les résultats. Les coûts, ce que Sami fait lui-même et la marche à suivre sont dans [`docs/distant.md`](docs/distant.md).
 
 ## Les traces
 
@@ -143,8 +143,11 @@ Sami (26/10/2026) : le tronc commun était une boîte noire quand un calcul se b
 
 Sous Node, `MCTS_TRACE=1` (ou `debug`, chaque appel en plus) écrit tout cela dans `logs/trace-AAAA-MM-JJ-<pid>.jsonl` du dossier courant, exclu de git : le départ du processus, les événements, **un battement toutes les 30 s** (les compteurs, la mémoire), le plantage s'il y en a un, la fin. Un calcul coincé dans une boucle ne bat plus : c'est ce que la page et le terminal signalent (« trace muette »). Les jobs de `mcts-backlog` sont tracés d'office dans `~/.mcts-backlog/traces/`. L'empreinte de la recherche ne bouge pas.
 
+Un calcul qui ne rend jamais la main ne laisse tourner aucun minuteur : ce sont les appels à la bibliothèque qui battent (`onPulse`). Et la trace ne s'ouvre d'elle-même qu'au premier moment où le script rend la main (27/10/2026 : les jobs de la nuit n'étaient tracés qu'à leur fin). Le lanceur l'ouvre donc avant tout le reste (`--import`, `node/trace-preload.js`) ; à la main, pour un script qui calcule d'un trait, on fait de même. Une trace sans aucun appel à la bibliothèque est « lancée », jamais « muette » : son silence ne dit rien.
+
 ```bash
 MCTS_TRACE=1 npm run compare -- --plan sami --days 5 --search   # logs/trace-….jsonl
+NODE_OPTIONS=--import=mcts-commun/trace-preload.js MCTS_TRACE=1 npm run compare -- …   # ouverte dès le départ
 ```
 
 ## Les règles

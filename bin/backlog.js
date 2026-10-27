@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
-import { addJobs, cancelJob, jobStatus, jobsOfFile, retryJob, waitCode, waitFor } from "../node/backlog-commands.js";
+import { addJobs, cancelJob, commandOf, jobStatus, jobsOfFile, retryJob, waitCode, waitFor } from "../node/backlog-commands.js";
 import { colorsOn, listText, paren } from "../node/backlog-text.js";
 import { readBacklog, viewOf } from "../node/backlog-view.js";
 import { createJournal } from "../node/journal.js";
@@ -54,7 +54,7 @@ function jobOfOptions() {
     console.error('usage : mcts-backlog --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 2] [--after A,B] [--due ISO] [--limit MIN] [--skip-if "COMMANDE"] -- COMMANDE…');
     process.exit(1);
   }
-  const job = { id, cwd: path.resolve(option("--cwd")), command: args.slice(at + 1).join(" "), estimate: option("--estimate", "1 h"), status: "todo" };
+  const job = { id, cwd: path.resolve(option("--cwd")), command: commandOf(args.slice(at + 1)), estimate: option("--estimate", "1 h"), status: "todo" };
   /** @type {Record<string, [string, (text: string) => any]>} */
   const read = { "--threads": ["threads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String], "--machine": ["machine", String] };
   for (const [flag, [key, parse]] of Object.entries(read)) if (option(flag) !== null) job[key] = parse(option(flag));
@@ -131,6 +131,26 @@ async function pull() {
 }
 
 const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry };
+const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout"];
+const USAGE = `mcts-backlog : la file de la machine (docs/backlog.md)
+  mcts-backlog                       lance la file jusqu'au bout
+  --list [--done N] [--json] | --tui la file, en texte, en JSON ou en direct
+  --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 1|2|3] [--after A,B] [--due ISO] [--limit MIN] [--skip-if "COMMANDE"] [--machine M] -- COMMANDE…
+  --add-file FICHIER.json [--tag T | --no-tag] [--machine M]
+  --status ID [--json] · --wait ID [--timeout MIN] · --cancel ID · --retry ID
+  --push M · --pull M · --list --machine M
+  options : --home DOSSIER, --budget FILS`;
+
+// An option it does not know never starts a runner (27/10/2026: --help started one on the machine's queue).
+const words = args.includes("--") ? args.slice(0, args.indexOf("--")) : args;
+const unknown = words.filter((word) => word.startsWith("-") && !(word in COMMANDS) && !OPTIONS.includes(word));
+if (unknown.length) {
+  const help = unknown.every((word) => ["--help", "-h"].includes(word));
+  (help ? console.log : console.error)(help ? USAGE : `option inconnue : ${unknown.join(", ")}
+
+${USAGE}`);
+  process.exit(help ? 0 : 1);
+}
 const asked = Object.keys(COMMANDS).find((flag) => args.includes(flag) && !(flag === "--json" && (args.includes("--status") || args.includes("--wait"))));
 if (asked) process.exit((await COMMANDS[asked]()) ?? 0);
 await runQueue({ home, budget, queue, journal, pollMs: Number(process.env.MCTS_BACKLOG_POLL_MS || 5_000) });

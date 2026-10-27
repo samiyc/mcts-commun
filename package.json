@@ -28,7 +28,8 @@
     "./grid.js": "./src/grid.js",
     "./schedule.js": "./src/schedule.js",
     "./trace.js": "./src/trace.js",
-    "./machine.js": "./node/machine.js"
+    "./machine.js": "./node/machine.js",
+    "./trace-preload.js": "./node/trace-preload.js"
   },
   "bin": {
     "mcts-serve": "bin/serve.js",

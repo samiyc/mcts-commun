@@ -32,8 +32,11 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 ```
 
 - **`id`, `cwd`, `command`** sont obligatoires, et l'id doit être neuf (ni dans la file, ni dans l'archive).
-- **`estimate`** (« 40 min », « 1 h 30 ») sert à l'ordre et à la frise. `priority` vaut 1 (urgent), 2 (normal) ou 3
-  (peut attendre).
+- **`estimate`** (« 40 min », « 1 h 30 ») est la durée annoncée. Depuis le 27/10, l'ordre et la frise prennent
+  plutôt celle qu'apprend l'archive (`src/estimate.js`) : la médiane des 5 derniers passages de la même commande
+  dans le même dossier, sinon l'estimation corrigée du rythme du projet (ses 30 derniers jobs finis, 3 au moins).
+  Sur les 292 jobs finis au 27/10, l'écart médian à la durée réelle passe de ×2,9 à ×1,5. `priority` vaut 1
+  (urgent), 2 (normal) ou 3 (peut attendre).
 - **`after`** liste les ids qui doivent être finis avant. `due` est l'heure où le résultat doit être là. `limit` est
   la durée maximale en minutes : au-delà, le job est arrêté et finit `timeout`.
 - **`skipIf`** est une commande du projet, lancée dans `cwd` juste avant le job. Si elle sort à 0, le job est
@@ -41,7 +44,11 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
   sert pour ses duels : une série partie trop bas s'arrête là.
 - **Les statuts** : `todo`, `scheduled` (avec `notBefore`), `running`, puis une fin parmi `done`, `failed`,
   `timeout`, `skipped` et `cancelled`. Un job fini part dans `done/`.
-- Le job reçoit `MCTS_THREADS` (ses fils), `MCTS_TRACE_FILE` (sa trace) et `MCTS_BACKLOG_HOME`.
+- Le job reçoit `MCTS_THREADS` (ses fils), `MCTS_TRACE_FILE` (sa trace), `MCTS_BACKLOG_HOME`, et dans
+  `NODE_OPTIONS` un `--import` qui ouvre sa trace avant ses propres modules (`node/trace-preload.js`).
+- **La commande** après `--` : un seul mot est la ligne telle quelle pour le shell (`-- "npm run x -- --a 1"`) ;
+  plusieurs mots sont mis bout à bout, chacun entre guillemets s'il contient un espace ou un caractère du shell
+  (`-- node -e "console.log('a b')"` garde son code).
 
 ## Les commandes
 
@@ -54,6 +61,7 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 | `--cancel ID` | un job à venir finit `cancelled` tout de suite, et ceux qui en dépendent sont bloqués ; un job en cours est marqué, et son lanceur l'arrête | une ligne | 0, ou 3 si l'id est inconnu |
 | `--retry ID` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
 | `--push MACHINE`, `--pull MACHINE`, `--list --machine MACHINE` | une autre machine : les jobs marqués `--machine MACHINE` (sur `--add` ou `--add-file`) y partent, sa file se lit d'ici, ses résultats reviennent ([`distant.md`](distant.md)) | des lignes, ou la vue JSON de là-bas | 0, ou 1 si la machine est inconnue ou injoignable |
+| `--help` | l'aide ; une option inconnue est refusée (code 1) et ne lance jamais de lanceur | du texte | 0 |
 | `--list --json` | toute la vue : la machine, les jobs en cours, la nuit à venir, les bloqués, les finis, le journal, les traces | un objet JSON | 0 |
 
 Pour suivre un job pas à pas, on lit la fin de `output` (le fichier grandit pendant le job) ou de `trace`. On peut

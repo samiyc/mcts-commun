@@ -17,6 +17,15 @@ function checkJob(job) {
   if (missing.length) throw new Error(`job ${job.id ?? "?"} incomplet : ${missing.join(", ")}`);
 }
 
+/**
+ * The command after `--` (27/10/2026: `-- node -e "…"` lost its quotes, the shell read the code): one word is the
+ * shell's line as given; several are joined, each quoted when the shell would cut it or read it.
+ */
+export function commandOf(words) {
+  if (words.length === 1) return words[0];
+  return words.map((word) => (word === "" || /[\s"'&|<>^()%!;$`*?]/.test(word) ? `"${word.replace(/"/g, '\\"')}"` : word)).join(" ");
+}
+
 /** Adds `jobs` at the end of the queue, every id new (the queue's and the archive's); `hint` follows a refusal. */
 export function addJobs(queue, jobs, hint = "") {
   jobs.forEach(checkJob);

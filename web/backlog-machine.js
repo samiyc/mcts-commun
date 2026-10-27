@@ -40,11 +40,11 @@ function endTile(view) {
   return ["Fin de la file", nightEnd ? clockText(nightEnd) : "—", nightEnd ? relativeText(nightEnd, view.now) : "rien à venir"];
 }
 
-/** The load: the queue's hours at its estimates, and at the pace measured; whether it holds before 8:00. */
+/** The load: the queue's hours learned from the archive, and at its estimates; whether it holds before 8:00. */
 function loadTile(view) {
   const { load } = view;
   if (!load) return ["Charge", "?", ""];
-  const measured = load.measuredHours === null ? "" : `≈ ${decimal(load.measuredHours)} h au rythme mesuré · `;
+  const measured = load.givenHours === load.queueHours ? "" : `${decimal(load.givenHours)} h annoncées · `;
   const morning = load.pastMorningMin > 0 ? `<span class="status-failed">${durationText(load.pastMorningMin)} après 8 h</span>` : "tient avant 8 h";
   return ["Charge de la file", hours(load.queueHours), measured + morning];
 }
