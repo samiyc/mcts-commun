@@ -47,6 +47,7 @@ export function journal(view) {
 /** How a trace stands, as a badge: crashed, ended, silent, beating. */
 function traceBadge(trace) {
   if (trace.ended?.kind === "crash") return badge("planté", "bad");
+  if (trace.stopped) return badge(statusOf(trace.stopped.status).word);
   if (trace.ended?.code === 0) return badge("fini", "ok");
   if (trace.ended) return badge(`fini (${trace.ended.code})`);
   return liveBadge(trace);

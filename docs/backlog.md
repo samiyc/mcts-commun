@@ -90,6 +90,10 @@ Les seuils, et pourquoi :
 - **Une trace muette** : plus de battement depuis 2 min, alors que le job a déjà appelé la bibliothèque. Un calcul
   bat à chaque appel ; un job qui ne bat plus est coincé dans une boucle hors de la bibliothèque.
 - Les compteurs donnent les totaux ; les vues ne gardent que les 20 derniers évènements, pour le détail.
+- **Un job arrêté** (annulé, trop long, une garde) est tué avec ses processus : il ne peut pas écrire sa fin. Son
+  lanceur l'ajoute à sa trace (`end` avec `stoppedBy: "mcts-backlog"` et le statut), et pour les traces d'avant le
+  27/10 les vues la tirent de l'archive : « ■ annulé », jamais « muet » (27/10 : un job annulé à 10:30 restait
+  « muet 29 min » dans le TUI).
 
 **A* ou la recherche ?** A* est appelé dans les simulations de la recherche : son temps est compté dans `astar`
 **et** dans `search`. La part d'A* dans un job, c'est `astar.ms` sur sa durée ; ce qui reste de `search.ms`, c'est

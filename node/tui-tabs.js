@@ -51,6 +51,7 @@ function liveState(trace, s) {
 /** How a trace file stands: beating, ended, crashed, silent. */
 export function traceState(trace, s) {
   if (trace.ended?.kind === "crash") return s.red("✖ planté");
+  if (trace.stopped) return s.yellow(`■ ${statusOf(trace.stopped.status).word}`);
   if (trace.ended) return trace.ended.code === 0 ? s.green("✔ fini") : s.yellow(`■ fini (${trace.ended.code})`);
   return liveState(trace, s);
 }

@@ -96,6 +96,9 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       await ended;
       assert.ok(Date.now() - started < 10_000, "stopped well before its 30 s");
       assert.equal(await codeOf(home, "--wait", "long"), 2);
+      // Killed with its processes, it could not end its trace: its runner did (27/10, a cancelled job shown "silent").
+      const last = JSON.parse((await readFile((await statusOf(home, "long")).trace, "utf8")).trim().split("\n").at(-1));
+      assert.deepEqual([last.kind, last.stoppedBy, last.status], ["end", "mcts-backlog", "cancelled"]);
       assert.equal((await statusOf(home, "after-later")).waiting, "later : cancelled");
       const again = (await backlog(home, "--retry", "long")).stdout;
       assert.match(again, /long-r1/);

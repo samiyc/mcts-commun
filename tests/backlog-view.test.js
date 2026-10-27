@@ -68,6 +68,9 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     assert.deepEqual(warningsOf(dead), []);
     const idle = viewOf({ ...state, traces: [{ ...state.traces[0], counters: {}, problems: [] }] }).running[0];
     assert.deepEqual(warningsOf(idle), ["près de la limite (48 min)"], "no library call yet: its silence says nothing");
+    // A trace with no end whose job ended (killed by its runner before 27/10): stopped, not silent.
+    const stopped = viewOf({ ...state, traces: [{ id: "fresh", name: "x_fresh.jsonl", mtimeMs: NOW - 9 * 60_000, counters: { search: { calls: 1 } }, problems: [] }] }).traces[0];
+    assert.deepEqual(stopped.stopped, { status: "failed", reason: "code 3" });
     assert.deepEqual(view.planned.map((one) => one.id), ["next"]);
     assert.deepEqual(view.finished.map((one) => one.id), ["fresh", "old"]);
     assert.deepEqual(view.threads, { used: 1, budget: 4 });

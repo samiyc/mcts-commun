@@ -161,9 +161,15 @@ function runnersOf({ slots, jobs, journal, alivePids }) {
   });
 }
 
-const traceOf = (now) => (trace) => {
+/**
+ * A trace for the views. A job stopped by its runner (cancelled, too long, a guard) is killed with its processes and
+ * writes no end: its job's end says it, from the archive (27/10/2026: a job cancelled at 10:30 was "silent" after).
+ */
+const traceOf = (now, finishedById) => (trace) => {
   const { file, name, id, mtimeMs, start, lastBeat, counters, ended, problems } = trace;
-  return { file, name, id, quietMin: minutesSince(now, mtimeMs), start, lastBeat, counters, ended, problems, incidents: incidentsOf(trace), reported: progressOf(trace) };
+  const job = ended ? null : finishedById.get(id);
+  const stopped = ended?.stoppedBy ? { status: ended.status, reason: ended.reason ?? null } : job && { status: job.status, reason: job.reason ?? null };
+  return { file, name, id, quietMin: minutesSince(now, mtimeMs), start, lastBeat, counters, ended, stopped: stopped ?? null, problems, incidents: incidentsOf(trace), reported: progressOf(trace) };
 };
 
 function countsOf({ now, archive, running, planned, held, order }) {
@@ -209,7 +215,7 @@ export function viewOf(state) {
     waiting: held.filter((job) => !job.blocked),
     finished,
     journal: [...journal].reverse(),
-    traces: traces.map(traceOf(now)),
+    traces: traces.map(traceOf(now, new Map([...archive, ...jobs].filter(isFinished).map((job) => [job.id, job])))),
     counts,
     load: loadOf({ now, budget, running, planned, finished, archive, nightEnd: counts.nightEnd }),
   };

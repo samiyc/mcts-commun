@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { withLearned } from "../src/estimate.js";
@@ -194,6 +194,16 @@ async function heatRequeued({ heatStops, queue, journal }, job) {
   return true;
 }
 
+/**
+ * The end a job killed with its processes (cancelled, too long, a guard) cannot write, added to its trace by the
+ * runner (27/10/2026: a job cancelled at 10:30 was shown "silent" after). A job that never opened its trace has none.
+ */
+async function stoppedEnd(file, end) {
+  const line = { at: new Date().toISOString(), scope: "process", kind: "end", stoppedBy: "mcts-backlog", ...end };
+  await stat(file).then(() => appendFile(file, `${JSON.stringify(line)}
+`)).catch(() => {});
+}
+
 async function ended(runner, run, code) {
   const { home, queue, journal } = runner;
   const { job, stops } = run;
@@ -201,6 +211,7 @@ async function ended(runner, run, code) {
   const free = run.memory.stop();
   const minutes = Math.round((Date.now() - run.started) / 600) / 100;
   const byHeat = code === "aborted" && !stops.memory && !stops.cancel;
+  if (typeof code !== "number") await stoppedEnd(run.files.trace, { code, ...(byHeat ? { status: "todo", reason: "garde thermique" } : endOf(code, stops)) });
   if (byHeat && (await heatRequeued(runner, job))) return;
   const { status, reason } = endOf(code, stops);
   const why = reason ? { reason } : {};
