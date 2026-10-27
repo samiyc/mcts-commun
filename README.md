@@ -159,6 +159,9 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 
 **Voir la backlog** (Sami, 26/10/2026 : c'était une boîte noire), toujours en lecture seule, le lanceur peut tourner :
 - `npx mcts-backlog --list` : la machine en une ligne (lanceur, fils, CPU, mémoire), les jobs en cours avec leur avancement, la nuit à venir telle que le lanceur la jouerait (côte à côte dans le budget), les bloqués et pourquoi, les derniers finis ; `--json` donne la même vue ;
+- `npx mcts-backlog --slot N -- commande` : un test ou une mesure hors file, dans N fils des 18 de la machine ; il passe
+  avant les jobs suivants de la file, et au besoin un job commencé depuis moins de 5 min lui rend ses fils et repart
+  plus tard ([`docs/backlog.md`](docs/backlog.md), recommandation 9) ;
 - `npx mcts-backlog --tui` : la même chose en direct au terminal, façon k9s : six onglets (en cours, à venir, bloqués, finis, journal, traces), la ligne choisie détaillée avec la fin de sa sortie, `Entrée` pour la sortie entière, `/` pour filtrer, `?` pour l'aide ;
 - `npm run page` dans `mcts-commun` (http://127.0.0.1:4800/web/) : la page, avec la frise de la nuit et la sortie de chaque job d'un clic.
 

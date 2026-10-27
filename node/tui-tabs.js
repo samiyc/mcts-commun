@@ -15,6 +15,8 @@ const KIND_WORDS = {
   "job-requeued": ["remis en file", "yellow"],
   "job-skipped": ["job sauté", "gray"],
   "job-cancelled": ["job arrêté", "yellow"],
+  "job-preempting": ["place à un test", "yellow"],
+  "job-preempted": ["remis, pour un test", "yellow"],
   "cancel-asked": ["annulation", "yellow"],
   "slot-waiting": ["attend des fils", "gray"],
   "heat-alert": ["garde thermique", "red"],

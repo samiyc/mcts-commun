@@ -122,6 +122,31 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       assert.equal(await codeOf(home, "--slot", "1", "--", 'node -e "process.exit(3)"'), 3, "le code de la commande");
     }));
 
+  it("serves a short test before the queue: a job just started gives its threads back and starts again later (Sami, 27/10)", () =>
+    scratch(async (home, folder) => {
+      await backlog(home, "--add", "long", "--cwd", folder, "--estimate", "1 min", "--threads", "2", "--", sleeper(30_000));
+      const runner = spawn(process.execPath, [RUNNER, "--home", home, "--budget", "2"], { env: quiet });
+      const ended = new Promise((resolve) => runner.once("exit", resolve));
+      while ((await statusOf(home, "long")).status !== "running") await new Promise((resolve) => setTimeout(resolve, 50));
+      const started = Date.now();
+      const test = await run(process.execPath, [RUNNER, "--home", home, "--budget", "2", "--slot", "1", "--id", "court", "--", 'node -e "console.log(\'test court\')"'], { env: quiet });
+      assert.match(test.stdout, /test court/);
+      assert.ok(Date.now() - started < 15_000, `${Date.now() - started} ms : le test court n'a pas attendu les 30 s du job`);
+      const journal = await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8");
+      assert.match(journal, /"kind":"job-preempted","id":"long"/);
+      // Back in the queue, it starts again once the test is done.
+      while ((await statusOf(home, "long")).status !== "running") await new Promise((resolve) => setTimeout(resolve, 50));
+      await backlog(home, "--cancel", "long");
+      await ended;
+      assert.equal((await statusOf(home, "long")).status, "cancelled");
+    }));
+
+  it("refuses a job whose folder does not exist, before it fails at night (urgences, 27/10)", () =>
+    scratch(async (home, folder) => {
+      await assert.rejects(backlog(home, "--add", "perdu", "--cwd", path.join(folder, "absent"), "--", sleeper(10)), /dossier introuvable/);
+      assert.equal(await codeOf(home, "--status", "perdu"), 3);
+    }));
+
   it("skips a job its skipIf answers 0 for, with the reason it printed; runs it otherwise", () =>
     scratch(async (home, folder) => {
       await backlog(home, "--add", "skip", "--cwd", folder, "--skip-if", `node -e "console.log('déjà mesuré')"`, "--", sleeper(10));

@@ -4,8 +4,10 @@ import path from "node:path";
 import { withLearned } from "../src/estimate.js";
 import { nextJob } from "../src/schedule.js";
 import { alive, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, waitUntilCool, watchHeat, watchMemory } from "./machine.js";
+import { preemptFor } from "./preempt.js";
 import { stamp } from "./queue.js";
 import { runJob, skipCheck } from "./run-job.js";
+import { roomFor } from "./wanted.js";
 
 /**
  * The runner of `mcts-backlog` (bin/backlog.js): the queue played to its end, jobs side by side as long as their
@@ -16,7 +18,8 @@ import { runJob, skipCheck } from "./run-job.js";
  * failed; at `MCTS_HEAT_ALERT` °C (90, LibreHardwareMonitor's web server) twice in a row, every job stops, goes back to
  * the queue, and the queue goes on once the CPU is under `MCTS_HEAT_RESUME` °C (75); a job stopped three times by the
  * heat ends failed. A job marked `cancel` (`mcts-backlog --cancel`) is stopped and ends cancelled; one whose `skipIf`
- * says so is skipped before it starts.
+ * says so is skipped before it starts. The threads a short test waits for (`mcts-backlog --slot`) go to it before the
+ * queue's next job, and if need be the youngest jobs give theirs back and start again later (node/preempt.js).
  */
 const HEAT_STOPS = 3;
 const CANCELLED = "annulé (mcts-backlog --cancel)";
@@ -24,7 +27,7 @@ const CANCELLED = "annulé (mcts-backlog --cancel)";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function runQueue({ home, budget, queue, journal, pollMs = 5_000 }) {
-  const runner = { home, budget, queue, journal, pollMs, heat: heatSettings(), ramFloor: memoryFloorGb(), heatStops: new Map(), running: new Map(), cooling: null, waitingForSlot: new Set() };
+  const runner = { home, budget, queue, journal, pollMs, heat: heatSettings(), ramFloor: memoryFloorGb(), heatStops: new Map(), preempted: new Map(), running: new Map(), cooling: null, waitingForSlot: new Set() };
   // A runner that dies says why in its journal first.
   process.on("uncaughtExceptionMonitor", (error, origin) => journal("crash", { origin, message: error?.message ?? String(error), stack: error?.stack, running: [...runner.running.keys()] }));
   await mkdir(queue.files.runs, { recursive: true });
@@ -80,6 +83,7 @@ async function loop(runner) {
     if (runner.cooling) await runner.cooling;
     const current = await runner.queue.read();
     stopCancelled(runner, current.jobs);
+    await preemptFor(runner);
     const job = await pickNext(runner, current);
     if (job && (await tryStart(runner, job))) continue;
     if (!job && runner.running.size === 0) return;
@@ -113,7 +117,8 @@ async function pickNext({ queue, running }, current) {
 async function tryStart(runner, job) {
   const { home, budget, journal } = runner;
   const threads = Math.max(1, Math.min(job.threads ?? 1, budget));
-  const slot = await takeSlot({ home, id: job.id, threads, budget });
+  // A short test waiting for threads (--slot) is served before the queue's next job (Sami, 27/10/2026).
+  const slot = (await roomFor(home, budget, threads)) ? await takeSlot({ home, id: job.id, threads, budget }) : null;
   if (!slot) {
     if (!runner.waitingForSlot.has(job.id)) journal("slot-waiting", { id: job.id, threads, slots: (await readSlots(home)).map(({ runner: who, id, threads: taken }) => ({ runner: who, id, threads: taken })) });
     runner.waitingForSlot.add(job.id);
@@ -157,7 +162,7 @@ async function start(runner, run) {
   const name = `${stamp().replace(/[:T]/g, "-")}_${job.id}`;
   const files = { out: path.join(queue.files.runs, `${name}.txt`), trace: path.join(queue.files.traces, `${name}.jsonl`) };
   const guard = new AbortController();
-  const stops = { memory: null, cancel: null };
+  const stops = { memory: null, cancel: null, preempt: null };
   const onLow = (gb) => {
     stops.memory = `arrêté par la garde mémoire : ${gb} Go libres, sous ${ramFloor} Go`;
     journal("memory-stop", { id: job.id, freeGb: gb, floorGb: ramFloor });
@@ -170,7 +175,7 @@ async function start(runner, run) {
   await queue.update(job.id, { childPid: child.pid, output, trace: path.relative(home, files.trace) });
   journal("job-started", { id: job.id, cwd: job.cwd, command: job.command, threads, childPid: child.pid, output });
   const done = child.done.then((code) => ended(runner, run, code));
-  runner.running.set(job.id, { guard, stops, done });
+  runner.running.set(job.id, { guard, stops, done, started: run.started, threads });
   done.finally(() => runner.running.delete(job.id));
 }
 
@@ -204,15 +209,36 @@ async function stoppedEnd(file, end) {
 `)).catch(() => {});
 }
 
+/** Back to the queue after giving its threads to a short test: it starts again later, from the beginning. */
+async function preempted({ queue, journal }, { job, files, stops }, minutes) {
+  await stoppedEnd(files.trace, { code: "aborted", status: "todo", reason: stops.preempt });
+  await queue.update(job.id, { status: "todo" });
+  journal("job-preempted", { id: job.id, minutes: Math.round(minutes * 100) / 100 });
+  console.log(`■ ${job.id} : ${stops.preempt}, remis dans la file`);
+}
+
+/**
+ * A job killed by its runner goes back to the queue when a short test took its threads or the heat stopped it: true
+ * then. Its trace gets the end it could not write.
+ */
+async function requeuedAfterStop(runner, run, code, minutes) {
+  const { stops } = run;
+  if (code === "aborted" && stops.preempt) {
+    await preempted(runner, run, minutes);
+    return true;
+  }
+  const byHeat = code === "aborted" && !stops.memory && !stops.cancel;
+  if (typeof code !== "number") await stoppedEnd(run.files.trace, { code, ...(byHeat ? { status: "todo", reason: "garde thermique" } : endOf(code, stops)) });
+  return byHeat && (await heatRequeued(runner, run.job));
+}
+
 async function ended(runner, run, code) {
   const { home, queue, journal } = runner;
   const { job, stops } = run;
   await run.slot.release();
   const free = run.memory.stop();
   const minutes = Math.round((Date.now() - run.started) / 600) / 100;
-  const byHeat = code === "aborted" && !stops.memory && !stops.cancel;
-  if (typeof code !== "number") await stoppedEnd(run.files.trace, { code, ...(byHeat ? { status: "todo", reason: "garde thermique" } : endOf(code, stops)) });
-  if (byHeat && (await heatRequeued(runner, job))) return;
+  if (await requeuedAfterStop(runner, run, code, minutes)) return;
   const { status, reason } = endOf(code, stops);
   const why = reason ? { reason } : {};
   await queue.update(job.id, { status, doneAt: stamp(), minutes: Math.round(minutes), output: path.relative(home, run.files.out), ...why });

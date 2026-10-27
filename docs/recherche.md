@@ -117,6 +117,10 @@ pistes, `[{ code, message }]`, en français. Il ne dit rien quand la racine avai
 
 Les comptes de ce soir-là sont donc à refaire avec la nouvelle version.
 
+Un `flatScore` peut aussi vouloir dire qu'**il n'y a rien à chercher** : avant de revoir le score, vérifier si toutes
+les règles donnent la même mesure sur ces décisions (urgences, 27/10 : sur les lits d'aval, le retard et l'attente
+restent les mêmes quel que soit le patient choisi ; seul l'ordre change).
+
 `flatScore` vient des post-mortems de CodinGame. Un joueur du Summer Challenge 2024 avait des scores qui restaient
 à 0 la plupart de la partie : sa beam search choisissait au hasard, jusqu'à ce qu'une heuristique remplace le
 score. Lopin avait vu la même chose à l'envers : la marge de bornes ne rapportait rien de plus, puisque seule la

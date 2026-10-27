@@ -105,7 +105,8 @@ Le hook ne fait jamais échouer un prompt : un tableau illisible ne dit rien.
   un clic sur un fil l'ouvre en entier. Elle lit `GET /api/board`, et `GET /api/board?id=ID` pour un fil.
 - **Lire ne marque rien.** Seul `--read` marque un message lu.
 - **Marquer lus les messages de Sami** (27/10/2026), pour que leur rappel s'en aille :
-  - dans le TUI, onglet Messages : `l` pour le fil choisi, `L` pour tous ;
+  - dans le TUI, onglet Messages : `l` pour le fil choisi, `L` pour tous ; et `l` dans un message ouvert en grand
+    (`Entrée`), qui passe à la ligne à la largeur de l'écran, comme la fenêtre de la page ;
   - dans la page : le bouton « Lu » d'un fil qui attend sami, ou « Tout marquer lu pour sami » (`POST /api/board/read`) ;
   - en ligne de commande : `--read ID --as sami`.
 

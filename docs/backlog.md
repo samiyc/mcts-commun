@@ -54,13 +54,13 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 
 | Commande | Ce qu'elle fait | Sortie | Code |
 |---|---|---|---|
-| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--threads`, `--priority`, `--after A,B`, `--due`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant) |
+| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--threads`, `--priority`, `--after A,B`, `--due`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant, dossier introuvable) |
 | `--add-file PROJET/night.json [--tag T | --no-tag]` | ajoute les jobs d'un fichier, chaque id suffixé de `-T` (la date du jour par défaut ; `--no-tag` garde les ids), chacun lancé dans son `cwd` (relatif au fichier, son dossier par défaut) | une ligne par job | 0 ou 1 |
 | `--status ID [--json]` | où en est un job : à venir (`plannedStart`, ou `waiting` et `blocked`), en cours, fini (`status`, `reason`, `minutes`) ; `output` et `trace` en chemins absolus ; tiré de sa trace, `incidents` (`errors`, `crashed`, `slow`, `overbooked`) et `reported` (le dernier `progress` : `done`, `of`, `unit`, `endAt`) | une ligne, ou un objet JSON (`null` si l'id est inconnu) | 0, ou 3 si l'id est inconnu |
 | `--wait ID [--timeout MIN] [--json]` | attend la fin du job, en relisant la file toutes les 2 s | comme `--status` | 0 fini, 1 échec ou trop long, 2 annulé ou sauté, 3 inconnu, 4 pas fini au bout de `--timeout` |
 | `--cancel ID` | un job à venir finit `cancelled` tout de suite, et ceux qui en dépendent sont bloqués ; un job en cours est marqué, et son lanceur l'arrête | une ligne | 0, ou 3 si l'id est inconnu |
 | `--retry ID` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
-| `--slot N [--id NOM] -- COMMANDE` | lance un test ou une mesure **hors file** dans N fils des créneaux de la machine : attend qu'ils soient libres, lance la commande au premier plan avec `MCTS_THREADS=N`, puis les rend | la sortie de la commande ; une ligne sur la sortie d'erreur tant qu'il attend | celui de la commande |
+| `--slot N [--id NOM] -- COMMANDE` | lance un test ou une mesure **hors file** dans N fils des créneaux de la machine : attend qu'ils soient libres (servi avant les jobs suivants de la file, voir la recommandation 9), lance la commande au premier plan avec `MCTS_THREADS=N`, puis les rend | la sortie de la commande ; une ligne sur la sortie d'erreur tant qu'il attend | celui de la commande |
 | `--push MACHINE`, `--pull MACHINE`, `--list --machine MACHINE` | une autre machine : les jobs marqués `--machine MACHINE` (sur `--add` ou `--add-file`) y partent, sa file se lit d'ici, ses résultats reviennent ([`distant.md`](distant.md)) | des lignes, ou la vue JSON de là-bas | 0, ou 1 si la machine est inconnue ou injoignable |
 | `--help` | l'aide ; une option inconnue est refusée (code 1) et ne lance jamais de lanceur | du texte | 0 |
 | `--list --json` | toute la vue : la machine, les jobs en cours, la nuit à venir, les bloqués, les finis, le journal, les traces | un objet JSON | 0 |
@@ -161,6 +161,21 @@ pendant 45 min, puis tout à la fin) :
    Windows ne sait pas plafonner un processus : la règle tient parce que tout le monde passe par là. Le hook du tableau
    le rappelle à chaque prompt tant que la file tient des fils : « Machine : 18/18 fils pris… », avec
    `TEST_CONCURRENCY` conseillé.
+
+   **Le test court passe devant** (Sami, 27/10/2026 : un `--slot 1` d'urgences avait attendu 12 min 43 derrière la
+   file) :
+   - pendant qu'il attend, sa demande est inscrite dans `wanted.json` (`node/wanted.js`). Le lanceur ne démarre plus de
+     job sur ces fils : le prochain qui se libère va au test ;
+   - s'il manque encore des fils, le lanceur arrête ses jobs **commencés il y a moins de 5 min**, les plus récents
+     d'abord (`node/preempt.js`). Ils retournent en file (`job-preempted` au journal, leur trace finie « laissé à un
+     test court ») et repartent plus tard, depuis le début ;
+   - un job n'est arrêté ainsi que 2 fois au plus, ensuite il est protégé ;
+   - le lanceur n'arrête que ses propres jobs, jamais ceux d'un autre lanceur (Lopin).
+
+   Le journal le dit : « place à un test », puis « remis, pour un test ».
+
+   **Un dossier introuvable est refusé à l'ajout** (`--add`, `--add-file`, `--retry`), pour ne pas échouer en pleine nuit
+   (urgences, 27/10 : un heredoc avait mangé les antislashs d'un `cwd`).
 
 ## Après une nuit : le bilan
 

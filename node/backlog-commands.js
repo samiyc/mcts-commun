@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { isFinished } from "../src/schedule.js";
@@ -30,6 +31,9 @@ export function commandOf(words) {
 /** Adds `jobs` at the end of the queue, every id new (the queue's and the archive's); `hint` follows a refusal. */
 export function addJobs(queue, jobs, hint = "") {
   jobs.forEach(checkJob);
+  // A folder that does not exist fails the job at night: refused now (urgences, 27/10/2026: a heredoc ate the backslashes).
+  const lost = jobs.find((job) => !existsSync(job.cwd));
+  if (lost) throw new Error(`dossier introuvable : ${lost.cwd} (job ${lost.id})`);
   return queue.change(async (current) => {
     const taken = new Set([...current.jobs, ...(await queue.readArchive())].map((job) => job.id));
     const twice = firstTwice(jobs, taken);
