@@ -189,7 +189,7 @@ jour. Les prompts sont dans [`essais-projets.md`](essais-projets.md).
 | Projet | Ce qu'il vérifie | Ce qu'il mesure |
 |---|---|---|
 | cuisine | ses empreintes ; les mêmes plats à l'heure | A* sur couloir et tables-detour contre les chiffres du matin ; `diagnose` ; `earlyStop` par paires |
-| entrepot | ses empreintes ; les mêmes journées, à l'identique | `ligne-retours` (38 min pour 23 annoncées) avant et après le correctif ; `diagnose` ; `earlyStop` par paires |
+| entrepot | ses empreintes ; les mêmes journées, à l'identique | `ligne-retours` (38 min pour 23 annoncées, 50 heures de ligne) avant et après le correctif ; `diagnose` ; `earlyStop` par paires |
 | urgences | ses empreintes | `diagnose` sur ses recherches de garde et de parcours ; `earlyStop` par paires |
 | CodinGame | un premier bot d'un seul fichier qui tient son temps | une règle simple, puis la recherche à `deadline` ; ce qui manque à la lib |
 

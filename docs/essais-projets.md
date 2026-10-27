@@ -23,6 +23,28 @@ Les réglages actuels des projets expliquent ce qu'on attend :
   presque pas de prise : on ne l'essaie que si `diagnose` dit `shallow`.
 - `earlyStop` peut épargner une part des itérations quand un coup se détache vite.
 
+Un tag de série (`essais-commun-AAAA-MM-JJ`) est partagé par tous les projets : chacun retrouve ses jobs par le
+préfixe de ses ids (`cuis-…`, `essai-…`), pas par le tag seul (cuisine, 27/10).
+
+## Ce qu'ils ont répondu (27/10, 19:24 à 19:53, par le tableau)
+
+| | cuisine | entrepôt | urgences |
+|---|---|---|---|
+| empreintes | inchangées (92 tests) | inchangées | inchangées (114 tests) |
+| le correctif d'A* | rien de visible : plans petits | mêmes chiffres à l'identique ; −8 % sur la ligne, rien sur l'assemblage | sans grille |
+| `earlyStop` | mêmes résultats au service près, 13 à 28 % d'itérations et 23 % du temps de recherche en moins | 47 itérations par décision au lieu de 64 sur le bord étroit ; verdict sur 100 heures en file | aucun choix changé, 0 à 2 % d'itérations en moins |
+| `diagnose` | `closeCall` 56 à 91 %, puis `fewIterations` ; au banquet `flatScore` 45 % | `closeCall` 73 à 100 %, `fewIterations` 82 % (plan de Sami), `flatScore` à l'usine | `closeCall` 95 à 99 %, `flatScore` 94 % sur les lits d'aval |
+| `widening` | pas essayé (`shallow` 0 à 9 %) | pas de `shallow` | `shallow` sur les lits seuls |
+
+Ce qu'il en ressort pour la lib :
+- **`closeCall` sort presque partout** : sa borne `p(1 − p)` est la plus large autour de 50 %, et elle ignore les
+  mondes communs, où les deux coups se comparent sur les mêmes mondes. Il dit peu tel quel (urgences, entrepôt).
+- **`fewIterations` sort sur les recherches qu'`earlyStop` a arrêtées exprès** (40 % au bord étroit de l'entrepôt).
+- **Le temps (`ms`) favorise la ligne jouée en second**, au code déjà chaud : l'épargne se juge aux itérations.
+- **`earlyStop` dans la cuisine** ne change ni ses résultats ni ses empreintes, puisque chaque décision y tire son hasard
+  d'une graine fixée. L'allumer par défaut est à Sami.
+- **Les projets n'avaient pas `npx mcts-backlog`** : leur lien date d'avant la commande, et un `npm install` le crée.
+
 ## Cuisine
 
 ```text
@@ -69,7 +91,7 @@ façon exponentielle sur tes plans : 266 ms au lieu de 8 sur un coin muré de 16
 2. Avant et après, à l'identique : relance une tranche courte de ligne-retours, par exemple
    `node scripts/line-compare.js --plan retours --search --from 1 --days 10 --out tmp/...`. Compare ses 10 journées
    à celles de tmp/night/ligne-retours-001.jsonl : les mêmes chiffres, hors temps. Compare aussi sa durée par journée
-   à celle d'aujourd'hui (`npx mcts-backlog --status ligne-retours-001-2026-10-27 --json` : 38 min pour 50 jours).
+   à celle d'aujourd'hui (`npx mcts-backlog --status ligne-retours-001-2026-10-27 --json` : 38 min pour 50 heures).
    Relève astar.expanded / astar.calls et astar.givenUp dans la trace. Fais de même sur une mesure de journées qui
    passe par day-legs (quais ou assemblage).
 3. `diagnose(result, { depth })` (export de mcts-commun/mcts.js) : une option de search-bench, de line-compare et de

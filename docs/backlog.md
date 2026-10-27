@@ -114,7 +114,10 @@ qu'elle avait de voisins déjà atteints, et grossissaient ainsi à chaque pas (
 | 16 × 7 (les quais de l'entrepôt) | 266 ms | 8 ms |
 | 24 × 12 | plus de 4 Go de mémoire, arrêté | 12 ms |
 
-L'entrepôt en a sans doute payé le prix : ses `ligne-retours` ont pris 38 min pour 23 annoncées dans la journée.
+On l'a d'abord cru responsable des 38 min de `ligne-retours` (23 annoncées). L'entrepôt a mesuré le soir même, à
+charge égale : le correctif ne fait gagner que 8 % sur ses plans (381 s → 352 s pour 10 heures de `retours`). Les
+mêmes 10 heures avaient pris 660 s le matin avec 18 jobs côte à côte, et 289 s seules le soir : c'était la machine
+chargée. A* fait tout de même 80 % du temps d'une recherche de la ligne.
 Ce soir-là, A* coupe aussi les pas d'où la cible n'est plus joignable avant l'horizon. Il compte les cases explorées
 (`astar.expanded`), et `expanded / calls` dit ce que coûte un appel. Avec `maxNodes`, les appels plafonnés
 sont comptés dans `astar.capped`, et les chemins partiels dans `astar.partial` (le README, « A* borné »).
