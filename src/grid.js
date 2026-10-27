@@ -120,8 +120,13 @@ function outOfReach({ plan, to, passable, reservations, unit, start, horizon, pa
   for (let t = start; layer.length > 0 && t - start <= horizon; t += 1) {
     if (layer.some((cell) => cell.x === to.x && cell.y === to.y)) return false;
     const around = layer.flatMap((cell) => STEPS.slice(1).map(([dx, dy]) => ({ x: cell.x + dx, y: cell.y + dy })));
-    layer = around.filter(({ x, y }) => !seen.has(cellKey(x, y)) && enters(x, y, t + 1));
-    for (const { x, y } of layer) seen.add(cellKey(x, y));
+    // Each cell enters one layer once: marked as it enters, or two neighbours both add it and the layers grow
+    // fourfold a step (27/10/2026: 4 s at horizon 20 on a 40 × 20 plan, minutes at 80).
+    layer = around.filter(({ x, y }) => {
+      if (seen.has(cellKey(x, y)) || !enters(x, y, t + 1)) return false;
+      seen.add(cellKey(x, y));
+      return true;
+    });
   }
   return true;
 }

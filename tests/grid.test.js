@@ -55,6 +55,16 @@ describe("plans and paths (src/grid.js)", () => {
     assert.ok(performance.now() - begin < 200);
   });
 
+  it("checks a target out of reach in a breadth-first pass that stays small on a wide plan (27/10/2026)", () => {
+    // Walls round (35, 10) on a 40 × 20 plan: the bound's layers held each cell once per neighbour, 4 s at horizon 20.
+    const rows = Array.from({ length: 20 }, (_, y) => Array.from({ length: 40 }, (_, x) => (y % 19 === 0 || x % 39 === 0 ? "#" : ".")));
+    for (const [x, y] of [[34, 9], [35, 9], [36, 9], [34, 10], [36, 10], [34, 11], [35, 11], [36, 11]]) rows[y][x] = "#";
+    const wide = parsePlan(rows.map((row) => row.join("")).join("\n"));
+    const begin = performance.now();
+    assert.equal(astar(wide, { x: 2, y: 2 }, { x: 35, y: 10 }, { passable: open, reservations: createReservations(), unit: "a", horizon: 80 }), null);
+    assert.ok(performance.now() - begin < 1000, `${Math.round(performance.now() - begin)} ms`);
+  });
+
   it("waits or steps aside rather than swap cells with another unit", () => {
     const reservations = createReservations();
     const wide = parsePlan("#####\n#...#\n#...#\n#####");
