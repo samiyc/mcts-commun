@@ -52,8 +52,9 @@ export const slugOf = (subject) =>
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40) || "message";
+    .slice(0, 40)
+    // Cut first, then trimmed: a cut may end on a dash (urgences, 27/10/2026: …-cinq-bugs-du-).
+    .replace(/^-|-$/g, "") || "message";
 
 /** A new message's id: its minute, its author, its subject; `-2`, `-3`… when another holds it. */
 export function idOf(at, from, subject, taken) {

@@ -117,6 +117,21 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
       assert.deepEqual(thread.last.to, ["commun"]);
     }));
 
+  it("knows a session started in the projects' parent folder from its first prompt in a project, then keeps it (urgences, 27/10)", () =>
+    scratch(async (home, board) => {
+      const projects = path.join("E:", "Dev", "My projects");
+      const hookIn = (cwd) =>
+        new Promise((resolve, reject) => {
+          const child = execFile(process.execPath, [BOARD, "--board", home, "--hook"], { env: { ...process.env, CLAUDE_PROJECT_DIR: projects } }, (error, stdout) => (error ? reject(error) : resolve(stdout)));
+          child.stdin.end(JSON.stringify({ cwd, session_id: "s-parent" }));
+        });
+      await board("--post", "--as", "commun", "--to", "urgences", "--subject", "Pour urgences", "--", "x");
+      assert.equal(await hookIn(projects), "", "le dossier parent n'est aucun projet");
+      assert.match(await hookIn(path.join(projects, "mcts-urgences")), /pour urgences/);
+      assert.match(await hookIn(path.join(projects, "mcts-commun")), /pour urgences/, "un cd ne la fait plus dériver");
+      assert.equal(idOf("2026-10-27T19:24:00", "urgences", "Les essais des urgences, et cinq bugs du tableau", new Set()), "2026-10-27T1924-urgences-les-essais-des-urgences-et-cinq-bugs-du");
+    }));
+
   it("refuses a message to nobody known, without a subject, or a reply to nothing", () =>
     scratch(async (home, board) => {
       await assert.rejects(board("--post", "--as", "commun", "--to", "personne", "--subject", "x"), /destinataire inconnu/);

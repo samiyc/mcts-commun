@@ -97,12 +97,23 @@ async function list() {
   console.log(json ? JSON.stringify({ threads, unread }, null, 1) : boardText(threads, unread));
 }
 
-/** What the hook does for the session `input` describes: its project kept by session id, its unread shown. */
+/**
+ * The project of the session `input` describes: the one kept for it, so that a cd into another project never reads its
+ * mail; else the folder it started in; else that of the moment (a session started in the projects' parent folder:
+ * urgences, 27/10/2026), then kept.
+ */
+async function sessionProject(input) {
+  const known = input.session_id ? await board.sessionOf(input.session_id) : null;
+  if (known) return known;
+  const found = projectOf(process.env.CLAUDE_PROJECT_DIR) ?? projectOf(input.cwd || process.cwd());
+  if (found && input.session_id) await board.rememberSession(input.session_id, found);
+  return found;
+}
+
+/** What the hook does for the session `input` describes: its unread shown, journaled as shown. */
 async function hookFor(input) {
-  // The folder the session started in, not that of the moment: a cd into another project must not read its mail.
-  const who = projectOf(process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd());
+  const who = await sessionProject(input);
   if (!who) return;
-  if (input.session_id) await board.rememberSession(input.session_id, who);
   const { text, shown } = hookText(await board.read(), who, COMMAND);
   if (text) console.log(text);
   await board.mark("shown", shown, who);
