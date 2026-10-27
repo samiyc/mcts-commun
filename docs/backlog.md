@@ -68,11 +68,76 @@ Pour suivre un job pas à pas, on lit la fin de `output` (le fichier grandit pen
 aussi passer par le serveur de la page : `GET /api/backlog` et `GET /api/backlog/tail?id=…&kind=output|trace`, en
 lecture seule.
 
-## Le lanceur qui tournait avant le 26/10
+## Après une nuit : le bilan
 
-Il ne prend pas le verrou et ne connaît ni `cancel`, ni `skipIf`, ni le statut `cancelled`. Les ajouts sont déjà
-protégés entre eux. Ils le seront aussi contre ses propres écritures une fois qu'il aura redémarré. D'ici là :
-- un `--cancel` sur un job à venir marche ;
-- sur un job en cours, la marque attend le nouveau lanceur ;
-- un `skipIf` n'est pas encore lu ;
-- un job marqué `--machine` serait lancé ici. On n'envoie donc rien à une autre machine avant son redémarrage.
+Sami (27/10/2026) : faire le tour de la nuit avant que la journée ne remplisse la file. Tout se lit sans rien
+écrire.
+
+1. `npx mcts-backlog --list --done 40` : plus de lanceur (`○ aucun lanceur`), rien en cours, et chaque job en échec
+   avec sa raison.
+2. Les fins de la nuit dans `done/AAAA-MM.json` (`doneAt` après 20 h). Pour chaque job qui n'a pas fini `done`,
+   sa cause est dans `journal/` : `cancel-asked`, `job-cancelled`, `memory-stop`, `heat-alert`, `crash` ou
+   `orphans-requeued`. Un échec sans cause dans le journal, c'est un job arrêté à la main, ou un bug.
+3. `slots.json` vide et aucun job `running` dans `queue.json` une fois tous les lanceurs partis. Sinon, un lanceur
+   est mort en route : les vues le montrent « lanceur mort », et le prochain lanceur remet ses jobs dans la file.
+4. `traces/` : une trace par job, qui commence par `start` au lancement et finit par `end` (ou `crash`), avec un
+   `heartbeat` toutes les 30 s entre les deux dès que le job appelle la bibliothèque.
+5. `npm run check`, puis la file essayée de bout en bout sur un `--home` temporaire, **jamais la vraie** :
+
+```bash
+H=$(mktemp -d); W=$(mktemp -d)
+printf 'setTimeout(() => process.exit(Number(process.argv[3] ?? 0)), process.argv[2] * 1000);
+' > "$W/dort.mjs"
+B="node bin/backlog.js --home $H"
+$B --add a --cwd "$W" --estimate "1 min" -- node dort.mjs 3
+$B --add b --cwd "$W" --estimate "1 min" --after a -- node dort.mjs 1        # attend a
+$B --add c --cwd "$W" --skip-if "node -e 0" -- node dort.mjs 1               # sauté
+$B --add d --cwd "$W" --estimate "10 min" -- node dort.mjs 600               # annulé en cours
+$B --add e --cwd "$W" --priority 1 -- node dort.mjs 1 3                      # passe en premier, échoue
+MCTS_BACKLOG_POLL_MS=500 $B --budget 2 &
+sleep 3; $B --cancel d
+for id in b c d e; do $B --wait $id --timeout 1; echo "$id → $?"; done      # 0, 2, 2, 1
+wait; $B --add vrai --cwd ../mcts-entrepot -- npm run compare -- --plan petit --days 3 --search
+$B; cat "$H"/traces/*_vrai.jsonl                                             # start, heartbeat…, end
+```
+
+### La nuit du 26 au 27/10
+
+Le lanceur 29368, qui tournait avec le code d'avant le verrou, s'est arrêté seul à 05:43, après son
+dernier job : la file vide, aucun fil pris. 253 jobs ont fini depuis 20 h, dont 209 lancés par lui :
+- **193 jobs finis**, et aucun id en double dans l'archive ;
+- **15 échecs, tous expliqués** : 12 jobs cuisine `-soir` arrêtés à la main à 21:36, l'ancien lanceur ignorant
+  `--cancel` ; 3 jobs entrepot arrêtés à 22:24, qui ne finiraient pas avant leurs 180 min (Sami les relance en
+  segments). Aucun échec après 22:30 ;
+- **1 dépassement** : `ligne-jeu-retours` (lopin), lancé à 15:16, arrêté à ses 300 min ;
+- **44 annulés** par `--cancel` à 22:59 : les jobs entrepot `-90s`, remplacés par les `ent-quais-*` ajoutés à 22:50.
+
+Deux lanceurs du nouveau code, démarrés par d'autres sessions (21:25 et 23:16), ont trouvé les 18 fils pris et
+n'ont rien lancé ; ils sont partis avec leur session, sans écrire `runner-ended`. L'ancien lanceur n'écrivait ni
+journal ni traces : la nuit n'en a pas. Il reste un `queue.json.tmp` du 23/10, écrit par le code d'avant et que plus
+rien ne lit.
+
+Le bilan du matin a trouvé trois défauts, corrigés le 27/10 :
+- **Une trace n'était écrite qu'à la fin du job.** Le fichier de trace s'ouvre par un import dynamique, qui n'aboutit
+  que quand le script rend la main ; un calcul d'un seul tenant ne la rend jamais. Aucun battement non plus : aucun
+  minuteur ne tourne pendant un tel calcul. Le TUI et la page auraient dit « muette » tout le long de chaque job.
+  Le lanceur ouvre maintenant la trace avant le code du job (`NODE_OPTIONS=--import`, `node/trace-preload.js`, npm
+  et npx exclus), et ce sont les appels à la bibliothèque qui battent (`onPulse` de `src/trace.js`). Vérifié sur un
+  vrai `compare` de l'entrepôt : `start` au lancement, un battement par seconde (en test) pendant le calcul.
+- **`--help` lançait un lanceur**, sur la vraie file (vide ce matin-là, sans effet). Une option inconnue est
+  maintenant refusée, et `--help` répond.
+- **`--add … -- node -e "…"` perdait ses guillemets** : le shell coupait le code. Les mots après `--` gardent les
+  leurs.
+
+Et une demande de Sami : **des estimations tirées de ce qui a déjà tourné** (§ « Un job », `src/estimate.js`).
+Rejouées sur les 292 jobs finis, chacun estimé avec ce qui était fini avant son départ :
+
+| | Écart médian à la durée réelle | 1 job sur 5 au-delà de |
+|---|---|---|
+| Les estimations des projets | ×2,9 | ×5,5 |
+| Les estimations apprises | ×1,5 | ×2,7 |
+| La nuit du 26/10 seule, apprises | ×1,4 | ×2,0 |
+
+L'ordre du lanceur, la fin prévue et la charge les prennent ; `--list`, le TUI et la page disent l'estimation
+annoncée à côté (« annoncé 6 h 00, appris de 1 passage »). Elles sont mesurées à 18 jobs côte à côte : seul, un job
+va plus vite.

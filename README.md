@@ -129,7 +129,7 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 - `npx mcts-backlog --tui` : la même chose en direct au terminal, façon k9s : six onglets (en cours, à venir, bloqués, finis, journal, traces), la ligne choisie détaillée avec la fin de sa sortie, `Entrée` pour la sortie entière, `/` pour filtrer, `?` pour l'aide ;
 - `npm run page` dans `mcts-commun` (http://127.0.0.1:4800/web/) : la page, avec la frise de la nuit et la sortie de chaque job d'un clic.
 
-Le lanceur qui tournait avant le 26/10 n'écrit ni journal ni traces : il le fera à son prochain démarrage ; les vues le lisent déjà.
+**Après une nuit**, le bilan se fait en lecture seule, avant que la journée ne remplisse la file : la marche à suivre, et celui de la nuit du 26 au 27/10 (trois défauts trouvés et corrigés, des estimations apprises de l'archive), sont dans [`docs/backlog.md`](docs/backlog.md#après-une-nuit--le-bilan).
 
 **Se brancher depuis un autre outil** (Sami, 26/10/2026) : tout passe par la commande, jamais par `queue.json` à la main, parce que la commande tient le verrou de la file (`queue.lock`). `--status`, `--wait` (son code de sortie dit comment le job a fini), `--cancel`, `--retry`, et `skipIf` sur un job, une commande du projet qui peut l'annuler juste avant son départ. Le contrat complet est dans [`docs/backlog.md`](docs/backlog.md).
 
