@@ -17,6 +17,9 @@ planificateur de cette même file, puis aux urgences.
 | `mcts-urgences` | l'organisation des urgences d'un hôpital en crise | `random`, `events`, `schedule`, `mcts`, `measure`, puis `grid` |
 | `mcts-entrepot` | des robots d'entrepôt et un cariste | `random`, `events`, `mcts`, `grid`, `measure` |
 | `mcts-cuisine` | une cuisine à la *Overcooked*, un cuisinier et des robots | les mêmes que l'entrepôt |
+| `mcts-codingame` (à venir, 27/10/2026) | un bot CodinGame d'un seul fichier, un terrain d'entraînement pour la bibliothèque | `mcts`, `grid`, `random` |
+
+Les essais demandés à chacun le 27/10 au soir, après les réglages pour un temps court : [`docs/essais-projets.md`](docs/essais-projets.md).
 
 La feuille de route : [`docs/ismcts-ailleurs/feuille-de-route.md`](https://github.com/samiyc/lopin/blob/main/docs/ismcts-ailleurs/feuille-de-route.md)
 dans Lopin.

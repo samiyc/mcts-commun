@@ -181,6 +181,24 @@ décisions en ligne sous incertitude, jugées sur des scénarios communs. Ce qui
 problèmes, pas dans la lib : la liste courte, le score (DyRo-MCTS), la vitesse du rollout. `diagnose` dira
 lequel des trois.
 
+## 5. Les essais demandés aux projets (27/10/2026 au soir)
+
+Sami a demandé à chaque session de vérifier le correctif et d'essayer les réglages, avec des jobs dans la file de
+jour. Les prompts sont dans [`essais-projets.md`](essais-projets.md).
+
+| Projet | Ce qu'il vérifie | Ce qu'il mesure |
+|---|---|---|
+| cuisine | ses empreintes ; les mêmes plats à l'heure | A* sur couloir et tables-detour contre les chiffres du matin ; `diagnose` ; `earlyStop` par paires |
+| entrepot | ses empreintes ; les mêmes journées, à l'identique | `ligne-retours` (38 min pour 23 annoncées) avant et après le correctif ; `diagnose` ; `earlyStop` par paires |
+| urgences | ses empreintes | `diagnose` sur ses recherches de garde et de parcours ; `earlyStop` par paires |
+| CodinGame | un premier bot d'un seul fichier qui tient son temps | une règle simple, puis la recherche à `deadline` ; ce qui manque à la lib |
+
+Ce que les réponses décideront :
+- `earlyStop` devient-il le réglage des projets ? Leurs empreintes changeraient alors, c'est à Sami de trancher.
+- La beam search, Smitsimax ou la réutilisation de l'arbre entrent-elles dans la lib ? Seulement si le bot
+  CodinGame les a prouvées.
+- Quel levier chaque projet travaille-t-il ensuite ? Celui que `diagnose` désigne le plus souvent.
+
 ## Sources
 
 - [Guba et Gemrot, *Comparison of Monte Carlo Tree Search Variants* (2025)](https://ceur-ws.org/Vol-4092/paper2.pdf)

@@ -142,6 +142,14 @@ pendant 45 min, puis tout à la fin) :
    `--wait`).
 7. **Lire sa trace après coup** : `--status ID --json` donne `incidents` et `reported` ; une erreur ou une case
    réservée hors clone, c'est à regarder dans le projet.
+8. **Essayer les réglages du 27/10 au soir** ([`recherche.md`](recherche.md)), éteints par défaut :
+   - `earlyStop` sur les recherches à `budget` : le même coup, moins d'itérations. Il se mesure par paires contre la
+     recherche actuelle, puisque le hasard consommé change ;
+   - `diagnose` sur chaque décision, compté par code : il dit lequel des leviers essayer (le rollout, le score, la
+     liste courte) ;
+   - `astar.expanded / astar.calls` dans la trace : ce que coûte un appel d'A*.
+
+   Ce qui a été demandé à chaque projet, et pourquoi : [`essais-projets.md`](essais-projets.md).
 
 ## Après une nuit : le bilan
 
