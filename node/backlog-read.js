@@ -46,8 +46,8 @@ async function cpuReading(now) {
   return cpu.reading ?? (cpu.good && now - cpu.good.at < 60_000 ? cpu.good.reading : null);
 }
 
-/** A trace file's summary: its last heartbeat, its errors and slow calls in its last lines, its end. */
-async function traceSummary(file, mtimeMs) {
+/** A trace file's summary: its last heartbeat, its errors and slow calls in its last lines, its last progress, its end. */
+export async function traceSummary(file, mtimeMs) {
   const events = (await tailOf(file, { lines: 400 })).flatMap((line) => {
     try {
       return [JSON.parse(line)];
@@ -63,6 +63,7 @@ async function traceSummary(file, mtimeMs) {
     lastBeat: beats.at(-1) ?? null,
     counters: events.filter((event) => event.kind === "heartbeat").at(-1)?.counters ?? {},
     ended: events.find((event) => event.kind === "end" || event.kind === "crash") ?? null,
+    progress: events.filter((event) => event.kind === "progress").at(-1) ?? null,
     problems: events.filter((event) => ["error", "warn", "slow", "crash"].includes(event.kind)).slice(-20),
   };
 }

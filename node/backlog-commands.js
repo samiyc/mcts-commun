@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { isFinished } from "../src/schedule.js";
-import { projectNight, projectOf } from "./backlog-view.js";
+import { traceSummary } from "./backlog-read.js";
+import { incidentsOf, progressOf, projectNight, projectOf } from "./backlog-view.js";
 import { stamp } from "./queue.js";
 
 /**
@@ -67,7 +68,13 @@ export async function jobStatus(queue, id, { home, budget, now = Date.now() }) {
   if (!job) return null;
   const night = queued && !isFinished(queued) ? planOf(projectNight(current.jobs, archive, budget, now), id) : {};
   const full = (file) => (file ? path.join(home, file) : null);
-  return { ...job, project: projectOf(job.cwd), place: queued ? "queue" : "archive", finished: isFinished(job), ...night, output: full(job.output), trace: full(job.trace) };
+  return { ...job, project: projectOf(job.cwd), place: queued ? "queue" : "archive", finished: isFinished(job), ...night, output: full(job.output), trace: full(job.trace), ...(await tracedOf(full(job.trace))) };
+}
+
+/** What a job's trace counted and how far it says it is (27/10/2026), when it has one. */
+async function tracedOf(file) {
+  const summary = file ? await traceSummary(file).catch(() => null) : null;
+  return summary ? { incidents: incidentsOf(summary), reported: progressOf(summary) } : { incidents: null, reported: null };
 }
 
 /** When the night to come starts job `id`, or why it waits. */

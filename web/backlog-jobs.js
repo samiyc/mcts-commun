@@ -1,5 +1,5 @@
 // The backlog page's job tables (web/backlog.js): running, blocked or waiting, ended.
-import { durationText, stampText, statusOf, warningsOf } from "../node/backlog-text.js";
+import { alarmsOf, durationText, progressNote, stampText, statusOf, warningsOf } from "../node/backlog-text.js";
 import { $, badge, escape, gauge, project, table } from "./backlog-html.js";
 
 /** A running job's gauge: red near its limit, orange past its estimate. */
@@ -8,10 +8,11 @@ function progressLevel(job) {
   return job.over ? "warn" : "";
 }
 
-/** Its warnings as badges, or whether its trace beats. */
+/** Its alarms, progress and warnings as badges, or whether its trace beats. */
 function stateBadges(job) {
-  const warnings = warningsOf(job).map((one) => badge(one, one === "lanceur mort" ? "bad" : ""));
-  if (warnings.length) return warnings.join("");
+  const progress = progressNote(job.reported);
+  const badges = [...alarmsOf(job).map((one) => badge(one, "bad")), ...(progress ? [badge(progress, "ok")] : []), ...warningsOf(job).map((one) => badge(one))];
+  if (badges.length) return badges.join("");
   return job.beatMin === null ? badge("sans trace", "quiet") : badge("trace vivante", "ok");
 }
 

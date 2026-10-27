@@ -138,8 +138,9 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 ## Les traces
 
 Sami (26/10/2026) : le tronc commun était une boîte noire quand un calcul se bloquait. `src/trace.js` (pur, chargé aussi par les pages) compte et chronomètre ce qui passe par la bibliothèque, et garde les 200 derniers événements :
-- `search` et `astar` : appels, itérations, millisecondes, le plus long, les chemins introuvables ; une erreur (`Problem incomplet`, un coup manquant en `common`) ou un appel de plus de 2 s est gardé avec ses réglages, puis l'erreur repart comme avant ;
-- `grid` : une case réservée par-dessus une autre unité (les deux robots du 23/10) ; `events` : un événement dans le passé.
+- `search` et `astar` : appels, itérations, millisecondes, le plus long, les chemins introuvables ; une erreur (`Problem incomplet`, un coup manquant en `common`) ou un appel lent est gardé avec ses réglages, puis l'erreur repart comme avant. **Lent**, c'est plus de 2 s **et** plus de 10 fois la moyenne des appels d'avant du même scope (27/10/2026 : à 2 s seules, les recherches ordinaires d'une cuisine faisaient 3 391 alertes en une matinée, 13 par cette règle). A* est appelé dans la recherche : son temps est compté aussi dans celui de `search` ;
+- `grid` : une case réservée par-dessus une autre unité (les deux robots du 23/10), en disant si c'est dans un clone de la recherche (`clone`, compté à part dans `overbookedInClone`) ; `events` : un événement dans le passé ;
+- `progress(scope, done, of, details)` : un projet dit où en est son calcul (`progress("compare", 12, 30, { unit: "service" })`), au plus une fois toutes les 5 s, la première et la dernière toujours. Le TUI, `--list`, la page et `--status --json` en tirent « service 12/30, fin vers 10:20 ».
 
 Sous Node, `MCTS_TRACE=1` (ou `debug`, chaque appel en plus) écrit tout cela dans `logs/trace-AAAA-MM-JJ-<pid>.jsonl` du dossier courant, exclu de git : le départ du processus, les événements, **un battement toutes les 30 s** (les compteurs, la mémoire), le plantage s'il y en a un, la fin. Un calcul coincé dans une boucle ne bat plus : c'est ce que la page et le terminal signalent (« trace muette »). Les jobs de `mcts-backlog` sont tracés d'office dans `~/.mcts-backlog/traces/`. L'empreinte de la recherche ne bouge pas.
 

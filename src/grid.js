@@ -57,17 +57,18 @@ export function createReservations({ shared = [] } = {}) {
 
 const OVERBOOKED_TRACED = 20;
 let overbookings = 0;
-function overbooked(cell, unit, other) {
+function overbooked(cell, unit, other, clone) {
   count("grid", "overbooked");
+  if (clone) count("grid", "overbookedInClone");
   overbookings += 1;
-  if (overbookings <= OVERBOOKED_TRACED) trace("grid", "warn", { message: "case réservée par-dessus une autre unité", cell, unit, other });
+  if (overbookings <= OVERBOOKED_TRACED) trace("grid", "warn", { message: "case réservée par-dessus une autre unité", cell, unit, other, clone });
 }
 
 const moveKey = (from, to, t) => `${cellKey(from.x, from.y)}>${cellKey(to.x, to.y)}@${t}`;
 
 /** The reservations' methods over their maps (createReservations, and each clone). */
 function tableOf(maps) {
-  return { ...bookingOf(maps), ...queriesOf(maps), clone: () => tableOf(copyOf(maps)) };
+  return { ...bookingOf(maps), ...queriesOf(maps), clone: () => tableOf({ ...copyOf(maps), cloned: true }) };
 }
 
 /** `reserve` and `release`: the maps written. */
@@ -93,11 +94,12 @@ function bookingOf(maps) {
 }
 
 /** Holds each step of `kept` for `unit`, by cell and time: the keys held. */
-function holdCells({ cells, byCell }, unit, kept) {
+function holdCells({ cells, byCell, cloned = false }, unit, kept) {
   const keys = kept.map(({ x, y, t }) => `${cellKey(x, y)},${t}`);
-  // A cell booked over another unit is how two robots met (23/10): counted, and the first ones traced.
+  // A cell booked over another unit is how two robots met (23/10): counted, and the first ones traced, saying whether
+  // a search's clone booked it or the world itself (27/10).
   for (const key of keys) {
-    if (cells.has(key) && cells.get(key) !== unit) overbooked(key, unit, cells.get(key));
+    if (cells.has(key) && cells.get(key) !== unit) overbooked(key, unit, cells.get(key), cloned);
     cells.set(key, unit);
   }
   for (const { x, y, t } of kept) {

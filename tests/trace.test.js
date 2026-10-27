@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { createEvents } from "../src/events.js";
 import { astar, createReservations, parsePlan } from "../src/grid.js";
 import { search } from "../src/mcts.js";
-import { DEBUG_CAP, RING, resetTrace, setTraceLevel, timed, trace, traceSnapshot, traceTo } from "../src/trace.js";
+import { DEBUG_CAP, RING, progress, resetTrace, setTraceLevel, timed, trace, traceSnapshot, traceTo } from "../src/trace.js";
 import { traceFileOf } from "../node/trace-file.js";
 import { doors } from "./fixtures/problems.js";
 
@@ -43,7 +43,53 @@ describe("the library's trace (src/trace.js, node/trace-file.js), Sami 26/10", (
     assert.equal(traceSnapshot().counters.grid, undefined, "a unit booking its own cell again is fine");
     table.reserve("b", [{ x: 1, y: 1, t: 3 }]);
     assert.equal(traceSnapshot().counters.grid.overbooked, 1);
-    assert.deepEqual(traceSnapshot().recent.map(({ kind, cell, unit, other }) => ({ kind, cell, unit, other })), [{ kind: "warn", cell: "1,1,3", unit: "b", other: "a" }]);
+    assert.deepEqual(traceSnapshot().recent.map(({ kind, cell, unit, other, clone }) => ({ kind, cell, unit, other, clone })), [{ kind: "warn", cell: "1,1,3", unit: "b", other: "a", clone: false }]);
+    // A search's clone says so (27/10: a kitchen's 331 cells booked twice, in its searches or in its service?).
+    table.clone().reserve("c", [{ x: 1, y: 1, t: 3 }]);
+    assert.equal(traceSnapshot().recent.at(-1).clone, true);
+    assert.equal(traceSnapshot().counters.grid.overbooked, 2);
+    assert.equal(traceSnapshot().counters.grid.overbookedInClone, 1);
+  });
+
+  /** Runs `body` with `performance.now` moving by `step()` at each read. */
+  function withClock(step, body) {
+    const realNow = performance.now;
+    let fake = 0;
+    performance.now = () => (fake += step());
+    try {
+      body();
+    } finally {
+      performance.now = realNow;
+    }
+  }
+
+  it("calls slow a call over 2 s and ten times its scope's mean (27/10: 3,391 searches 'slow' of 0.5 to 6 s)", () => {
+    resetTrace();
+    let ms = 3000;
+    withClock(() => ms, () => {
+      for (let i = 0; i < 25; i += 1) timed("search", () => i);
+      ms = 40_000;
+      timed("search", () => 0);
+    });
+    assert.equal(traceSnapshot().counters.search.slow, 1, "3 s is a search's pace, not slow; 40 s is");
+    assert.equal(traceSnapshot().recent.filter((event) => event.kind === "slow").at(-1).ms, 40_000);
+    resetTrace();
+  });
+
+  it("says a computation's progress, its first and last always, else every 5 s at most", () => {
+    resetTrace();
+    let ms = 1000;
+    withClock(() => ms, () => {
+      progress("compare", 1, 10, { kitchen: "couloir" });
+      progress("compare", 2, 10);
+      ms = 6000;
+      progress("compare", 3, 10);
+      ms = 1;
+      progress("compare", 10, 10);
+    });
+    assert.deepEqual(traceSnapshot().recent.map(({ kind, done, of }) => [kind, done, of]), [["progress", 1, 10], ["progress", 3, 10], ["progress", 10, 10]]);
+    assert.equal(traceSnapshot().recent[0].kitchen, "couloir");
+    resetTrace();
   });
 
   it("keeps the last events in a ring, hands them to a sink, caps debug, traces slow calls", () => {
@@ -67,7 +113,7 @@ describe("the library's trace (src/trace.js, node/trace-file.js), Sami 26/10", (
     setTraceLevel("off");
     const realNow = performance.now;
     let fake = 0;
-    performance.now = () => (fake += 2500);
+    performance.now = () => (fake += 25_000);
     try {
       timed("lent", () => 1, () => ({ what: "x" }));
     } finally {

@@ -1,5 +1,5 @@
 // The backlog page's top (web/backlog.js): the machine in tiles, then what to look at.
-import { clockText, durationText, maybe, plural, relativeText, warningsOf } from "../node/backlog-text.js";
+import { alarmsOf, clockText, durationText, maybe, plural, relativeText, warningsOf } from "../node/backlog-text.js";
 
 const hours = (value) => `${decimal(value)}<small> h</small>`;
 import { $, decimal, escape, gauge, levelOf } from "./backlog-html.js";
@@ -61,7 +61,10 @@ export function machine(view) {
 function alertsOf(view) {
   const bad = view.runners.filter((one) => !one.alive).map((runner) => `Le lanceur ${runner.pid} est mort : ses jobs « en cours » reprendront au prochain lancement.`);
   const warn = [];
-  for (const job of view.running) for (const warning of warningsOf(job)) (warning === "lanceur mort" ? bad : warn).push(`${job.id} : ${warning}`);
+  for (const job of view.running) {
+    bad.push(...alarmsOf(job).map((alarm) => `${job.id} : ${alarm}`));
+    warn.push(...warningsOf(job).map((warning) => `${job.id} : ${warning}`));
+  }
   bad.push(...view.blocked.map((job) => `${job.id} est bloqué : ${job.reason}`));
   bad.push(...view.traces.filter((one) => one.ended?.kind === "crash").map((trace) => `${trace.id ?? trace.name} a planté : ${trace.ended.message ?? ""}`));
   const crashes = view.journal.filter((one) => one.kind === "crash" && view.now - Date.parse(one.at) < 86_400_000);

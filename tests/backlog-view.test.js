@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { durationText, listText, warningsOf } from "../node/backlog-text.js";
+import { alarmsOf, durationText, listText, progressNote, warningsOf } from "../node/backlog-text.js";
 import { projectNight, projectOf, readBacklog, viewOf } from "../node/backlog-view.js";
 import { tailOf } from "../node/tail.js";
 
@@ -27,7 +27,7 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     assert.deepEqual(waiting.map(({ job: one, reason, blocked }) => [one.id, reason, blocked]), [["x", "bad : failed", true], ["y", "prérequis inconnu : nobody", true]]);
   });
 
-  it("shows the jobs running with their progress and what is odd about them", () => {
+  it("shows the jobs running with their progress and what is odd about them, counted from their trace (27/10)", () => {
     const state = {
       now: NOW,
       budget: 4,
@@ -36,7 +36,20 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
       slots: [{ pid: 11, runner: "mcts-backlog", id: "long", threads: 1, since: new Date(NOW - 3_600_000).toISOString() }],
       journal: [],
       outputs: { long: { file: "runs/x_long.txt", mtimeMs: NOW - 4 * 60_000, last: "jour 12/100" } },
-      traces: [{ id: "long", name: "x_long.jsonl", mtimeMs: NOW - 5 * 60_000, lastBeat: { at: new Date(NOW - 5 * 60_000).toISOString() }, counters: { search: { calls: 3 } }, problems: [{ kind: "slow" }] }],
+      traces: [
+        {
+          id: "long",
+          name: "x_long.jsonl",
+          mtimeMs: NOW - 5 * 60_000,
+          start: { at: new Date(NOW - 45 * 60_000).toISOString() },
+          lastBeat: { at: new Date(NOW - 5 * 60_000).toISOString() },
+          // The counters say the totals; the events kept are only the last ones.
+          counters: { search: { calls: 300, slow: 3, errors: 1 }, grid: { calls: 0, overbooked: 2 } },
+          problems: [{ kind: "slow" }],
+          // 10 services of 30 in 40 min: 80 more, to 21:15.
+          progress: { at: new Date(NOW - 5 * 60_000).toISOString(), scope: "compare", kind: "progress", done: 10, of: 30, unit: "service" },
+        },
+      ],
       alivePids: [11],
       machine: null,
     };
@@ -45,10 +58,14 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     const [long, dead] = view.running;
     assert.equal(long.project, "cuisine");
     assert.equal(long.over, true);
+    assert.equal(long.progress, 1.5, "the fraction of its estimate, beside the progress it reported");
     assert.equal(long.lastLine, "jour 12/100");
     assert.equal(long.quietMin, 4);
-    assert.deepEqual(warningsOf(long), ["près de la limite (48 min)", "trace muette 5 min", "1 incident tracé"]);
-    assert.deepEqual(warningsOf(dead), ["lanceur mort"]);
+    assert.deepEqual(alarmsOf(long), ["1 erreur tracée"]);
+    assert.deepEqual(warningsOf(long), ["près de la limite (48 min)", "trace muette 5 min", "3 appels lents", "2 cases réservées deux fois"]);
+    assert.equal(progressNote(long.reported), "service 10/30, fin vers 21:15");
+    assert.deepEqual(alarmsOf(dead), ["lanceur mort"]);
+    assert.deepEqual(warningsOf(dead), []);
     const idle = viewOf({ ...state, traces: [{ ...state.traces[0], counters: {}, problems: [] }] }).running[0];
     assert.deepEqual(warningsOf(idle), ["près de la limite (48 min)"], "no library call yet: its silence says nothing");
     assert.deepEqual(view.planned.map((one) => one.id), ["next"]);
@@ -57,7 +74,7 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     assert.deepEqual(view.runners.map(({ pid, alive }) => [pid, alive]), [[11, true], [99, false]]);
     assert.equal(view.counts.failedToday, 1);
     const text = listText(view, { color: false });
-    for (const words of ["En cours (2)", "À venir (1)", "Bloqués (0)", "Derniers finis (2)", "lanceur mort", "45/30 min"]) assert.ok(text.includes(words), words);
+    for (const words of ["En cours (2)", "À venir (1)", "Bloqués (0)", "Derniers finis (2)", "lanceur mort", "45/30 min", "1 erreur tracée", "service 10/30"]) assert.ok(text.includes(words), words);
   });
 
   it("reads a backlog's folder without writing, and an output's end without reading it all", async () => {

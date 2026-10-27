@@ -1,4 +1,4 @@
-import { clockText, durationText, fit, maybe, relativeText, stampText, statusOf, warningsOf } from "./backlog-text.js";
+import { alarmsOf, clockText, durationText, fit, maybe, progressNote, relativeText, stampText, statusOf, warningsOf } from "./backlog-text.js";
 import { kindOf, localTime, traceState } from "./tui-tabs.js";
 
 /**
@@ -12,8 +12,9 @@ function runningDetail(row, field, { view, s }) {
   const processes = `lanceur ${row.runnerPid ?? "?"}${row.orphan ? s.red(" (mort)") : ""}${maybe(row.childPid, " · job ")}`;
   const written = row.quietMin === null ? "" : s.gray(" · écrite " + relativeText(view.now - row.quietMin * 60_000, view.now));
   const beat = row.beatMin === null ? s.gray("aucune (lanceur d'avant le 26/10, ou job sans la bibliothèque)") : `dernier battement ${relativeText(view.now - row.beatMin * 60_000, view.now)}`;
-  const warnings = warningsOf(row);
-  return [...field("depuis", since), ...field("processus", processes), ...field("sortie", row.output ? row.output + written : null), ...field("trace", beat), ...field("attention", warnings.length ? s.yellow(warnings.join(", ")) : null)];
+  const [alarms, warnings] = [alarmsOf(row).join(", "), warningsOf(row).join(", ")];
+  const said = [...field("sortie", row.output ? row.output + written : null), ...field("trace", beat), ...field("avancement", progressNote(row.reported))];
+  return [...field("depuis", since), ...field("processus", processes), ...said, ...field("alarme", alarms && s.red(alarms)), ...field("attention", warnings && s.yellow(warnings))];
 }
 
 function plannedDetail(row, field, { s }) {

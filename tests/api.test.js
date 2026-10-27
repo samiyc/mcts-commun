@@ -34,7 +34,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     assert.deepEqual(Object.keys(mcts).sort(), ["PROBLEM", "SEARCH", "checkProblem", "search"]);
     assert.deepEqual(Object.keys(createRng(1)).sort(), ["clone", "getState", "int", "next", "normal", "setState", "shuffle"]);
     assert.deepEqual(mcts.SEARCH, { depth: 5, explore: 0.7 });
-    assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "resetTrace", "setTraceLevel", "timed", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
+    assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "progress", "resetTrace", "setTraceLevel", "timed", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
   });
 
   it("returns the search's result in its stated shape", () => {

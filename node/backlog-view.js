@@ -99,8 +99,33 @@ function outputOf(output, now) {
 const usesLibrary = (trace) => Object.keys(trace.counters ?? {}).length > 0;
 
 function traceStateOf(trace, now) {
-  if (!trace) return { beatMin: null, problems: 0 };
-  return { beatMin: trace.lastBeat && usesLibrary(trace) ? minutesSince(now, Date.parse(trace.lastBeat.at)) : null, problems: trace.problems.length };
+  if (!trace) return { beatMin: null, incidents: null, reported: null };
+  return { beatMin: trace.lastBeat && usesLibrary(trace) ? minutesSince(now, Date.parse(trace.lastBeat.at)) : null, incidents: incidentsOf(trace), reported: progressOf(trace) };
+}
+
+/**
+ * What a trace counted, from its counters (27/10/2026: the views showed the last twenty events, "20 incidents" on every
+ * kitchen job): what must not happen (errors, a crash), and what is worth a look (slow calls, cells booked twice).
+ */
+export function incidentsOf(trace) {
+  const counters = Object.values(trace.counters ?? {});
+  const sum = (name) => counters.reduce((total, one) => total + (one[name] ?? 0), 0);
+  const traced = (trace.problems ?? []).filter((event) => event.kind === "error").length;
+  return { errors: Math.max(sum("errors"), traced), crashed: trace.ended?.kind === "crash", slow: sum("slow"), overbooked: trace.counters?.grid?.overbooked ?? 0 };
+}
+
+/**
+ * The computation's last progress (src/trace.js `progress`) and when it ends at the pace since its start, or null: a view's
+ * `reported`, beside `progress`, the fraction of its estimate.
+ */
+export function progressOf(trace) {
+  const last = trace.progress;
+  if (!last) return null;
+  const began = Date.parse(trace.start?.at);
+  const at = Date.parse(last.at);
+  const pace = last.done > 0 && Number.isFinite(began) ? (at - began) / last.done : null;
+  const endAt = pace === null ? null : new Date(at + pace * Math.max(0, last.of - last.done)).toISOString();
+  return { scope: last.scope, unit: last.unit ?? null, done: last.done, of: last.of, at: last.at, endAt };
 }
 
 const processesOf = (job) => ({ runnerPid: job.runnerPid ?? null, childPid: job.childPid ?? null });
@@ -136,7 +161,10 @@ function runnersOf({ slots, jobs, journal, alivePids }) {
   });
 }
 
-const traceOf = (now) => ({ file, name, id, mtimeMs, start, lastBeat, counters, ended, problems }) => ({ file, name, id, quietMin: minutesSince(now, mtimeMs), start, lastBeat, counters, ended, problems });
+const traceOf = (now) => (trace) => {
+  const { file, name, id, mtimeMs, start, lastBeat, counters, ended, problems } = trace;
+  return { file, name, id, quietMin: minutesSince(now, mtimeMs), start, lastBeat, counters, ended, problems, incidents: incidentsOf(trace), reported: progressOf(trace) };
+};
 
 function countsOf({ now, archive, running, planned, held, order }) {
   const today = new Date(now - new Date(now).getTimezoneOffset() * 60_000).toISOString().slice(0, 10);

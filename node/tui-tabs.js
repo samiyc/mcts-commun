@@ -1,6 +1,6 @@
 import path from "node:path";
 import { clip } from "./ansi.js";
-import { clockText, durationText, fit, maybe, paren, progressText, relativeText, stampText, statusOf, tagsOf, warningsOf } from "./backlog-text.js";
+import { alarmsOf, clockText, durationText, fit, maybe, noticesOf, notesText, paren, progressNote, progressText, relativeText, stampText, statusOf, tagsOf } from "./backlog-text.js";
 
 /**
  * The terminal view's tabs (node/tui.js): what each lists, its columns, a row's line; the journal's and the traces'
@@ -62,8 +62,7 @@ const countersText = (counters = {}) => Object.entries(counters).map(counterText
 const headOf = (titles, widths) => titles.map((one, i) => fit(one, widths[i])).join(" ");
 
 function runningRow(job, w, s) {
-  const warnings = warningsOf(job);
-  const note = warnings.length ? s.yellow(warnings.join(", ")) : s.gray(job.lastLine);
+  const note = notesText(job, s).trim() || s.gray(job.lastLine);
   return `${s.cyan("▶")}  ${fit(job.project, 10)} ${fit(job.id, w.id)} ${fit(job.threads, 5)} ${clip(progressText(job, s), 24)} ${note}`;
 }
 
@@ -78,7 +77,9 @@ function finishedRow(job, w, s, now) {
 }
 
 function traceRow(trace, w, s) {
-  const incidents = trace.problems.length ? s.red(trace.problems.length + " incident(s)  ") : "";
+  const alarms = alarmsOf({ incidents: trace.incidents }).join(", ");
+  const notices = [progressNote(trace.reported), ...noticesOf(trace.incidents)].filter(Boolean).join(", ");
+  const incidents = (alarms ? s.red(alarms + "  ") : "") + (notices ? s.yellow(notices + "  ") : "");
   return `${clip(traceState(trace, s), 14)} ${fit(trace.id ?? trace.name, w.id + 18)} ${incidents}${s.gray(countersText(trace.counters))}`;
 }
 

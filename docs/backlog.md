@@ -56,7 +56,7 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 |---|---|---|---|
 | `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--threads`, `--priority`, `--after A,B`, `--due`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant) |
 | `--add-file PROJET/night.json [--tag T | --no-tag]` | ajoute les jobs d'un fichier, chaque id suffixé de `-T` (la date du jour par défaut ; `--no-tag` garde les ids), chacun lancé dans son `cwd` (relatif au fichier, son dossier par défaut) | une ligne par job | 0 ou 1 |
-| `--status ID [--json]` | où en est un job : à venir (`plannedStart`, ou `waiting` et `blocked`), en cours, fini (`status`, `reason`, `minutes`) ; `output` et `trace` en chemins absolus | une ligne, ou un objet JSON (`null` si l'id est inconnu) | 0, ou 3 si l'id est inconnu |
+| `--status ID [--json]` | où en est un job : à venir (`plannedStart`, ou `waiting` et `blocked`), en cours, fini (`status`, `reason`, `minutes`) ; `output` et `trace` en chemins absolus ; tiré de sa trace, `incidents` (`errors`, `crashed`, `slow`, `overbooked`) et `reported` (le dernier `progress` : `done`, `of`, `unit`, `endAt`) | une ligne, ou un objet JSON (`null` si l'id est inconnu) | 0, ou 3 si l'id est inconnu |
 | `--wait ID [--timeout MIN] [--json]` | attend la fin du job, en relisant la file toutes les 2 s | comme `--status` | 0 fini, 1 échec ou trop long, 2 annulé ou sauté, 3 inconnu, 4 pas fini au bout de `--timeout` |
 | `--cancel ID` | un job à venir finit `cancelled` tout de suite, et ceux qui en dépendent sont bloqués ; un job en cours est marqué, et son lanceur l'arrête | une ligne | 0, ou 3 si l'id est inconnu |
 | `--retry ID` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
@@ -67,6 +67,58 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 Pour suivre un job pas à pas, on lit la fin de `output` (le fichier grandit pendant le job) ou de `trace`. On peut
 aussi passer par le serveur de la page : `GET /api/backlog` et `GET /api/backlog/tail?id=…&kind=output|trace`, en
 lecture seule.
+
+## Ce que disent les traces
+
+Chaque job a sa trace dans `traces/` : `start`, les évènements de la bibliothèque, un `heartbeat` toutes les 30 s
+(les compteurs par scope, la mémoire), `end` ou `crash`. Les vues en tirent deux niveaux :
+
+| Niveau | Quoi | Où |
+|---|---|---|
+| **Alarme** (rouge) | le lanceur mort, un plantage, une erreur tracée (`errors` des compteurs) | « À regarder » sur la page |
+| **À surveiller** (jaune) | près de la limite (90 %), trace muette depuis 2 min, des appels lents, des cases réservées deux fois | « À surveiller » |
+| **Avancement** | le dernier `progress` du job, et sa fin au rythme depuis son départ | à côté de la barre |
+
+Les seuils, et pourquoi :
+- **Un appel lent** dépasse 2 s (`SLOW_MS`) **et** 10 fois la moyenne des appels d'avant de son scope ; un premier
+  appel, 20 s. Une recherche de cuisine prend de 0,5 à 6 s selon la cuisine : à 2 s seules, ce matin du 27/10 en a
+  marqué 3 391, et le TUI disait « 20 incidents » en rouge sur chaque job. Par cette règle, 13 : les vraies queues
+  (une recherche de 38 s où elles en prenaient 1,5).
+- **Une case réservée deux fois** (`src/grid.js`) : toutes sont comptées, les 20 premières d'un processus sont
+  écrites, avec `clone: true` quand c'est un clone de la recherche qui l'a réservée (`overbookedInClone`). Dans un
+  clone, la recherche essaie un coup ; dans le vrai monde, deux unités se croisent : un défaut du projet.
+- **Une trace muette** : plus de battement depuis 2 min, alors que le job a déjà appelé la bibliothèque. Un calcul
+  bat à chaque appel ; un job qui ne bat plus est coincé dans une boucle hors de la bibliothèque.
+- Les compteurs donnent les totaux ; les vues ne gardent que les 20 derniers évènements, pour le détail.
+
+**A* ou la recherche ?** A* est appelé dans les simulations de la recherche : son temps est compté dans `astar`
+**et** dans `search`. La part d'A* dans un job, c'est `astar.ms` sur sa durée ; ce qui reste de `search.ms`, c'est
+l'arbre et les simulations hors chemins. `astar.notFound` compte les chemins introuvables : chacun parcourt tout
+l'espace-temps jusqu'à son horizon, et c'est souvent là que part le temps.
+
+## Recommandations aux projets
+
+Pour les jobs que cuisine, entrepot, urgences ou lopin mettent dans la file (Sami, 27/10/2026 : un job ne disait rien
+pendant 45 min, puis tout à la fin) :
+
+1. **Dire où on en est.** `progress("compare", i + 1, services, { unit: "service" })` de `mcts-commun/trace.js` à
+   chaque service, scénario ou vague. Les vues montrent « service 12/30, fin vers 10:20 », et une trace qui avance
+   prouve que le job vit. Pour qui lit la sortie, une ligne courte sur la sortie d'erreur (`console.error`), qui
+   va dans le même fichier, laisse le tableau final propre sur la sortie standard.
+2. **Écrire les résultats au fil de l'eau** (une ligne JSON par service, ajoutée au fichier) : un job arrêté à sa
+   limite, par la garde mémoire ou par `--cancel` garde ce qu'il a calculé, et le tableau final se refait à partir
+   d'eux.
+3. **Des jobs de 30 min au plus**, découpés en tranches (`--services` par tranches, un id par tranche, un job
+   d'agrégat avec `after`). Ils se placent mieux dans la nuit, et un échec en coûte moins.
+4. **Une estimation et une `limit` honnêtes.** La file apprend les durées des commandes déjà passées, mais une
+   commande neuve se fie à l'estimation : une variante lente (une cuisine en couloir) mérite la sienne. `limit` doit
+   dépasser le pire cas, sinon le job finit `timeout` ; elle vaut 120 min par défaut.
+5. **Respecter `MCTS_THREADS`** (les fils donnés au job), **sortir avec un code non nul** en cas d'échec, et des ids
+   datés, jamais réutilisés.
+6. **Ne jamais écrire dans `~/.mcts-backlog`** : passer par `mcts-backlog` (`--add-file`, `--status --json`,
+   `--wait`).
+7. **Lire sa trace après coup** : `--status ID --json` donne `incidents` et `reported` ; une erreur ou une case
+   réservée hors clone, c'est à regarder dans le projet.
 
 ## Après une nuit : le bilan
 
@@ -141,3 +193,28 @@ Rejouées sur les 292 jobs finis, chacun estimé avec ce qui était fini avant s
 L'ordre du lanceur, la fin prévue et la charge les prennent ; `--list`, le TUI et la page disent l'estimation
 annoncée à côté (« annoncé 6 h 00, appris de 1 passage »). Elles sont mesurées à 18 jobs côte à côte : seul, un job
 va plus vite.
+
+### Le matin du 27/10 : les premières traces
+
+Les 32 jobs cuisine lancés à 09:12 (`compare`, référence, `--search`) sont les premiers à avoir une trace du départ
+à la fin. Tous ont fini `done`, sans erreur ni plantage, avec un battement toutes les 30 s pendant tout leur
+calcul (aucun trou plus long) et une mémoire stable autour de 110 Mo : l'ouverture de la trace avant le job marche.
+
+**La recherche prend le temps** : de 85 à 94 % de chaque job. A* en est une partie, de 20 à 45 % du job, sauf :
+
+| Cuisine | Part d'A* dans le job | A* sans chemin | Temps par appel d'A* |
+|---|---|---|---|
+| `couloir` (`random`, `urgent`) | 93 à 95 % | 48 à 51 % de 780 000 appels | 2,5 ms |
+| `tables-detour` | 77 % | 54 600 appels | 0,8 ms |
+| `separee` (pour comparer) | 20 à 25 % | aucun | 0,07 ms |
+
+Sur couloir, un A* sur deux ne trouve pas de chemin et parcourt tout jusqu'à son horizon : c'est là que part le
+temps, et pourquoi `couloir` a pris 42 min pour 10 annoncées. À voir dans cuisine : couper plus tôt quand la cible
+est occupée ou hors d'atteinte avant l'horizon, ou garder les échecs d'une même simulation.
+
+**Les alertes ne disaient rien** : 3 391 recherches « lentes » (de 2 à 38 s, budget 64, profondeur 2), le TUI à
+« 20 incidents » en rouge sur presque chaque job. D'où la règle relative et les deux niveaux (§ « Ce que disent les
+traces »). **Des cases réservées deux fois** dans 16 jobs, jusqu'à 331 dans `plonge-urgent`, souvent la même case
+répétée en quelques dixièmes de seconde : sans doute les clones de la recherche, mais la trace ne le disait pas ;
+elle le dit maintenant (`clone`). **Aucun job ne disait où il en était** : la sortie de `tables-detour` est restée
+sur l'en-tête de son tableau pendant 45 min. D'où `progress` et les recommandations aux projets.

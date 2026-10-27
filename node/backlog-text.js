@@ -97,15 +97,39 @@ export function progressText(job, s, width = 10) {
   return job.over ? s.yellow(text) : s.cyan(text);
 }
 
+/** What must not happen to a job (or its trace): its runner gone, a crash, errors traced. */
+export function alarmsOf(job) {
+  const errors = job.incidents?.errors ?? 0;
+  return [job.orphan ? "lanceur mort" : "", job.incidents?.crashed ? "planté" : "", errors ? `${errors} ${plural(errors, "erreur")} ${plural(errors, "tracée")}` : ""].filter(Boolean);
+}
+
+/** What a trace counted that is worth a look: slow calls (src/trace.js), cells booked twice (src/grid.js). */
+export function noticesOf(incidents) {
+  const { slow = 0, overbooked = 0 } = incidents ?? {};
+  return [slow ? `${slow} ${plural(slow, "appel")} ${plural(slow, "lent")}` : "", overbooked ? `${overbooked} ${plural(overbooked, "case")} ${plural(overbooked, "réservée")} deux fois` : ""].filter(Boolean);
+}
+
 /**
- * What is odd about a running job: its runner gone, near its limit, its trace silent (a heartbeat comes every 30 s:
- * two minutes without one is a computation stuck in a loop), incidents traced. A silent output says nothing: the
- * projects' measures write theirs at the end.
+ * What is odd about a running job, short of an alarm: near its limit, its trace silent (a heartbeat comes every 30 s:
+ * two minutes without one is a computation stuck in a loop), what its trace counted. A silent output says little: most
+ * measures write theirs at the end, unless they say their progress.
  */
 export function warningsOf(job) {
-  const incidents = job.problems ? `${job.problems} ${plural(job.problems, "incident")} ${plural(job.problems, "tracé")}` : "";
   const silent = job.beatMin !== null && job.beatMin >= 2 ? `trace muette ${durationText(job.beatMin)}` : "";
-  return [job.orphan ? "lanceur mort" : "", job.elapsedMin > job.limitMin * 0.9 ? `près de la limite (${job.limitMin} min)` : "", silent, incidents].filter(Boolean);
+  return [job.elapsedMin > job.limitMin * 0.9 ? `près de la limite (${job.limitMin} min)` : "", silent, ...noticesOf(job.incidents)].filter(Boolean);
+}
+
+/** A running job's notes, each led by two spaces: its alarms in red, its progress, its warnings in yellow. */
+export function notesText(job, s) {
+  const notes = [[alarmsOf(job).join(", "), s.red], [progressNote(job.reported), (text) => text], [warningsOf(job).join(", "), s.yellow]];
+  return notes.map(([text, style]) => (text ? "  " + style(text) : "")).join("");
+}
+
+/** A computation's progress (src/trace.js `progress`): "service 12/30, fin vers 10:20", or "". */
+export function progressNote(progress) {
+  if (!progress) return "";
+  const end = progress.endAt !== null && progress.done < progress.of ? `, fin vers ${clockText(Date.parse(progress.endAt))}` : "";
+  return `${progress.unit ?? progress.scope} ${progress.done}/${progress.of}${end}`;
 }
 
 const percent = (fraction) => `${Math.round(fraction * 100)} %`;
@@ -182,8 +206,7 @@ const named = (job, { project, id }) => `${fit(job.project, project)} ${fit(job.
 
 function runningLine(job, layout) {
   const { s } = layout;
-  const warnings = warningsOf(job).join(", ");
-  return `  ${s.cyan("▶")} ${named(job, layout)} ${progressText(job, s)}${warnings ? "  " + s.yellow(warnings) : ""}`;
+  return `  ${s.cyan("▶")} ${named(job, layout)} ${progressText(job, s)}${notesText(job, s)}`;
 }
 
 function plannedLine(job, layout) {

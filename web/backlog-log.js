@@ -1,5 +1,5 @@
 // The backlog page's journal and traces (web/backlog.js).
-import { durationText, paren, relativeText, statusOf } from "../node/backlog-text.js";
+import { alarmsOf, durationText, noticesOf, paren, progressNote, relativeText, statusOf } from "../node/backlog-text.js";
 import { $, badge, escape, table } from "./backlog-html.js";
 
 const KINDS = {
@@ -64,7 +64,8 @@ function traceRow(trace, view) {
   const name = escape(trace.id ?? trace.name);
   const counters = Object.entries(trace.counters ?? {}).map(scopeText).join(" — ");
   const beat = trace.lastBeat ? relativeText(Date.parse(trace.lastBeat.at), view.now) : "—";
-  const incidents = trace.problems.length ? badge(`${trace.problems.length} incident(s)`, "bad") : "";
+  const progress = progressNote(trace.reported);
+  const incidents = [...alarmsOf({ incidents: trace.incidents }).map((one) => badge(one, "bad")), ...(progress ? [badge(progress, "ok")] : []), ...noticesOf(trace.incidents).map((one) => badge(one))].join("");
   return `<tr class="click" data-id="${name}" data-kind="trace" title="Voir la fin de la trace"><td>${traceBadge(trace)}</td><td class="job">${name}</td><td>${beat}</td><td class="wrap">${escape(counters)}</td><td>${incidents}</td></tr>`;
 }
 
