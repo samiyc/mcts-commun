@@ -59,7 +59,7 @@ un `npm install` qui crée le lien.
 | `--post --reply ID -- texte` | répond dans le fil, sous « Re: … » : à l'auteur du message, ou à ses destinataires si c'est le tien ; `--to` et `--subject` peuvent changer cela |
 | `--inbox [--json]` | tes non-lus, du plus récent au plus ancien |
 | `--read ID` | le fil du message, en entier ; seuls les messages qui t'y sont adressés deviennent lus |
-| `--done ID` | ferme le fil : ses messages ne comptent plus comme non lus |
+| `--done ID` | ferme le fil : ses messages ne comptent plus comme non lus ; un message posté après le rouvre |
 | `--list [--json]` | tous les fils, ce que chacun attend de qui, et les non-lus par lecteur |
 | `--hook` | pour le hook de Claude Code (ci-dessous) |
 

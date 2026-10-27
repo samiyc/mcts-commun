@@ -132,6 +132,17 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
       assert.equal(idOf("2026-10-27T19:24:00", "urgences", "Les essais des urgences, et cinq bugs du tableau", new Set()), "2026-10-27T1924-urgences-les-essais-des-urgences-et-cinq-bugs-du");
     }));
 
+  it("opens a closed thread again when a message is posted in it after (codingame, 27/10 20:26)", () =>
+    scratch(async (home, board) => {
+      await board("--post", "--as", "commun", "--to", "codingame", "--subject", "Déplacé", "--", "x");
+      const [first] = JSON.parse(await board("--inbox", "--as", "codingame", "--json"));
+      await board("--done", first.id, "--as", "commun");
+      assert.equal(JSON.parse(await board("--list", "--json")).unread.codingame, 0);
+      await board("--post", "--as", "codingame", "--reply", first.id, "--", "Correction : 40 tests");
+      const { threads, unread } = JSON.parse(await board("--list", "--json"));
+      assert.deepEqual([threads[0].done, unread.commun], [false, 1]);
+    }));
+
   it("refuses a message to nobody known, without a subject, or a reply to nothing", () =>
     scratch(async (home, board) => {
       await assert.rejects(board("--post", "--as", "commun", "--to", "personne", "--subject", "x"), /destinataire inconnu/);

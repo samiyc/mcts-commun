@@ -71,6 +71,19 @@ export function idOf(at, from, subject, taken) {
 /** Whether `message` is for `reader`: named, or everyone's, and not their own. */
 export const isFor = (message, reader) => message.from !== reader && (message.to.includes(reader) || message.to.includes("tous"));
 
+/**
+ * The threads closed, in the journal's order: a message posted after its thread was closed opens it again, so that it
+ * is not lost (codingame's correction of 27/10/2026, 20:26, sat unseen in a closed thread).
+ */
+function closedOf(journal, byId, rootOf) {
+  const done = new Set();
+  for (const entry of journal) {
+    if (entry.kind === "done") done.add(entry.id);
+    else if (entry.kind === "posted" && byId.has(entry.id)) done.delete(rootOf(byId.get(entry.id)));
+  }
+  return done;
+}
+
 /** The board as the journal leaves it: each message's thread (its first message's id), who read or was shown what, the threads closed. */
 export function boardOf(messages, journal) {
   const byId = new Map(messages.map((message) => [message.id, message]));
@@ -80,7 +93,7 @@ export function boardOf(messages, journal) {
     return at.id;
   };
   const marks = (kind) => new Set(journal.filter((entry) => entry.kind === kind).map((entry) => `${entry.id}|${entry.by}`));
-  const done = new Set(journal.filter((entry) => entry.kind === "done").map((entry) => entry.id));
+  const done = closedOf(journal, byId, rootOf);
   return { messages: [...messages].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), byId, rootOf, read: marks("read"), shown: marks("shown"), done };
 }
 
