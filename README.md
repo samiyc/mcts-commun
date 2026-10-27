@@ -30,7 +30,7 @@ dans Lopin.
 | `schedule` | l'ordre d'une file de jobs : les prérequis, les échéances, les priorités, la règle de Smith (celui de Lopin, validé le 23/10) | fait |
 | `machine` (`node/`, Node seulement) | les fils que la machine prête, la garde thermique, la garde mémoire, les créneaux partagés entre lanceurs | fait |
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
-| `grid` | les plans en texte, A* dans l'espace et le temps, la table de réservations | fait |
+| `grid` | les plans en texte, A* dans l'espace et le temps (qui renonce tôt à une cible hors d'atteinte), la table de réservations (`src/reservations.js`, réexportée) | fait |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
 | `trace` | ce qui passe par la bibliothèque : compteurs, erreurs, appels lents (voir « Les traces ») | fait |
 
@@ -81,7 +81,7 @@ export function readyTasks(tasks, done, free) {}    // prerequisites finished, r
 export function smithOrder(tasks) {}                // most weight per minute first
 export function parsePlan(text) {}                  // { width, height, lines, at(x, y), inside(x, y), find(char) }
 export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park } → [{ x, y, t }] | null
-export function createReservations() {}             // ({ shared }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, clone }
+export function createReservations() {}             // ({ shared }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, stayAt(x, y), clone }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
 ```
@@ -143,7 +143,7 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 ## Les traces
 
 Sami (26/10/2026) : le tronc commun était une boîte noire quand un calcul se bloquait. `src/trace.js` (pur, chargé aussi par les pages) compte et chronomètre ce qui passe par la bibliothèque, et garde les 200 derniers événements :
-- `search` et `astar` : appels, itérations, millisecondes, le plus long, les chemins introuvables ; une erreur (`Problem incomplet`, un coup manquant en `common`) ou un appel lent est gardé avec ses réglages, puis l'erreur repart comme avant. **Lent**, c'est plus de 2 s **et** plus de 10 fois la moyenne des appels d'avant du même scope (27/10/2026 : à 2 s seules, les recherches ordinaires d'une cuisine faisaient 3 391 alertes en une matinée, 13 par cette règle). A* est appelé dans la recherche : son temps est compté aussi dans celui de `search` ;
+- `search` et `astar` : appels, itérations, millisecondes, le plus long, les chemins introuvables (`notFound`, dont `givenUp` : ceux qu'A* a abandonnés tôt, la cible hors d'atteinte avant l'horizon, 27/10/2026) ; une erreur (`Problem incomplet`, un coup manquant en `common`) ou un appel lent est gardé avec ses réglages, puis l'erreur repart comme avant. **Lent**, c'est plus de 2 s **et** plus de 10 fois la moyenne des appels d'avant du même scope (27/10/2026 : à 2 s seules, les recherches ordinaires d'une cuisine faisaient 3 391 alertes en une matinée, 13 par cette règle). A* est appelé dans la recherche : son temps est compté aussi dans celui de `search` ;
 - `grid` : une case réservée par-dessus une autre unité (les deux robots du 23/10), en disant si c'est dans un clone de la recherche (`clone`, compté à part dans `overbookedInClone`) ; `events` : un événement dans le passé ;
 - `progress(scope, done, of, details)` : un projet dit où en est son calcul (`progress("compare", 12, 30, { unit: "service" })`), au plus une fois toutes les 5 s, la première et la dernière toujours. Le TUI, `--list`, la page et `--status --json` en tirent « service 12/30, fin vers 10:20 ».
 

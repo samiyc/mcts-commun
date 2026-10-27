@@ -218,8 +218,21 @@ calcul (aucun trou plus long) et une mémoire stable autour de 110 Mo : l'ouvert
 | `separee` (pour comparer) | 20 à 25 % | aucun | 0,07 ms |
 
 Sur couloir, un A* sur deux ne trouve pas de chemin et parcourt tout jusqu'à son horizon : c'est là que part le
-temps, et pourquoi `couloir` a pris 42 min pour 10 annoncées. À voir dans cuisine : couper plus tôt quand la cible
-est occupée ou hors d'atteinte avant l'horizon, ou garder les échecs d'une même simulation.
+temps, et pourquoi `couloir` a pris 42 min pour 10 annoncées. **Corrigé le jour même dans mcts-commun** (`1c37ffc`,
+§ « Ce que disent les traces ») : quand la recherche a vu autant de nœuds que le plan a de cases, A* vérifie une
+fois si la cible est atteignable avant l'horizon (les unités garées pour de bon comptées comme des murs, `stayAt`),
+et renonce sinon. Même réponse, `null`, compté dans `astar.givenUp` ; les mêmes plats à l'heure et les empreintes
+inchangées. Mesuré par la session cuisine :
+
+| Mesure | Avant | Après |
+|---|---|---|
+| A* sur 3 services des règles, couloir | 4,6 s | 0,33 s |
+| A* sur 1 service de la recherche, grand détour avec tables | 18,7 s | 8,0 s |
+| Ce même service en tout | 36 s | 26 s |
+
+Les durées apprises de ces commandes (la médiane de leurs 5 derniers passages) restent celles d'avant pendant
+quelques passages : la file surestimera couloir et tables-detour jusqu'à ce que les nouveaux passages les remplacent.
+Le prochain lot dira le gain réel, à 18 jobs côte à côte, par `astar.givenUp` et la part d'A* dans chaque trace.
 
 **Les alertes ne disaient rien** : 3 391 recherches « lentes » (de 2 à 38 s, budget 64, profondeur 2), le TUI à
 « 20 incidents » en rouge sur presque chaque job. D'où la règle relative et les deux niveaux (§ « Ce que disent les
