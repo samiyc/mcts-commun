@@ -8,9 +8,11 @@ import { trace } from "./trace.js";
  * @returns {{ now: number, size: number, schedule(at: number, event: any): void, next(): { at, event } | null, peek(): { at, event } | null, clone(keep?: (event: any) => boolean): ReturnType<typeof createEvents> }}
  */
 export function createEvents(start = 0) {
-  const heap = createHeap();
-  let order = 0;
-  let now = start;
+  return queueOf(createHeap([]), 0, start);
+}
+
+/** The queue over `heap`, its next order `order` and its clock `now`. */
+function queueOf(heap, order, now) {
   return {
     get now() {
       return now;
@@ -42,20 +44,21 @@ export function createEvents(start = 0) {
     /**
      * A copy of the queue at the same clock, keeping the events `keep(event)` accepts, in the same order. The
      * events themselves are shared: schedule plain values (ids, not the objects they name) to clone safely.
+     *
+     * @param {(event: any) => boolean} [keep]
      */
     clone(keep = () => true) {
-      const copy = createEvents(now);
-      for (const entry of [...heap.entries].sort((a, b) => (before(a, b) ? -1 : 1))) if (keep(entry.event)) copy.schedule(entry.at, entry.event);
-      return copy;
+      // The entries kept with their order, the heap built again in O(n), not sorted (urgences, 28/10/2026: 2 % of its
+      // time): equals still come out in the order they were scheduled.
+      return queueOf(createHeap(heap.entries.filter((entry) => keep(entry.event))), order, now);
     },
   };
 }
 
 const before = (a, b) => a.at < b.at || (a.at === b.at && a.order < b.order);
 
-/** The binary heap under the queue: `push`, `pop` (the earliest, or undefined), its `entries`. */
-function createHeap() {
-  const entries = [];
+/** The binary heap under the queue, over `entries` put in heap order: `push`, `pop` (the earliest, or undefined), its `entries`. */
+function createHeap(entries) {
   const swap = (i, j) => ([entries[i], entries[j]] = [entries[j], entries[i]]);
   const up = (index) => {
     for (let i = index; i > 0 && before(entries[i], entries[(i - 1) >> 1]); i = (i - 1) >> 1) swap(i, (i - 1) >> 1);
@@ -70,6 +73,7 @@ function createHeap() {
       i = smaller;
     }
   };
+  for (let i = (entries.length >> 1) - 1; i >= 0; i -= 1) down(i);
   return {
     entries,
     push(entry) {

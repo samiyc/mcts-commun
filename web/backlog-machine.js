@@ -31,8 +31,9 @@ function memoryTile(view) {
 }
 
 function todayTile(view) {
-  const { doneToday, failedToday } = view.counts;
-  return ["Aujourd'hui", `${doneToday}<small> ${plural(doneToday, "fini")}</small>`, failedToday ? `<span class="status-failed">${failedToday} en échec</span>` : "aucun échec"];
+  const { doneToday, failedToday, cancelledToday } = view.counts;
+  const cancelled = cancelledToday ? ` · ${cancelledToday} ${plural(cancelledToday, "annulé")}` : "";
+  return ["Aujourd'hui", `${doneToday}<small> ${plural(doneToday, "fini")}</small>`, (failedToday ? `<span class="status-failed">${failedToday} en échec</span>` : "aucun échec") + cancelled];
 }
 
 function endTile(view) {

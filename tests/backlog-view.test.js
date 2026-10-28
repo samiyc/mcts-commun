@@ -76,6 +76,10 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     assert.deepEqual(view.threads, { used: 1, budget: 4 });
     assert.deepEqual(view.runners.map(({ pid, alive }) => [pid, alive]), [[11, true], [99, false]]);
     assert.equal(view.counts.failedToday, 1);
+    // A cancellation is no failure (28/10/2026: the kitchen's 115 cancellations read "115 en échec").
+    const cancelled = viewOf({ ...state, archive: [...state.archive, job("dropped", { status: "cancelled", doneAt: stamp(2), minutes: 0 })] }).counts;
+    assert.deepEqual([cancelled.failedToday, cancelled.cancelledToday, cancelled.endedToday], [1, 1, 3]);
+    assert.ok(listText(viewOf({ ...state, archive: [job("dropped", { status: "cancelled", doneAt: stamp(2) })] }), { color: false }).includes("0 en échec, 1 annulé"));
     const text = listText(view, { color: false });
     for (const words of ["En cours (2)", "À venir (1)", "Bloqués (0)", "Derniers finis (2)", "lanceur mort", "45/30 min", "1 erreur tracée", "service 10/30"]) assert.ok(text.includes(words), words);
   });

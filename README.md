@@ -54,6 +54,7 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  * @property {(world) => boolean} over
  * @property {(world, rng) => World} rollout       the fast rule to the end
  * @property {(world, actor) => number} score      the reward of a finished world, 0 to 1
+ * @property {(world) => World} [copy]           a faithful copy: on common worlds, each is drawn once, then copied
  */
 
 /** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null }} */
@@ -103,7 +104,7 @@ export function readyTasks(tasks, done, free) {}    // prerequisites finished, r
 export function smithOrder(tasks) {}                // most weight per minute first
 export function parsePlan(text) {}                  // { width, height, lines, at(x, y), inside(x, y), find(char) }
 export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park, maxNodes, partial } → [{ x, y, t }] | null
-export function createReservations() {}             // ({ shared }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, stayAt(x, y), clone }
+export function createReservations() {}             // ({ shared, capacity, single }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, stayAt(x, y), clone }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
 ```
@@ -113,6 +114,21 @@ cible plus loin rend null sans rien chercher, et A* ne fait jamais un pas d'où 
 temps (les mêmes chemins, plus vite). `maxNodes` plafonne les cases-instants explorées (null au-delà, compté
 `capped`) ; avec `partial: true`, A* rend plutôt le chemin vers la case explorée la plus proche de la cible
 (compté `partial`), pour avancer quand même. Une cible murée, avec ou sans réservations, rend null tôt.
+
+**Plus vite, les mêmes chemins** (28/10/2026, les profils des projets) : la cible hors d'atteinte est vue dès que
+A* a exploré deux fois ce qu'un chemin libre demande, et A* comme les réservations n'allouent presque plus (des clés
+numériques) ; une case réservée a des coordonnées entières de −4096 à 4095. `npm run bench` le mesure, et
+`docs/recherche.md` (§ 6) dit les chiffres.
+
+**Plusieurs unités par case** (28/10/2026, cuisine) : `createReservations({ capacity: 2, single: [cases] })`. Une case
+tient deux unités à la fois, une case `single` (celle d'où l'on travaille une station) n'en tient qu'une, et deux
+unités se croisent de face entre deux cases d'au moins 2. Se garer veut toujours la case pour soi. Sans `capacity`,
+rien ne change.
+
+**Chaque monde commun tiré une fois** (28/10/2026, urgences) : avec un `problem.copy(world)` fidèle, la recherche en
+mondes communs garde le k-ième monde tiré, et l'état de son flux, puis en donne une copie à chaque coup de la racine.
+Les mêmes coups et les mêmes visites, sans les tirages répétés, contre autant de mondes en mémoire que le coup le plus
+visité a eu de visites.
 
 ## Comment les projets s'en servent
 

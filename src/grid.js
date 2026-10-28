@@ -1,4 +1,5 @@
-import { createEvents } from "./events.js";
+import { createOpen } from "./grid-open.js";
+import { outOfReach } from "./grid-reach.js";
 import { count, timed } from "./trace.js";
 
 export { createReservations } from "./reservations.js";
@@ -39,8 +40,6 @@ const STEPS = [
   [0, 1],
   [0, -1],
 ];
-const cellKey = (x, y) => `${x},${y}`;
-
 /**
  * The shortest path in time from `from` to `to` (`{ x, y }`), leaving at `start`: `[{ x, y, t }]` from the start
  * to the arrival, waits included, or null. `passable(char, x, y)` says which cells a unit may enter;
@@ -50,7 +49,8 @@ const cellKey = (x, y) => `${x},${y}`;
  * A target walled off by units parked for good gives null without searching to the horizon (Sami, 27/10/2026: on the
  * kitchen's corridor one call in two found no path, 2.5 ms each against 0.07): the same answer, sooner. So does a
  * target further than the horizon, and a step from which the target can no longer be reached within it is never
- * taken: `horizon` is the furthest the unit may go.
+ * taken: `horizon` is the furthest the unit may go. The target out of reach is asked once the search has explored
+ * twice what a free path needs (28/10/2026: a unit shut in a dead end gave up only at the horizon), not the plan's size.
  *
  * Bounds for a bot short of time (Sami, 27/10/2026: CodinGame's 50 ms a turn): `maxNodes`, the cells-in-time explored
  * at most, null beyond (counted `capped`); `partial`, the path to the explored cell nearest the target rather than
@@ -66,37 +66,42 @@ export function astar(plan, from, to, options) {
 }
 
 /** The search's settings: the options given, their defaults where left out; `reach`, the furthest an arrival may be. */
-function settingsOf(plan, to, options) {
-  const given = (name, fallback) => (options[name] === undefined ? fallback : options[name]);
-  const horizon = given("horizon", 4 * plan.width * plan.height);
-  const partial = given("partial", false);
-  const bounds = { maxNodes: given("maxNodes", Infinity), partial, reach: partial ? Infinity : horizon };
-  return { plan, to, passable: options.passable, reservations: given("reservations", null), unit: given("unit", null), start: given("start", 0), horizon, park: given("park", false), ...bounds };
+function settingsOf(plan, from, to, options) {
+  const horizon = given(options.horizon, 4 * plan.width * plan.height);
+  const partial = given(options.partial, false);
+  const cells = plan.width * plan.height;
+  // The target out of reach is asked once the search has explored twice what a free path needs (28/10/2026: a unit
+  // shut in a dead end never reached the plan's size); with `partial`, at the plan's size, so its path stays the same.
+  const checkAt = partial ? cells : Math.min(cells, 2 * (distanceTo(to, from.x, from.y) + 1) + 8);
+  const bounds = { maxNodes: given(options.maxNodes, Infinity), partial, reach: partial ? Infinity : horizon, checkAt };
+  const reservations = given(options.reservations, null);
+  const scratch = { x: 0, y: 0 };
+  return { plan, to, passable: options.passable, reservations, unit: given(options.unit, null), start: given(options.start, 0), horizon, park: given(options.park, false), ...bounds, cells, scratch };
 }
 
+const given = (value, fallback) => (value === undefined ? fallback : value);
 const distanceTo = (to, x, y) => Math.abs(x - to.x) + Math.abs(y - to.y);
 
 /** The path, its nodes explored counted once a call (`expanded / calls`: what a call costs). */
 function shortestPath(plan, from, to, options) {
-  const settings = settingsOf(plan, to, options);
+  const settings = settingsOf(plan, from, to, options);
   const seen = new Set();
   const path = explore(settings, from, seen);
   count("astar", "expanded", seen.size);
   return path;
 }
 
-/** A* from `from`, each node explored kept in `seen`. */
+/** A* from `from`, each node explored kept in `seen`, by a number: its time from the start, then its cell. */
 function explore(settings, from, seen) {
-  const { to, start, horizon } = settings;
+  const { plan, to, start, horizon, cells } = settings;
   const nearest = { node: null, distance: Infinity };
   if (distanceTo(to, from.x, from.y) > settings.reach) return short(settings, nearest, "givenUp");
-  // A consistent heuristic pops f in non-decreasing order: the event queue serves as the open list.
-  const open = createEvents();
-  open.schedule(distanceTo(to, from.x, from.y), { x: from.x, y: from.y, t: start, parent: null });
-  for (let next = open.next(); next; next = open.next()) {
-    const node = next.event;
+  // A consistent heuristic pops f in non-decreasing order, equals in the order pushed, as the event queue did.
+  const open = createOpen();
+  open.push(distanceTo(to, from.x, from.y), nodeOf(from.x, from.y, start, null));
+  for (let node = open.pop(); node; node = open.pop()) {
     if (arrived(settings, node)) return pathOf(node);
-    const key = `${cellKey(node.x, node.y)},${node.t}`;
+    const key = (node.t - start) * cells + node.y * plan.width + node.x;
     if (seen.has(key)) continue;
     // A node at the horizon is not explored, but a partial path may end there.
     closer(nearest, node, to);
@@ -109,13 +114,16 @@ function explore(settings, from, seen) {
   return short(settings, nearest, null);
 }
 
+/** A node of the open list, of one shape for V8: its cell, its time, where it came from, its `f` and order once pushed. */
+const nodeOf = (x, y, t, parent) => ({ x, y, t, parent, f: 0, order: 0 });
+
 const arrived = ({ to, park, reservations, unit }, node) => node.x === to.x && node.y === to.y && (!park || !reservations || reservations.freeFrom(to.x, to.y, node.t, unit));
 
 /** Why the search stops once `seen` holds its latest node: "capped", "givenUp", or null to go on. */
 function stopAfter(settings, seen, from) {
   if (seen.size > settings.maxNodes) return "capped";
-  // Once the search has seen as many nodes as the plan has cells, a target out of reach is likely: checked once.
-  return seen.size === settings.plan.width * settings.plan.height && outOfReach(settings, from) ? "givenUp" : null;
+  // A target out of reach is asked once (src/grid-reach.js): the same null A* would give, sooner.
+  return seen.size === settings.checkAt && outOfReach(settings, from) ? "givenUp" : null;
 }
 
 /** Keeps in `nearest` the first node explored at the least distance from `to`. */
@@ -134,48 +142,28 @@ function short({ partial }, nearest, why) {
   return pathOf(nearest.node);
 }
 
-/** Schedules every step `node` may take: a wait or a move to a passable cell, free then, swapping with nobody, from which the target can still be reached in time. */
-function expand(node, settings, open) {
-  for (const [dx, dy] of STEPS) {
-    const step = { x: node.x + dx, y: node.y + dy, t: node.t + 1 };
-    const arrival = step.t - settings.start + distanceTo(settings.to, step.x, step.y);
-    if (arrival <= settings.reach && canStep(node, step, settings)) open.schedule(arrival, { ...step, parent: node });
-  }
-}
-
 /**
- * Can `to` be reached within the horizon at all? A lower bound on the arrival: the cells where another unit is
- * parked for good are walls from the time it parks (`isFree` is false there from then on), the steps of the units
- * on the move left out. A path in time keeps to it, so none when it is out of reach, or when the unit must park
- * where another already is (`freeFrom` is false there for good).
+ * Pushes every step `node` may take: a wait or a move to a passable cell, free then, swapping with nobody, from which
+ * the target can still be reached in time. A node is made only for a step allowed.
  */
-function outOfReach({ plan, to, passable, reservations, unit, start, horizon, park }, from) {
-  // Without reservations, the walls alone (27/10/2026: a walled target, 217 ms at horizon 80 on a 40 × 20 plan).
-  const parkedAt = (x, y) => {
-    const stay = reservations ? reservations.stayAt(x, y) : null;
-    return stay === null || stay.unit === unit ? Infinity : stay.from;
-  };
-  if (park && parkedAt(to.x, to.y) !== Infinity) return true;
-  const enters = (x, y, t) => plan.inside(x, y) && passable(plan.at(x, y), x, y) && t < parkedAt(x, y);
-  const seen = new Set([cellKey(from.x, from.y)]);
-  let layer = [from];
-  for (let t = start; layer.length > 0 && t - start <= horizon; t += 1) {
-    if (layer.some((cell) => cell.x === to.x && cell.y === to.y)) return false;
-    const around = layer.flatMap((cell) => STEPS.slice(1).map(([dx, dy]) => ({ x: cell.x + dx, y: cell.y + dy })));
-    // Each cell enters one layer once: marked as it enters, or two neighbours both add it and the layers grow
-    // fourfold a step (27/10/2026: 4 s at horizon 20 on a 40 × 20 plan, minutes at 80).
-    layer = around.filter(({ x, y }) => {
-      if (seen.has(cellKey(x, y)) || !enters(x, y, t + 1)) return false;
-      seen.add(cellKey(x, y));
-      return true;
-    });
+function expand(node, settings, open) {
+  const t = node.t + 1;
+  for (const [dx, dy] of STEPS) {
+    const x = node.x + dx;
+    const y = node.y + dy;
+    const arrival = t - settings.start + distanceTo(settings.to, x, y);
+    if (arrival <= settings.reach && canStep(node, x, y, settings)) open.push(arrival, nodeOf(x, y, t, node));
   }
-  return true;
 }
 
-function canStep(node, { x, y, t }, { plan, passable, reservations, unit }) {
+/** May a unit on `node` be on (x, y) one step later? */
+function canStep(node, x, y, { plan, passable, reservations, unit, scratch }) {
   if (!plan.inside(x, y) || !passable(plan.at(x, y), x, y)) return false;
-  return !reservations || (reservations.isFree(x, y, t, unit) && !reservations.swaps(node, { x, y }, node.t, unit));
+  if (!reservations) return true;
+  if (!reservations.isFree(x, y, node.t + 1, unit)) return false;
+  scratch.x = x;
+  scratch.y = y;
+  return !reservations.swaps(node, scratch, node.t, unit);
 }
 
 function pathOf(node) {

@@ -27,13 +27,14 @@ import { count, timed, trace } from "./trace.js";
  * @property {(world) => boolean} over
  * @property {(world, rng) => World} rollout       the fast rule to the end
  * @property {(world, actor) => number} score      the reward of a finished world, 0 to 1
+ * @property {(world) => World} [copy]           a faithful copy: on common worlds, each is drawn once, then copied
  */
 export const SEARCH = Object.freeze({ depth: 5, explore: 0.7 });
 
 /** What a `Problem` must and may hold: the contract the README states and `tests/api.test.js` pins. */
 export const PROBLEM = Object.freeze({
   required: Object.freeze(["sample", "actor", "moves", "key", "play", "over", "rollout", "score"]),
-  optional: Object.freeze(["shortlist"]),
+  optional: Object.freeze(["shortlist", "copy"]),
 });
 
 /** Throws, naming them, when `problem` lacks a function the search needs or holds a non-function in its place. */
@@ -134,8 +135,28 @@ function iterate(root, state, settings) {
 /** What common worlds need: their streams' base, and the root's moves and actor, read in the first world. */
 function commonRoot(state, problem, rng) {
   const base = Math.floor(rng.next() * 2 ** 32) >>> 0;
-  const world = problem.sample(state, streamOf(base, 0));
-  return { base, moves: problem.over(world) ? new Map() : candidates(problem, world), actor: problem.actor(world) };
+  const stream = streamOf(base, 0);
+  const world = problem.sample(state, stream);
+  // With `copy`, the k-th world is kept as drawn, with its stream's state just after: the first one is this one.
+  const worlds = problem.copy ? [{ world, state: stream.getState() }] : null;
+  return { base, worlds, moves: problem.over(world) ? new Map() : candidates(problem, world), actor: problem.actor(world) };
+}
+
+/**
+ * The k-th common world, on `stream` (`streamOf(base, k)`). Drawn each time, or with `copy` (urgences, 28/10/2026: the
+ * k-th world was drawn once a root move, the same each time) drawn once and copied, the stream put back where the
+ * draw left it: the same world, the same random numbers after, so the same search.
+ */
+function commonWorld(state, { problem, common }, k, stream) {
+  if (!common.worlds) return problem.sample(state, stream);
+  const kept = common.worlds[k];
+  if (kept) {
+    stream.setState(kept.state);
+    return problem.copy(kept.world);
+  }
+  const world = problem.sample(state, stream);
+  common.worlds[k] = { world: problem.copy(world), state: stream.getState() };
+  return world;
 }
 
 /** The root's child to visit: the first untried one in the shortlist's order, else UCB1 on the root's visits. */
@@ -168,7 +189,7 @@ function iterateCommon(root, state, settings) {
   const { problem, depth, explore, common } = settings;
   const child = rootChild(root, common, explore);
   const stream = streamOf(common.base, child.visits);
-  let world = problem.sample(state, stream);
+  let world = commonWorld(state, settings, child.visits, stream);
   const move = candidates(problem, world).get(child.key);
   if (!move) {
     trace("search", "error", { message: `coup ${child.key} manquant en common`, visit: child.visits });
@@ -199,7 +220,8 @@ function iterateCommon(root, state, settings) {
  * reads them.
  *
  * `common`: judge the root's moves on common worlds (`iterateCommon`), when the root's moves are known in
- * every world and the worlds' noise dwarfs the moves' differences (a whole shift, a whole day to come).
+ * every world and the worlds' noise dwarfs the moves' differences (a whole shift, a whole day to come). With the
+ * problem's `copy`, each world is drawn once and kept, as many as the most visited root move's visits.
  *
  * `deadline` (Sami, 27/10/2026: a CodinGame bot has 50 ms a turn, not a number of iterations): iterate until
  * `now()` reaches it, `budget` then optional and a cap; at least one iteration, so a move comes back even late.

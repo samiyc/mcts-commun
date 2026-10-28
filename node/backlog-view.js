@@ -172,6 +172,9 @@ const traceOf = (now, finishedById) => (trace) => {
   return { file, name, id, quietMin: minutesSince(now, mtimeMs), start, lastBeat, counters, ended, stopped: stopped ?? null, problems, incidents: incidentsOf(trace), reported: progressOf(trace) };
 };
 
+// A job cancelled or skipped is no failure (28/10/2026: "115 en échec" were the kitchen's 115 cancellations).
+const FAILED = new Set(["failed", "timeout"]);
+
 function countsOf({ now, archive, running, planned, held, order }) {
   const today = new Date(now - new Date(now).getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   const endedToday = archive.filter((job) => String(job.doneAt).startsWith(today));
@@ -181,7 +184,9 @@ function countsOf({ now, archive, running, planned, held, order }) {
     waiting: held.filter((job) => !job.blocked).length,
     blocked: held.filter((job) => job.blocked).length,
     doneToday: endedToday.filter((job) => job.status === "done").length,
-    failedToday: endedToday.filter((job) => job.status !== "done").length,
+    failedToday: endedToday.filter((job) => FAILED.has(job.status)).length,
+    cancelledToday: endedToday.filter((job) => job.status === "cancelled").length,
+    endedToday: endedToday.length,
     nightEnd: order.length ? Math.max(...order.map((one) => one.end)) : null,
   };
 }

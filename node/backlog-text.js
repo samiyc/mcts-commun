@@ -188,10 +188,10 @@ export function listText(view, { color = false, width = 120, finished = 8 } = {}
 }
 
 function headLines(view, s) {
-  const { doneToday, failedToday, nightEnd } = view.counts;
+  const { doneToday, failedToday, cancelledToday, nightEnd } = view.counts;
   const end = nightEnd ? `${clockText(nightEnd)} (${relativeText(nightEnd, view.now)})` : "";
   const when = new Date(view.now).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-  const lines = [`${s.bold("La backlog de la machine")} ${s.gray("— " + when)}`, machineLine(view, s), s.gray(`Aujourd'hui : ${doneToday} ${plural(doneToday, "fini")}, ${failedToday} en échec${maybe(end, " · la file finirait vers ")}`)];
+  const lines = [`${s.bold("La backlog de la machine")} ${s.gray("— " + when)}`, machineLine(view, s), s.gray(`Aujourd'hui : ${doneToday} ${plural(doneToday, "fini")}, ${failedToday} en échec${maybe(cancelledToday ? cancelledToday + " " + plural(cancelledToday, "annulé") : "", ", ")}${maybe(end, " · la file finirait vers ")}`)];
   if (!view.load) return lines;
   const nights = view.load.nights.map(nightText).join(" · ");
   return [...lines, s.gray(loadText(view.load)), ...(nights ? [s.gray("Nuits : " + nights)] : [])];

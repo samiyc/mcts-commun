@@ -51,8 +51,8 @@ export default [
   },
 
   {
-    // The backlog's runner, its views and the page server: plain Node.
-    files: ["node/**/*.js", "bin/**/*.js"],
+    // The backlog's runner, its views, the page server and the benches: plain Node.
+    files: ["node/**/*.js", "bin/**/*.js", "bench/**/*.js"],
     languageOptions: { ...MODULE, globals: globals.node },
     rules: { ...COMPLEXITY_BUDGET, ...COMMON_RULES },
   },

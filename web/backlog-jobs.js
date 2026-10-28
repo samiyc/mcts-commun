@@ -51,7 +51,7 @@ function finishedRow(job, view) {
 }
 
 export function finished(view) {
-  $("finished-count").textContent = `(${view.counts.doneToday + view.counts.failedToday} aujourd'hui)`;
+  $("finished-count").textContent = `(${view.counts.endedToday} aujourd'hui)`;
   const rows = view.finished.map((job) => finishedRow(job, view));
   $("finished").innerHTML = table(["Fin", "Statut", "Projet", "Job", "Durée", ""], rows, "Rien de fini pour l'instant.");
 }

@@ -151,4 +151,46 @@ describe("plans and paths (src/grid.js)", () => {
     reservations.reserve("parked", [{ x: 3, y: 1, t: 0 }], { stay: true });
     assert.ok(reservations.isFree(3, 1, 5, "other"), "on ne se gare pas sur une case partagée");
   });
+
+  it("gives up early on a unit shut in a dead end, long before the plan's size, the partial path unchanged (28/10/2026)", () => {
+    const pocket = parsePlan(["##########", "#.##.....#", "#.##.....#", "##########"].join("\n"));
+    resetTrace();
+    assert.equal(astar(pocket, { x: 1, y: 1 }, { x: 8, y: 2 }, { passable: open, horizon: 80 }), null);
+    const { expanded, givenUp } = traceSnapshot().counters.astar;
+    assert.deepEqual([givenUp, expanded <= 2 * (8 + 1) + 8], [1, true], `${expanded} nœuds`);
+    const partial = astar(pocket, { x: 1, y: 1 }, { x: 8, y: 2 }, { passable: open, horizon: 80, partial: true });
+    assert.deepEqual(partial.at(-1), { x: 1, y: 2, t: 1 });
+  });
+
+  it("holds two units a cell with a capacity, one on a single cell, and lets them cross in an aisle (cuisine, 28/10/2026)", () => {
+    const aisle = parsePlan(["#######", "#.....#", "#######"].join("\n"));
+    const table = createReservations({ capacity: 2, single: [{ x: 5, y: 1 }] });
+    table.reserve("a", [{ x: 2, y: 1, t: 0 }, { x: 3, y: 1, t: 1 }]);
+    assert.ok(table.isFree(3, 1, 1, "b"), "une place encore");
+    table.reserve("b", [{ x: 4, y: 1, t: 0 }, { x: 3, y: 1, t: 1 }]);
+    assert.ok(!table.isFree(3, 1, 1, "c"), "pleine à deux");
+    assert.ok(table.isFree(3, 1, 1, "a"), "on ne se compte pas soi-même");
+    // Face to face between two cells of capacity 2: they pass, where a table of one makes one wait.
+    assert.ok(!table.swaps({ x: 3, y: 1 }, { x: 2, y: 1 }, 0, "c"));
+    const one = createReservations();
+    one.reserve("a", [{ x: 2, y: 1, t: 0 }, { x: 3, y: 1, t: 1 }]);
+    assert.ok(one.swaps({ x: 3, y: 1 }, { x: 2, y: 1 }, 0, "b"));
+    const crossed = astar(aisle, { x: 3, y: 1 }, { x: 1, y: 1 }, { passable: open, reservations: table, unit: "c" });
+    assert.equal(crossed.length, 3, JSON.stringify(crossed));
+    // The single cell holds one, and parking still wants a cell alone.
+    table.reserve("d", [{ x: 5, y: 1, t: 4 }]);
+    assert.ok(!table.isFree(5, 1, 4, "e"));
+    assert.ok(!table.freeFrom(3, 1, 0, "c"), "a et b y passent plus tard");
+    assert.throws(() => createReservations({ capacity: 0 }), /capacity/);
+    assert.throws(() => table.reserve("f", [{ x: 5000, y: 1, t: 0 }]), /hors des cases/);
+  });
+
+  it("counts a cell booked over its capacity, the latest units keeping it", () => {
+    resetTrace();
+    const table = createReservations({ capacity: 2 });
+    for (const unit of ["a", "b", "c"]) table.reserve(unit, [{ x: 1, y: 1, t: 0 }]);
+    assert.equal(traceSnapshot().counters.grid.overbooked, 1);
+    table.release("c");
+    assert.ok(table.isFree(1, 1, 0, "z"), "b seul y reste, a a perdu sa place");
+  });
 });

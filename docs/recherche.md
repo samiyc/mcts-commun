@@ -9,7 +9,9 @@ Ce document répond dans cet ordre :
 1. les réglages, et quand s'en servir ;
 2. ce que `diagnose` dit d'une recherche ;
 3. ce que dit la recherche récente ;
-4. ce qu'il vaudrait la peine de mettre en commun.
+4. ce qu'il vaudrait la peine de mettre en commun ;
+5. les essais demandés aux projets ;
+6. ce que leurs mesures du 28/10 ont appris, et ce que la lib en a fait.
 
 ## 1. Les réglages
 
@@ -25,6 +27,7 @@ Tous sont facultatifs. Sans eux, les coups, les visites et les chemins ne change
 | `depth` | les niveaux de l'arbre (5) ; la simulation va ensuite jusqu'au bout | le début |
 | `widening: k` | sous la racine, un nœud n'offre que les `⌊k + √visites⌋` premiers coups de sa liste courte | 27/10 soir |
 | `earlyStop: true` | avec un `budget`, s'arrêter dès que le coup en tête ne peut plus être rattrapé | 27/10 soir |
+| `problem.copy(world)` | sur les mondes communs, chaque monde tiré une fois, puis copié pour chaque coup de la racine | 28/10 |
 
 **L'élargissement progressif** (`widening`) est la seule variante que Lopin a gardée après les avoir toutes
 mesurées : +2 à 4 points sur 420 parties. Ses niveaux `pwl` correspondent à ces `k` :
@@ -48,6 +51,7 @@ n'y a rien à compter, et l'option est ignorée.
 | `horizon` | le nombre de pas au plus : c'est la « distance max » |
 | `maxNodes` | les cases-instants explorées au plus ; au-delà, null (compté `astar.capped`) |
 | `partial: true` | au lieu de null, le chemin vers la case explorée la plus proche de la cible (compté `astar.partial`) |
+| `createReservations({ capacity, single })` | `capacity` unités par case à la fois (1 par défaut), une seule sur les cases `single` ; deux unités se croisent de face entre deux cases d'au moins 2 (28/10) |
 
 Depuis le 27/10 au soir :
 - une cible plus loin que l'horizon rend null sans rien explorer ;
@@ -56,6 +60,15 @@ Depuis le 27/10 au soir :
 - une cible murée rend null tôt, avec ou sans réservations ;
 - le test « hors d'atteinte » ne grossit plus sur un plan large (`docs/backlog.md`, « A* ou la recherche ? ») ;
 - avec `partial`, l'horizon ne coupe plus que par le temps : le chemin partiel s'arrête au plus tard à l'horizon.
+
+Depuis le 28/10 (§ 6), les mêmes chemins, plus vite :
+- la cible hors d'atteinte est vérifiée dès que la recherche a exploré `2 × (distance + 1) + 8` nœuds, et non plus
+  autant que le plan a de cases : une unité enfermée dans un cul-de-sac abandonne tout de suite. Avec `partial`,
+  rien ne change ;
+- A* et les réservations n'allouent presque plus : des clés numériques, un nœud créé seulement pour un pas permis.
+  Une case réservée a ses coordonnées entières, de −4096 à 4095 ; au-delà, `reserve` refuse.
+
+`astar.givenUp` monte d'autant : ce sont les échecs vus tôt, pas des échecs de plus.
 
 Le compteur `astar.expanded` additionne les cases explorées. `expanded / calls` dit ce que coûte un appel ; on le lit
 dans les compteurs de la trace d'un job (`counters.astar` du dernier battement).
@@ -191,6 +204,7 @@ qu'une règle simple, avec son intervalle.
 | **PIBT** (un pas pour toutes les unités, priorité à la bloquée) | l'entrepôt d'abord, puis la cuisine et les jeux à plusieurs unités | quand l'entrepôt grandit : plus de robots, des plans plus larges | des centaines d'unités en millisecondes ; à mesurer contre l'A* coopératif sur les mêmes journées |
 | **Smitsimax / UCT découplé** | CodinGame, coups simultanés | au premier défi de ce genre | notre ISMCTS fait jouer un acteur après l'autre |
 | **la réutilisation de l'arbre** d'un tour à l'autre (`reuse` de Lopin) | CodinGame, Lopin | au premier défi | les itérations du tour d'avant sont gratuites ; à mesurer, Lopin ne l'a pas départagée |
+| **le trajet direct** sur les distances au sol, A* seulement si une case du trajet est prise | cuisine l'a prouvé (28/10), l'entrepôt ensuite ? | quand un second projet le voudra | 2 à 4 fois plus vite chez cuisine ; il change les chemins, donc les empreintes |
 | **le halving à la racine** | — | pas maintenant | neutre dans Lopin (49,5 %) |
 | **PUCT, le minimax implicite** | — | non | perdus dans Lopin (47 à 50 %) ; sans réseau, l'avis de la règle rapide pousse vers son favori, que l'arbre est là pour corriger |
 
@@ -216,6 +230,53 @@ Ce que les réponses décideront :
 - La beam search, Smitsimax ou la réutilisation de l'arbre entrent-elles dans la lib ? Seulement si le bot
   CodinGame les a prouvées.
 - Quel levier chaque projet travaille-t-il ensuite ? Celui que `diagnose` désigne le plus souvent.
+
+## 6. Les mesures du 28/10 : où passe le temps
+
+Sami a fait mesurer la vitesse à chaque projet le 28/10. Leurs profils, croisés :
+
+| Projet | Ce que dit son profil |
+|---|---|
+| entrepôt | A* prend 52 à 71 % d'une journée, dont 36 à 48 % en propre dans `expand` et `explore`, et 7 à 10 % de ramasse-miettes. Les échecs font 29 à 34 % du temps d'A* (0,45 à 0,92 ms l'un, contre 0,09 à 0,51 ms un succès). `isFree`, `swaps` et `holdMoves` en font 6 à 9 % |
+| cuisine | le coût est dans le nombre d'appels : 244 000 appels de 9 à 15 cases, à 0,07-0,14 ms chacun, soit le coût fixe d'un appel. Au couloir, 60 000 appels sur 82 000 ne trouvent rien : un cuisinier bloqué qui redemande à chaque tour |
+| urgences | sur les mondes communs, le k-ième monde était tiré une fois par coup de la racine ; `events.clone` triait tout le tas (2 %) |
+
+**Ce que la lib a corrigé** (les mêmes chemins, les mêmes coups et les mêmes empreintes, vérifiés contre l'ancien
+code sur 4 000 cas tirés au hasard), mesuré par `npm run bench` (`bench/grid-search.js`), l'ancien et le nouveau
+code en alternance :
+
+| Cas du banc | Avant | Après |
+|---|---|---|
+| un plan d'entrepôt de 40 × 21, dix robots garés, des succès et des échecs | 1,08 ms l'appel, 129 nœuds | 0,15 ms, 116 nœuds |
+| un cuisinier enfermé dans un cul-de-sac, horizon 55 | 0,49 ms, 75 nœuds | 0,02 ms, 34 nœuds |
+| des appels courts (3 nœuds) | 24 µs | 3 µs |
+| `clone` d'une table de dix chemins | 66 µs | 61 µs |
+| une recherche à 64 itérations sur 4 coups, en mondes communs, un tirage coûteux | 1,9 ms | 0,6 ms avec `copy`, 1,9 ms sans |
+
+Un banc n'est pas une journée : le gain réel se lit dans les traces des jobs, par `astar.ms / astar.calls` et
+`search.ms / search.calls` (`docs/backlog.md`, « Le 28/10 »).
+
+**Ce que les projets ont fait de leur côté**, sans toucher à la lib :
+- **cuisine**, 2 à 4 fois plus vite : les distances au sol gardées, un trajet direct qui les suit quand il est libre,
+  et un cuisinier ou une cible muré conclu sans A* ;
+- **entrepôt** : un filtre avant A* (un remplissage autour des robots garés, sur des `Int32Array`), −7 à −16 % du temps
+  d'A*, puis `shutsIn` en un seul étiquetage du sol, jusqu'à −7 %. Avec l'échec vu tôt dans A*, le filtre devient en
+  partie redondant : l'entrepôt le remesurera ;
+- **urgences**, −38 à −44 % : les mondes ne tiennent plus la comptabilité des mesures, les chemins à pied sont
+  calculés une fois par couple de cases, et chaque monde tiré une fois (ce que `copy` offre maintenant à tous).
+
+**Les conseils qui en sortent, pour tous les projets** :
+- **pas d'A\* quand le trajet direct est libre** : ses distances au sol se gardent par plan ;
+- **ne pas redemander un chemin à chaque tour pour une unité bloquée** : attendre qu'une case autour d'elle change ;
+- **un filtre bon marché avant un calcul cher**, sur des tableaux typés réutilisés plutôt que des `Set` à clés
+  texte : la première version de l'entrepôt, en `Set`, coûtait autant qu'elle épargnait ;
+- **garder aux objets une forme fixe** : urgences a vu `Object.assign` sur place plus lent que l'étalement
+  `{ ...a, ...b }`, l'objet perdant la forme que V8 optimise ;
+- **une règle simplifiée dans les mondes peut changer le vainqueur** (lopin : la recherche joue ses donnes à la
+  règle final pour la vitesse, la partie se joue à claim-end, et les deux ne s'accordent que dans 91 % des parties).
+  Un projet qui simule plus simple que la vraie règle le vérifie sur les décisions perdues « à coup sûr » ;
+- **`copy` se gagne sur les mondes chers à tirer** : il garde autant de mondes que le coup de la racine le plus
+  visité a eu de visites, en mémoire. Sa copie doit être fidèle : les empreintes du projet le vérifient.
 
 ## Sources
 

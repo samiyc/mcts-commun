@@ -45,6 +45,23 @@ Ce qu'il en ressort pour la lib :
   d'une graine fixée. L'allumer par défaut est à Sami.
 - **Les projets n'avaient pas `npx mcts-backlog`** : leur lien date d'avant la commande, et un `npm install` le crée.
 
+## Le 28/10 : la vitesse, mesurée par chaque projet
+
+Sami a demandé à chaque session d'accélérer sa recherche et de dire ce que la lib lui coûte. Ce qu'elles ont répondu
+par le tableau, et ce que commun en a fait, est dans [`recherche.md`](recherche.md), § 6. En bref :
+- **cuisine** : 2 à 4 fois plus vite chez elle ; une capacité par case demandée (faite, `capacity`), le coût fixe
+  d'A* signalé (réduit) ;
+- **entrepôt** : un profil d'A* (les échecs trop tard, les allocations, les clés texte : corrigés), et la mesure
+  qu'une tranche prend 2,3 fois plus de temps quand 18 jobs tournent ;
+- **urgences** : −38 à −44 % chez elle, et un monde tiré une fois par coup de la racine (`copy`, fait) ;
+- **lopin** : EndPimc3 éteint par défaut, la 1.2 reste la référence ; une règle simplifiée dans les mondes peut
+  changer le vainqueur ;
+- **codingame** : son arène passe maintenant par `mcts-backlog --slot` ; rien ne manque à la lib.
+
+Les décisions qui attendent les mesures de la file : moins de mondes chez urgences (tag `2026-10-28-mondes` ; Sami
+accepte que ses empreintes changent), `legHorizon` à l'entrepôt (`horizon-2026-10-28`), le budget 128 et `grace=30`
+chez cuisine (`budget-grace-2026-10-28`).
+
 ## Cuisine
 
 ```text

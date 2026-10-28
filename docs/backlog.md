@@ -289,3 +289,21 @@ traces »). **Des cases réservées deux fois** dans 16 jobs, jusqu'à 331 dans 
 répétée en quelques dixièmes de seconde : sans doute les clones de la recherche, mais la trace ne le disait pas ;
 elle le dit maintenant (`clone`). **Aucun job ne disait où il en était** : la sortie de `tables-detour` est restée
 sur l'en-tête de son tableau pendant 45 min. D'où `progress` et les recommandations aux projets.
+
+### Le 28/10 : les mesures des projets, et une file qui se compare
+
+- **Une annulation n'est pas un échec.** Le 28/10 à 14 h, `--list` disait « 0 fini, 115 en échec » : c'étaient les
+  115 jobs que cuisine avait annulés (`cancel-asked` au journal). Les vues comptent maintenant à part les échecs
+  (`failed`, `timeout`) et les annulés ; `--list --json` donne `counts.failedToday`, `counts.cancelledToday` et
+  `counts.endedToday` (tous les jobs finis du jour, sautés compris).
+- **La durée d'un job dépend de la charge** (l'entrepôt) : une tranche prend environ 2,3 fois plus de temps quand 18
+  jobs tournent que seule. Deux durées se comparent donc à charge égale. Le 0,43 de `load.estimateRatio` (le réel
+  sur l'estimé) vient surtout des estimations des projets, faites avant `earlyStop` ; l'entrepôt a refait les siennes.
+- **Un lanceur remplacé laisse ses jobs orphelins** (lopin, 27/10 à 21:11) : le job écrivait vers le lanceur mort et a
+  planté sur un EPIPE, puis le lanceur suivant l'a remis en file, et il a fini au second passage. Rien n'est perdu,
+  mais le premier passage est du calcul en trop.
+- **Comparer une file avant et après un correctif de la lib** : les durées mêlent les gains des projets et ceux de la
+  lib, et la charge. La part de la lib se lit dans les compteurs de la trace de chaque job (`counters.astar.ms /
+  calls`, `expanded / calls`, `givenUp` ; `counters.search.ms / calls`), job par job, contre ceux d'un passage
+  précédent de la même commande. La lib ne change pas pendant que la file tourne : un job qui démarre après un
+  correctif ne se compare plus à ceux d'avant.

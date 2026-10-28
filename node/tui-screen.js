@@ -17,8 +17,8 @@ const HELP = [
 
 /** The two lines on top: the machine, then the day and the queue's end. */
 function headLines(view, s) {
-  const { doneToday, failedToday, nightEnd } = view.counts;
-  const failed = failedToday ? s.red(failedToday + " en échec") : "0 en échec";
+  const { doneToday, failedToday, cancelledToday, nightEnd } = view.counts;
+  const failed = (failedToday ? s.red(failedToday + " en échec") : "0 en échec") + (cancelledToday ? `, ${cancelledToday} annulé(s)` : "");
   const end = (nightEnd ? " · la file finirait vers " + clockText(nightEnd) : "") + (view.load ? " · " + loadShort(view.load) : "");
   return [`${s.inverse(s.bold(" mcts-backlog "))} ${machineLine(view, s)}`, s.gray(` ${new Date(view.now).toLocaleTimeString("fr-FR")} · aujourd'hui ${doneToday} fini(s), ${failed}${end}`)];
 }

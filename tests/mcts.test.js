@@ -142,4 +142,24 @@ describe("the tree search over hidden information (src/mcts.js)", () => {
     assert.ok(codes(search({}, doors, { budget: 18, rng: createRng(3) })).includes("fewIterations"));
     assert.equal(search({}, doors, { deadline: 3, now: (() => { let t = 0; return () => (t += 1); })() }).stopped, "deadline");
   });
+
+  it("draws each common world once with the problem's copy, and searches the same (urgences, 28/10/2026)", () => {
+    // A world whose rollout draws again from its stream: the stream must be put back where the draw left it.
+    const drawn = { count: 0 };
+    const rolled = { ...loudLuck, sample: (state, rng) => ((drawn.count += 1), { luck: rng.next(), chosen: null, late: 0 }), rollout: (world, rng) => ({ ...world, late: rng.next() }) };
+    rolled.score = (world) => 0.5 * world.luck + 0.2 * world.late + (world.chosen === "A" ? 0.3 : 0.25);
+    const runOf = (problem) => {
+      drawn.count = 0;
+      const found = search({}, problem, { budget: 40, rng: createRng(5), common: true, depth: 2 });
+      return { found: { ...found, ms: 0 }, drawn: drawn.count };
+    };
+    const plain = runOf(rolled);
+    const copied = runOf({ ...rolled, copy: (world) => ({ ...world }) });
+    assert.deepEqual(copied.found, plain.found);
+    assert.equal(plain.drawn, 41, "un tirage par itération, et celui de la racine");
+    assert.equal(copied.drawn, Math.max(...plain.found.stats.map((one) => one.visits)), "le k-ième monde tiré une fois, autant que le coup le plus visité");
+    // A copy that is not faithful shows: the same random numbers, other worlds.
+    const unfaithful = runOf({ ...rolled, copy: (world) => ({ ...world, luck: 0 }) });
+    assert.notDeepEqual(unfaithful.found.stats, plain.found.stats);
+  });
 });

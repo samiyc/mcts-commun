@@ -17,7 +17,8 @@
     "prepare": "git config core.hooksPath .githooks",
     "page": "node bin/serve.js 4800",
     "backlog": "node bin/backlog.js",
-    "board": "node bin/board.js"
+    "board": "node bin/board.js",
+    "bench": "node bench/grid-search.js"
   },
   "author": "Sami",
   "license": "UNLICENSED",
