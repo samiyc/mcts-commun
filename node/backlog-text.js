@@ -77,7 +77,8 @@ const decimal = (value) => String(value).replace(".", ",");
 /** A runner in a few words: alive or not, its pid, since when. */
 function runnerText(one, view, s) {
   const since = one.since ? durationText((view.now - Date.parse(one.since)) / 60_000) : "";
-  return `${one.alive ? s.green("●") : s.red("○")} ${one.runner} ${one.pid}${maybe(since, " depuis ")}`;
+  const waits = one.waiting ? s.yellow(`, attend ${one.waiting.threads} fils pour ${one.waiting.id} (${one.waiting.free} libres)`) : "";
+  return `${one.alive ? s.green("●") : s.red("○")} ${one.runner} ${one.pid}${maybe(since, " depuis ")}${waits}`;
 }
 
 /** The machine in one line: runners, threads, CPU, memory. */

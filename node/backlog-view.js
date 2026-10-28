@@ -1,6 +1,7 @@
 import { withLearned } from "../src/estimate.js";
 import { holdOf, indexJobs, isFinished, minutesOf, nextJob } from "../src/schedule.js";
 import { loadOf } from "./backlog-load.js";
+import { runnersOf } from "./backlog-runners.js";
 import { slotsOf } from "./backlog-slots.js";
 
 export { readBacklog } from "./backlog-read.js";
@@ -151,17 +152,6 @@ const finishedOf = (job) => ({
   trace: job.trace ?? null,
 });
 
-/** The runners at work: those holding slots or running jobs, alive or not, since when. */
-function runnersOf({ slots, jobs, journal, alivePids }) {
-  const pids = [...new Set([...slots.map((slot) => slot.pid), ...jobs.filter((job) => job.status === "running").map((job) => job.runnerPid)].filter(Boolean))];
-  return pids.map((pid) => {
-    const mine = slots.filter((slot) => slot.pid === pid);
-    const started = journal.filter((entry) => entry.pid === pid && entry.kind === "runner-started").at(-1)?.at;
-    const since = started ?? mine.map((slot) => slot.since).sort()[0] ?? null;
-    return { pid, runner: mine[0]?.runner ?? "mcts-backlog", alive: alivePids.includes(pid), threads: mine.reduce((sum, slot) => sum + slot.threads, 0), jobs: mine.length, since };
-  });
-}
-
 /**
  * A trace for the views. A job stopped by its runner (cancelled, too long, a guard) is killed with its processes and
  * writes no end: its job's end says it, from the archive (27/10/2026: a job cancelled at 10:30 was "silent" after).
@@ -214,7 +204,7 @@ export function viewOf(state) {
     now,
     machine: machine && { ...machine, budget },
     threads: { used: slots.reduce((sum, slot) => sum + slot.threads, 0), budget },
-    runners: runnersOf({ slots, jobs, journal, alivePids }),
+    runners: runnersOf({ slots, jobs, journal, alivePids, next: planned[0], budget }),
     slots: slotsOf({ now, slots, wanted, journal }),
     running,
     planned,

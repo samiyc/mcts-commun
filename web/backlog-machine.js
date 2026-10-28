@@ -5,11 +5,13 @@ const hours = (value) => `${decimal(value)}<small> h</small>`;
 import { $, decimal, escape, gauge, levelOf } from "./backlog-html.js";
 
 function runnerTile(view) {
-  const runner = view.runners.find((one) => one.alive) ?? view.runners[0];
+  const queue = view.runners.filter((one) => one.runner !== "session");
+  const runner = queue.find((one) => one.alive) ?? queue[0];
   if (!runner) return ["Lanceur", '<span class="dot off"></span>aucun', "npx mcts-backlog pour jouer la file"];
   const since = runner.since ? durationText((view.now - Date.parse(runner.since)) / 60_000) : "";
   const state = runner.alive ? '<span class="dot on"></span>en marche' : '<span class="dot off"></span>arrêté';
-  return ["Lanceur", state, `${escape(runner.runner)} pid ${runner.pid}${maybe(since, " · depuis ")}`];
+  const waits = runner.waiting ? ` · attend ${runner.waiting.threads} fils pour ${escape(runner.waiting.id)} (${runner.waiting.free} libres)` : "";
+  return ["Lanceur", state, `${escape(runner.runner)} pid ${runner.pid}${maybe(since, " · depuis ")}${waits}`];
 }
 
 function cpuTile(view) {

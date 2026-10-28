@@ -100,6 +100,29 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     await rm(home, { recursive: true, force: true });
   });
 
+  it("shows a runner holding no thread, and the threads its next job waits for (Sami, 28/10: 6 of 18 threads used)", () => {
+    // Its start long out of the journal's lines read; a session's test holds 6 threads, the next job wants 16.
+    const at = (minutesAgo) => new Date(NOW - minutesAgo * 60_000).toISOString();
+    const state = {
+      now: NOW,
+      budget: 18,
+      jobs: [job("mondes-32", { threads: 16, estimate: "7 min" })],
+      archive: [],
+      slots: [{ pid: 50, runner: "session", id: "arena", threads: 6, since: at(5) }],
+      journal: [{ at: at(6), pid: 40, kind: "job-preempted", id: "mondes-32", minutes: 0.7 }],
+      alivePids: [40, 50],
+    };
+    const runners = viewOf(state).runners;
+    assert.deepEqual(runners.map(({ pid, runner }) => [pid, runner]), [[50, "session"], [40, "mcts-backlog"]]);
+    assert.deepEqual(runners[1].waiting, { id: "mondes-32", threads: 16, free: 12, holders: [{ id: "arena", threads: 6, runner: "session" }] });
+    assert.equal(runners[0].waiting, null, "a session's test waits for nothing here");
+    assert.ok(listText(viewOf(state), { color: false }).includes("mcts-backlog 40, attend 16 fils pour mondes-32 (12 libres)"));
+    // Ended, or dead: no runner; the threads free enough: no wait.
+    assert.equal(viewOf({ ...state, journal: [...state.journal, { at: at(1), pid: 40, kind: "runner-ended" }] }).runners.length, 1);
+    assert.equal(viewOf({ ...state, alivePids: [50] }).runners.length, 1);
+    assert.equal(viewOf({ ...state, slots: [] }).runners[0].waiting, null);
+  });
+
   it("lists the short tests of the slots: waiting, running, ended, and the jobs freed for them (Sami, 28/10)", () => {
     const at = (minutesAgo) => new Date(NOW - minutesAgo * 60_000).toISOString();
     const tests = slotsOf({

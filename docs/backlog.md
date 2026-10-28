@@ -182,6 +182,10 @@ pendant 45 min, puis tout à la fin) :
    libérés pour eux (`node/backlog-slots.js`). Un `--slot` d'avant ce jour-là se lit par son id,
    `session:<projet>:<commande>`.
 
+   **Un lanceur qui attend se voit aussi** (28/10/2026, 19 h 40 : la TUI ne montrait que l'essai d'une session, à 6
+   fils sur 18). Un lanceur en vie qui ne tient aucun fil reste dans la ligne de la machine, reconnu à ses lignes de
+   journal, avec ce qu'il attend : « attend 16 fils pour mondes-32 (12 libres) » (`node/backlog-runners.js`).
+
    **Un dossier introuvable est refusé à l'ajout** (`--add`, `--add-file`, `--retry`), pour ne pas échouer en pleine nuit
    (urgences, 27/10 : un heredoc avait mangé les antislashs d'un `cwd`).
 

@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { startedRunners } from "./backlog-runners.js";
 import { readJournal } from "./journal.js";
 import { alive, heatSettings, readCpuTemperature, readSlots, threadBudget } from "./machine.js";
 import { tailOf } from "./tail.js";
@@ -109,7 +110,7 @@ export async function readBacklog(home, { now = Date.now(), budget = threadBudge
   );
   const folders = [...new Set([...jobs, ...archive.slice(-50)].map((job) => job.cwd).filter(Boolean))];
   const traces = await readTraces(home, folders);
-  const pids = [...new Set([...slots.map((slot) => slot.pid), ...running.map((job) => job.runnerPid)].filter(Boolean))];
+  const pids = [...new Set([...slots.map((slot) => slot.pid), ...running.map((job) => job.runnerPid), ...startedRunners(journal)].filter(Boolean))];
   return {
     home,
     now,
