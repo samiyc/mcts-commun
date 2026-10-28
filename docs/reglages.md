@@ -131,3 +131,46 @@ d'aujourd'hui, **par paires sur les mêmes journées ou services**, avec `diagno
 - **Ce qu'on en retient** : un réglage gagne si l'intervalle de son gain est au-dessus de zéro ; Sami décide ensuite
   avec le prix en temps. Si E gagne et pas les autres, c'est la combinaison qui compte. Si rien ne gagne, les
   réglages d'aujourd'hui suffisent pour ces problèmes, et la piste suivante est ailleurs (le déroulé, le score).
+
+## Ce que le palier a montré (28/10 au soir)
+
+La file du palier a tourné de 22 h 14 à 0 h 03 : 149 jobs, aucun échec. Les chiffres et les intervalles viennent de
+chaque projet. Le détail est dans leurs dépôts :
+- cuisine : `docs/mesures-palier-28-10.md` (`fb47f14`) ;
+- l'entrepôt : `docs/outillage.md`, « Le palier de réglages » (`b6fcfe2`) ;
+- urgences : `docs/parcours-ajouts.md`, « Le palier de réglages » (`6ef2ed0`).
+
+| | B (budget ×4) | C (8 à la racine) | D (profondeur 3) | E (tout) |
+|---|---|---|---|---|
+| **cuisine** (13 réglages, 30 services) | gagne seulement aux tables de la grande brigade (+2,7 plats) | rien, et sans coût | rien (peut-être −1,3 aux tables) | **5 réglages sur 13**, tous en positif : 1,5 à 2,5 % à la carte, +3 plats aux tables |
+| **l'entrepôt** (6 plans, 8 lignes, l'usine) | **l'assemblage** : 16,7 tours de moins, 26 journées sur 30 | ne gagne nulle part, perd aux quais | **les quais** : 36,4 tours de moins, 29 journées sur 30 | gagne moins que D aux quais et que B à l'assemblage |
+| **urgences** (garde, box, HET) | 3 à 7 % de mieux, sûr sur la garde seulement | **pendant l'accident** : garde −16 %, box −5 % | la garde d'un jour ordinaire : −9 % | **pendant l'accident** : garde −19 %, box −13 % |
+| **Le temps d'une décision, contre A** | 3 à 4 fois | 1 fois | 1,6 à 2 fois | 3,3 à 4 fois |
+
+Rien n'est prouvé sur les lignes et à l'usine de l'entrepôt, ni sur le HET d'urgences (deux coups, un choix net). Sur
+le plan de Sami, toutes les variantes perdent 2 à 4 tours, mais ses 30 journées sont presque une seule situation
+répétée : l'intervalle y surestime la généralité.
+
+**Ce qu'on en lit** :
+- **Aucun réglage ne gagne partout.** Chaque projet gagne par un levier différent, parfois par décision. Les valeurs
+  par défaut de la lib ne bougent pas, et celles des projets non plus tant que Sami n'a pas tranché.
+- **Plus de coups à la racine ne paie que chez urgences, et seulement les jours chargés.** Pendant l'accident, C joue
+  un des coups 5 à 8 dans 31 à 39 % des recherches : la liste courte de 4 écartait souvent le bon. Un jour ordinaire,
+  ce n'est que 6 à 8 %. Chez l'entrepôt, le coup joué change souvent avec C (rang 3 ou plus : 21 % chez A, 44 % chez
+  C), sans rien gagner.
+- **Le budget seul départage mieux les mêmes coups**, sans changer le rang joué (urgences : `closeCall` de 78 à
+  64 %).
+- **Le rang du coup joué dit si la liste courte est en cause**, mieux que `closeCall`, qui était haut partout.
+- **Chez lopin, la largeur n'est pas en cause** (ses jobs `sure-lost-moves`, le même soir). Dans 34 positions sur 76
+  « gagnées à coup sûr » puis perdues, un autre coup gagnait, et c'était le 2e en visites dans 19 cas. C'est la règle des
+  donnes (`final` contre `claim-end`) qui classait mal des coups déjà vus.
+- **Le prix** : 2 à 4 fois le temps pour quelques pour cent, sauf C chez urgences, gratuit.
+
+**Les suites proposées, à décider par Sami** :
+- **cuisine** : A ou E, après une confirmation sur d'autres graines. Corriger les plats qui meurent au passe : 11,7
+  par service aux tables de la grande brigade, un point faible de son modèle.
+- **l'entrepôt** : rejouer une journée du plan de Sami (A contre B). Confirmer D aux quais et B à l'assemblage sur des
+  journées plus variées.
+- **urgences** : C à budget ×2 pendant l'accident et dans les deux autres hôpitaux, pour voir s'il rejoint E pour la
+  moitié du temps.
+- **lopin** : jouer à `claim-end` dans l'arbre quand la pioche est basse, ou ne rien changer.
