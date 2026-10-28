@@ -14,8 +14,10 @@ ici.
 | `npm run types` | tsc vérifie le JavaScript d'après son JSDoc, sans rien compiler |
 | `npm test` (`test:coverage`) | les tests, dont les empreintes et la longueur des `.md` |
 
-`npm install` active le hook (`git config core.hooksPath .githooks`). Pendant des mesures, `TEST_CONCURRENCY=2`
-lance moins de fichiers de test à la fois.
+`npm install` active le hook (`git config core.hooksPath .githooks`). `npm test` et le hook lancent **4 fichiers de
+test à la fois au plus** (`--test-concurrency=4`), les fils d'un `--slot` (28/10/2026) : seul, `node --test` en lance
+autant que de cœurs moins un, et il ne lit pas `TEST_CONCURRENCY` (l'entrepôt). Pendant des mesures, `TEST_CONCURRENCY=2`
+en lance moins dans le hook.
 
 ## Ce qui diffère des projets
 
