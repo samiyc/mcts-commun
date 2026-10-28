@@ -45,8 +45,9 @@ export function marginOf(first, second, common) {
 /**
  * What `search` returns, read from the root's children: the move to play (the most visited, the better mean between
  * equals), its mean, each root move's visits and `{ key, move, visits, mean }` from the most visited; the tree's
- * `size`, `depth` and `levels`; the `iterations` run, the `ms` they took, why the search `stopped`, and the move's
- * `margin` over the next.
+ * `size`, `depth` and `levels`; the `iterations` run, the `ms` they took, why the search `stopped`, the move's
+ * `margin` over the next, and its `rank` in the root's shortlist (1 its first; 28/10/2026: whether more moves at the
+ * root would serve, the last ranks seldom played saying no).
  */
 export function resultOf(root, { iterations, ms, stopped, common }) {
   const children = [...root.children.values()].sort((a, b) => b.visits - a.visits || meanOf(b) - meanOf(a));
@@ -64,7 +65,17 @@ export function resultOf(root, { iterations, ms, stopped, common }) {
     ms,
     stopped,
     margin: marginOf(children[0], children[1], common),
+    rank: rankOf(root, stats[0]),
   };
+}
+
+/**
+ * The move played's place in the root's shortlist, `{ played, of }` (1 its first), or null without a move: the root's
+ * children are made in the shortlist's order, the first untried first.
+ */
+function rankOf(root, first) {
+  if (!first) return null;
+  return { played: [...root.children.keys()].indexOf(first.key) + 1, of: root.children.size };
 }
 
 const PER_MOVE = 20;
@@ -85,13 +96,21 @@ function flatScore({ stats }) {
 
 const points = (value) => `${value >= 0 ? "+" : "−"}${Math.abs(Math.round(100 * value))}`;
 
-function closeCall({ stats, margin }) {
+/**
+ * The two first moves worth the same, the margin's interval holding zero. A search earlyStop ended (`settled`) chose
+ * by visits, more iterations would not change it (Sami, 28/10/2026, cuisine's question: 94 % settled and 87 % close in
+ * the dark kitchen, 128 iterations changing nothing): moves nearly equivalent, the choice matters little; said so,
+ * and `settled` lets a project count these apart.
+ */
+function closeCall({ stats, margin, stopped }) {
   if (!margin || margin.low > 0 || margin.high < 0) return null;
   const [first, second] = stats;
   const how = margin.paired ? `par paires sur ${margin.n} mondes communs` : `sur ${margin.n} mondes`;
   const gap = `écart ${points(margin.mean)} points (${points(margin.low)} à ${points(margin.high)}, ${how})`;
+  const both = `les deux premiers coups (${first.key} ${percent(first.mean)}, ${second.key} ${percent(second.mean)}) se valent : ${gap}`;
+  if (stopped === "settled") return { code: "closeCall", settled: true, message: `${both} ; la recherche les a départagés aux visites, pas à la valeur : coups presque équivalents, le choix compte peu` };
   const advice = margin.paired ? "plus d'itérations" : "des mondes communs (common) ou plus d'itérations";
-  return { code: "closeCall", message: `les deux premiers coups (${first.key} ${percent(first.mean)}, ${second.key} ${percent(second.mean)}) se valent : ${gap} ; le choix est un tirage, ${advice}` };
+  return { code: "closeCall", settled: false, message: `${both} ; le choix est un tirage, ${advice}` };
 }
 
 function shallow({ depth: reached }, depth) {

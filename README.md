@@ -48,7 +48,7 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  * @property {(state, rng) => World} sample        a scenario consistent with what is known
  * @property {(world) => string} actor             who decides now: a robot, the human, an opponent
  * @property {(world) => Move[]} moves             the legal decisions at this event
- * @property {(world, moves) => Move[]} [shortlist] the fast rule's best few (all of them by default)
+ * @property {(world, moves, where) => Move[]} [shortlist] the fast rule's best few (all by default); where.root at the root
  * @property {(move) => string} key                a move's name, shared by every scenario
  * @property {(world, move) => World} play         applies the move, runs to the next decision
  * @property {(world) => boolean} over
@@ -57,12 +57,23 @@ Un problème décrit ce que la recherche doit savoir faire ; la recherche ne con
  * @property {(world) => World} [copy]           a faithful copy: on common worlds, each is drawn once, then copied
  */
 
-/** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null }} */
+/** @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null, rank: { played, of } | null }} */
 export function search(state, problem, { budget, deadline, now, rng, depth = 5, explore = 0.7, common = false, widening = 0, earlyStop = false }) {}
 
-/** What a result says of the problem searched: [{ code, message }], codes fewIterations, flatScore, closeCall, shallow. */
+/** What a result says of the problem searched: [{ code, message }], codes fewIterations, flatScore, closeCall (+ settled), shallow. */
 export function diagnose(result, { depth = 5 }) {}
 ```
+
+**Plus de coups à la racine qu'en dessous** (Sami, 28/10/2026, pour essayer de chercher plus large, comme lopin : 8 à
+la racine, 7 plus bas) : `shortlist(world, moves, { root })` reçoit `root: true` à la racine. Un `shortlist` qui
+l'ignore fait comme avant. Le résultat dit le **rang** du coup joué dans le `shortlist` de la racine (`rank: { played,
+of }`, 1 pour le premier) : si les derniers rangs ne sont presque jamais joués, plus de coups à la racine n'y gagnera
+rien.
+
+**`closeCall` après `earlyStop`** (28/10/2026, la question de cuisine) : quand la recherche s'est arrêtée parce que le
+coup en tête ne pouvait plus être rattrapé (`stopped: "settled"`), deux coups qui se valent sont presque
+équivalents : le message le dit, au lieu de conseiller plus d'itérations, et `settled: true` permet de les compter à
+part.
 
 **Le temps plutôt que les itérations** (Sami, 27/10/2026, pour les bots CodinGame : 50 ms par tour) : avec
 `deadline` (un instant de `now()`, `performance.now` par défaut), la recherche itère jusqu'à cette heure ; `budget`

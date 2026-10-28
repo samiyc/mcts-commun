@@ -143,6 +143,31 @@ describe("the tree search over hidden information (src/mcts.js)", () => {
     assert.equal(search({}, doors, { deadline: 3, now: (() => { let t = 0; return () => (t += 1); })() }).stopped, "deadline");
   });
 
+  it("says a close call settled by earlyStop is moves nearly equivalent, not a want of iterations (cuisine, 28/10/2026)", () => {
+    const result = (stopped) => ({ stats: [{ key: "A", mean: 0.61 }, { key: "B", mean: 0.59 }], iterations: 64, margin: { mean: 0.02, low: -0.03, high: 0.07, n: 40, paired: true }, stopped, depth: 2 });
+    const [settled] = diagnose(result("settled"), { depth: 2 });
+    assert.deepEqual([settled.code, settled.settled], ["closeCall", true]);
+    assert.match(settled.message, /presque équivalents/);
+    assert.doesNotMatch(settled.message, /plus d'itérations/);
+    const [spent] = diagnose(result("budget"), { depth: 2 });
+    assert.deepEqual([spent.code, spent.settled], ["closeCall", false]);
+    assert.match(spent.message, /plus d'itérations/);
+  });
+
+  it("lets a problem keep more moves at the root than below, and says the played move's rank there (Sami, 28/10/2026)", () => {
+    // Take 1 to 5, the last to take wins. Four moves at the root, one below.
+    const wide = { ...nim, moves: (world) => [1, 2, 3, 4, 5].filter((take) => take <= world.pile), shortlist: (world, moves, { root }) => moves.slice(0, root ? 4 : 1) };
+    for (const common of [false, true]) {
+      const found = search({ pile: 9, toMove: "A" }, wide, { budget: 400, rng: createRng(5), depth: 3, common });
+      // The moves 1 to 4 kept in that order: the move played is its own rank.
+      assert.deepEqual(found.rank, { played: found.move, of: 4 }, common ? "en mondes communs" : "sans");
+      assert.deepEqual(found.levels.slice(0, 2), [4, 4], "one move a node below the root");
+    }
+    // A shortlist that ignores where it is keeps one move everywhere, as before.
+    const narrow = { ...wide, shortlist: (world, moves) => moves.slice(0, 1) };
+    assert.deepEqual(search({ pile: 9, toMove: "A" }, narrow, { budget: 50, rng: createRng(5) }).rank, { played: 1, of: 1 });
+  });
+
   it("draws each common world once with the problem's copy, and searches the same (urgences, 28/10/2026)", () => {
     // A world whose rollout draws again from its stream: the stream must be put back where the draw left it.
     const drawn = { count: 0 };

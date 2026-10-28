@@ -21,7 +21,8 @@ import { count, timed, trace } from "./trace.js";
  * @property {(state, rng) => World} sample        a scenario consistent with what is known
  * @property {(world) => string} actor             who decides now: a robot, the human, an opponent
  * @property {(world) => Move[]} moves             the legal decisions at this event
- * @property {(world, moves) => Move[]} [shortlist] the fast rule's best few (all of them by default)
+ * @property {(world, moves, where: { root: boolean }) => Move[]} [shortlist] the fast rule's best few (all of them by
+ *   default); `root` true at the root, so that a problem may keep more moves there than below (Sami, 28/10/2026)
  * @property {(move) => string} key                a move's name, shared by every scenario
  * @property {(world, move) => World} play         applies the move, runs to the next decision
  * @property {(world) => boolean} over
@@ -47,10 +48,10 @@ export function checkProblem(problem) {
 
 const createNode = (move, key, actor) => ({ move, key, actor, visits: 0, total: 0, available: 0, children: new Map() });
 
-/** The moves the search considers in `world`, by key, in the shortlist's order. */
-function candidates(problem, world) {
+/** The moves the search considers in `world`, by key, in the shortlist's order; `root` at the root. */
+function candidates(problem, world, root = false) {
   const moves = problem.moves(world);
-  const kept = problem.shortlist ? problem.shortlist(world, moves) : moves;
+  const kept = problem.shortlist ? problem.shortlist(world, moves, { root }) : moves;
   return new Map(kept.map((move) => [problem.key(move), move]));
 }
 
@@ -80,7 +81,7 @@ function widened(offered, node, widening) {
 
 /** One step down from `node` in `world` (`atRoot`: never widened): the child added (`fresh`) or chosen, and the world after its move. */
 function step(node, world, { problem, explore, widening }, atRoot) {
-  const offered = widened(candidates(problem, world), node, atRoot ? 0 : widening);
+  const offered = widened(candidates(problem, world, atRoot), node, atRoot ? 0 : widening);
   if (offered.size === 0) return null;
   for (const child of node.children.values()) if (offered.has(child.key)) child.available += 1;
   const untried = [...offered.keys()].find((key) => !node.children.has(key));
@@ -139,7 +140,7 @@ function commonRoot(state, problem, rng) {
   const world = problem.sample(state, stream);
   // With `copy`, the k-th world is kept as drawn, with its stream's state just after: the first one is this one.
   const worlds = problem.copy ? [{ world, state: stream.getState() }] : null;
-  return { base, worlds, moves: problem.over(world) ? new Map() : candidates(problem, world), actor: problem.actor(world) };
+  return { base, worlds, moves: problem.over(world) ? new Map() : candidates(problem, world, true), actor: problem.actor(world) };
 }
 
 /**
@@ -190,7 +191,7 @@ function iterateCommon(root, state, settings) {
   const child = rootChild(root, common, explore);
   const stream = streamOf(common.base, child.visits);
   let world = commonWorld(state, settings, child.visits, stream);
-  const move = candidates(problem, world).get(child.key);
+  const move = candidates(problem, world, true).get(child.key);
   if (!move) {
     trace("search", "error", { message: `coup ${child.key} manquant en common`, visit: child.visits });
     throw new Error(`common: le coup ${child.key} manque dans un monde ; les coups de la racine doivent être connus`);
@@ -231,7 +232,7 @@ function iterateCommon(root, state, settings) {
  * `earlyStop`: with a `budget`, stop once the most visited root move leads by more than the iterations left: the
  * same move, sooner (Lopin's `smart`). Both off by default: the same moves and visits.
  *
- * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null }}
+ * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null, rank: { played: number, of: number } | null }}
  */
 export function search(state, problem, { budget, deadline, now = clock, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false, widening = 0, earlyStop = false }) {
   // Traced (src/trace.js): counted and timed; an error or a slow search kept with its settings.

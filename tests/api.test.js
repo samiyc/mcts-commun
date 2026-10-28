@@ -39,7 +39,7 @@ describe("the library's contract (tests/api.test.js)", () => {
 
   it("returns the search's result in its stated shape", () => {
     const found = search({}, doors, { budget: 50 });
-    assert.deepEqual(Object.keys(found), ["move", "value", "visits", "stats", "size", "iterations", "depth", "levels", "ms", "stopped", "margin"]);
+    assert.deepEqual(Object.keys(found), ["move", "value", "visits", "stats", "size", "iterations", "depth", "levels", "ms", "stopped", "margin", "rank"]);
     assert.equal(found.stopped, "budget");
     assert.deepEqual(Object.keys(found.margin), ["mean", "low", "high", "n", "paired"]);
     assert.ok(found.visits instanceof Map);
