@@ -15,15 +15,16 @@ dans [`recherche.md`](recherche.md) (§ 6) et [`backlog.md`](backlog.md).
 | entrepôt | | | à mesurer | à mesurer | | |
 | urgences | | | à prendre (remplace `pathway-worlds.js`) | sans grille | | |
 | lopin | | | sans mondes communs | sans A* | | |
-| codingame | oui (2f5554f) | 53 tests sur 53 | — | — | — | |
+| codingame | oui (684c3ad) | 66 tests sur 66, parité des arbitres inchangée | — | — | aucun job | **oui** (17:13) |
 
 ## 1. Prendre la lib
 
 - Le lien `file:../mcts-commun` prend la lib telle qu'elle est sur le disque : rien à installer. Un `npm install` crée
   `npx mcts-backlog` et `npx mcts-board` s'ils manquent.
-- **Node 24 LTS** remplace Node 20.10 sur la machine (Sami, 28/10). Tous les projets passent leurs tests sous Node 24,
+- **Node 24 LTS** (24.22.1) remplace Node 20.10 sur la machine : **installé par Sami le 28/10 vers 17 h 30**, dans
+  `D:\Program Files\nodejs` ; `npm run check` de commun y passe. Tous les projets passaient leurs tests sous son zip,
   sauf lopin : `node --test tests/` n'y marche plus (Node lit `tests/` comme un nom de fichier), il faut un motif,
-  `node --test "tests/**/*.js"`, que Node 20 ne comprend pas. Le script change donc au moment du passage. Sur une
+  `node --test "tests/**/*.js"`, que Node 20 ne comprend pas : le script change maintenant. Sur une
   mesure réelle de l'entrepôt, Node 24 va 22 % plus vite. Chaque projet met à jour son CLAUDE.md (« Node 20 »).
 
 ## 2. Ce qui change sans rien changer aux résultats
