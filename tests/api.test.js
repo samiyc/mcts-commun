@@ -26,7 +26,7 @@ describe("the library's contract (tests/api.test.js)", () => {
   it("exports what the projects import, and nothing hidden behind", () => {
     assert.deepEqual(Object.keys(random).sort(), ["createRng", "streamOf"]);
     assert.deepEqual(Object.keys(events), ["createEvents"]);
-    assert.deepEqual(Object.keys(grid).sort(), ["astar", "createDistances", "createReservations", "parsePlan"]);
+    assert.deepEqual(Object.keys(grid).sort(), ["astar", "createDistances", "createReservations", "dangerTimeline", "escapeRoutes", "parsePlan"]);
     assert.deepEqual(Object.keys(grid.createReservations()).sort(), ["clone", "freeFrom", "isFree", "release", "reserve", "stayAt", "swaps"]);
     assert.deepEqual(Object.keys(measure).sort(), ["paired", "wilson"]);
     assert.deepEqual(Object.keys(events.createEvents()).sort(), ["clone", "next", "now", "peek", "schedule", "size"]);

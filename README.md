@@ -105,6 +105,8 @@ export function smithOrder(tasks) {}                // most weight per minute fi
 export function parsePlan(text) {}                  // { width, height, lines, at(x, y), inside(x, y), find(char) }
 export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park, maxNodes, partial, direct } → [{ x, y, t }] | null
 export function createDistances(plan, passable) {}  // { plan, to({ x, y }) → Int32Array } : les distances au sol, pour astar({ direct })
+export function dangerTimeline(plan, sources, o) {} // sources [{ x, y, delay, range, sides }], o { blocks, absorbs, chain } → { at, until, delays }
+export function escapeRoutes(plan, from, o) {}      // o { danger, passable, burn } → [{ dx, dy, steps }] : rester, puis les 4 côtés ; −1 sans issue
 export function createReservations() {}             // ({ shared, capacity, single }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, stayAt(x, y), clone }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
@@ -131,6 +133,14 @@ passable) })` suit les distances au sol quand chacun de ses pas est libre, et pe
 sinon. Les distances peuvent venir d'un sol plus permissif que celui de l'appel (une allée fermée pour un trajet, l'entrepôt
 le 28/10) : chaque pas relit le `passable` de l'appel. Un plus court chemin, mais pas toujours celui d'A* entre deux aussi
 courts : les empreintes d'un projet changent s'il l'adopte.
+
+**Le danger dans le temps** (28/10/2026, en option : deux astuces du bot Légende de Sami à Hypersonic, relues par
+mcts-codingame, `docs/anciens-bots.md`) : `dangerTimeline` donne, pour chaque case, le premier et le dernier tour où
+elle est mortelle. Les sources partent après un délai, en ligne droite jusqu'à leur portée. Un mur (`blocks`) arrête
+le souffle avant lui, une caisse (`absorbs`) est touchée puis l'arrête, et une bombe touchée part avec celle qui la
+touche, par point fixe. `escapeRoutes` dit, pour chaque premier pas, combien de tours il faut pour atteindre une case
+qu'aucun souffle ne touchera plus, en attendant au besoin. « Ne poser une bombe que si une fuite existe ensuite »,
+c'est `escapeRoutes` avec la bombe ajoutée aux sources : au moins un `steps` à 0 ou plus.
 
 **Ce que chaque projet prend de la lib**, et vérifie avant la file : [`docs/projets.md`](docs/projets.md).
 

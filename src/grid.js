@@ -3,6 +3,7 @@ import { createOpen } from "./grid-open.js";
 import { outOfReach } from "./grid-reach.js";
 import { count, timed } from "./trace.js";
 
+export { dangerTimeline, escapeRoutes } from "./grid-danger.js";
 export { createDistances } from "./grid-distances.js";
 export { createReservations } from "./reservations.js";
 
