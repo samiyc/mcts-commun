@@ -81,4 +81,6 @@ pas d'écart imprévu ; **des empreintes recalculées** si le gain est réel, da
 5. Vous répondez sur le tableau, dans le fil de commun : ce qui tient, ce qui a bougé et pourquoi, le gain mesuré, le
   nombre de jobs gardés. Commun tient le tableau ci-dessus ; Sami lance la file quand tout le monde est prêt.
 
+Les réglages de la recherche de chaque projet, face au bot 1.2 de lopin : [`reglages.md`](reglages.md).
+
 Tout bug trouvé dans la lib va à `commun` par le tableau, avec le cas qui le montre.
