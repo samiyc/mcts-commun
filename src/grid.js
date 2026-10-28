@@ -59,8 +59,10 @@ const STEPS = [
  * null, when the search is capped or finds no way (counted `partial`; the horizon then cuts only by time).
  *
  * `direct` (28/10/2026, the kitchen's way): the floor's distances (`createDistances(plan, passable)`, kept by the
- * project with its plan); the path straight down them is taken when each of its steps is free, A* searching only when
- * one is taken. A shortest path still, not always A*'s where two are as short: a project's fingerprints change.
+ * project with its plan); the path straight down them is taken when each of its steps is free and passable for this
+ * call, A* searching only when one is not. The distances may come from a more permissive floor than the call's
+ * `passable` (an aisle closed for one leg): still a shortest path then, A* taking over where the floor differs. A
+ * shortest path, not always A*'s where two are as short: a project's fingerprints change.
  *
  * @param {{ passable: (char: string, x: number, y: number) => boolean, reservations?: object | null, unit?: any, start?: number, horizon?: number, park?: boolean, maxNodes?: number, partial?: boolean, direct?: { plan: object, to: (target: { x: number, y: number }) => Int32Array } }} options
  */

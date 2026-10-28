@@ -212,5 +212,10 @@ describe("plans and paths (src/grid.js)", () => {
     const parked = astar(PLAN, { x: 1, y: 1 }, { x: 5, y: 3 }, { passable: open, reservations: table, unit: "a", park: true, direct: distances });
     assert.ok(parked === null || parked.at(-1).t > 9, JSON.stringify(parked));
     assert.equal(traceSnapshot().counters.astar.direct, 1);
+    // Distances from a more permissive floor than the call's (the warehouse, 28/10): a step this call forbids is A*'s.
+    const closed = (char, x, y) => open(char) && !(x === 3 && y === 1);
+    const aside = astar(PLAN, { x: 1, y: 1 }, { x: 5, y: 3 }, { passable: closed, direct: distances });
+    assert.deepEqual(aside, astar(PLAN, { x: 1, y: 1 }, { x: 5, y: 3 }, { passable: closed }));
+    assert.equal(traceSnapshot().counters.astar.direct, 1, "A*, pas le trajet direct");
   });
 });

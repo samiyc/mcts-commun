@@ -82,11 +82,21 @@ function stepsFrom({ plan, to, horizon }, from, distances) {
 }
 
 /** The first side of `cell` at `toward` steps from the target that the unit may step on next. */
-function stepDown({ plan, reservations, unit }, cell, steps, toward) {
+function stepDown(settings, cell, steps, toward) {
+  const { plan } = settings;
   for (const [dx, dy] of SIDES) {
     const next = { x: cell.x + dx, y: cell.y + dy, t: cell.t + 1 };
-    if (!plan.inside(next.x, next.y) || steps[next.y * plan.width + next.x] !== toward) continue;
-    if (!reservations || (reservations.isFree(next.x, next.y, next.t, unit) && !reservations.swaps(cell, next, cell.t, unit))) return next;
+    if (plan.inside(next.x, next.y) && steps[next.y * plan.width + next.x] === toward && mayEnter(settings, cell, next)) return next;
   }
   return null;
+}
+
+/**
+ * Whether the unit may step from `cell` on `next`: passable for this call (the distances may come from a more
+ * permissive floor: the warehouse's closed aisles and truck cells change from a leg to the next, 28/10/2026), free
+ * then, and no swap.
+ */
+function mayEnter({ plan, passable, reservations, unit }, cell, next) {
+  if (!passable(plan.at(next.x, next.y), next.x, next.y)) return false;
+  return !reservations || (reservations.isFree(next.x, next.y, next.t, unit) && !reservations.swaps(cell, next, cell.t, unit));
 }

@@ -11,11 +11,19 @@ dans [`recherche.md`](recherche.md) (§ 6) et [`backlog.md`](backlog.md).
 
 | Projet | Lib prise | Vérifié en local | `copy` | `direct` | Jobs en file revus | Prêt pour la file |
 |---|---|---|---|---|---|---|
-| cuisine | | | à mesurer | à reprendre de la lib | | |
-| entrepôt | | | à mesurer | à mesurer | | |
-| urgences | | | à prendre (remplace `pathway-worlds.js`) | sans grille | | |
-| lopin | | | sans mondes communs | sans A* | | |
-| codingame | oui (684c3ad) | 66 tests sur 66, parité des arbitres inchangée | — | — | aucun job | **oui** (17:13) |
+| cuisine | oui (684c3ad, Node 24) | 94 tests sur 94, empreintes inchangées | **non** : fidèle, mais plus lent (copier un service coûte autant que le tirer) | **adopté** (son `directPath`, repris) : mêmes mesures, 0 à 7 % de temps en moins | 130 gardés, estimations 8 à 20 fois trop longues, la file les réapprend | **oui** (18:02) |
+| entrepôt | oui (684c3ad, Node 24) | 73 tests, empreintes inchangées ; 7 mesures avec la recherche identiques à l'octet à l'ancienne lib, A* divisé par deux | **non** : fidèle, sans gain (tirer un monde, c'est surtout le cloner) | **non** : 1 à 5 % ; il a trouvé le défaut du `passable` (ci-dessous) | 15 gardés (`diagnose`), 50 `horizon` annulés par Sami ; `day-reach` retiré | **oui** (18:18) |
+| urgences | oui (684c3ad, Node 24) | 117 tests sur 117, empreintes inchangées | **adopté** à la place de `sampleOnce` : 64 mesures sur 64 identiques, même temps (le contournement donnait déjà le gain) | sans grille | 22 (6 `mondes`, 16 `diagnose` ajoutés avec l'accord de Sami) | **oui** (18:16) |
+| lopin | oui (lien), Node 24 | 534 tests (527 passés, 7 à faire), empreintes inchangées ; script `node --test "tests/**/*.js"` | sans mondes communs | sans A* | aucun job | **oui** (17:50) |
+| codingame | oui (684c3ad), Node 24 | 66 tests sur 66, parité des arbitres inchangée | — | — | aucun job | **oui** (17:48) |
+
+**Tout le monde est prêt (28/10, 18 h 18)** : 167 jobs en file (cuisine 130, urgences 22, entrepôt 15), environ 2,9 h
+de la machine entière d'après les jobs passés. Sami lance la file.
+
+**Corrigé après les réponses** : le trajet direct relit à chaque pas le `passable` de l'appel (l'entrepôt : ses distances
+viennent d'un sol plus permissif, une allée fermée ou les cases camion changeant d'un trajet à l'autre) ; un pas
+interdit passe la main à A*. Les mêmes trajets que l'ancien `directPath` de cuisine (4 800 trajets), empreintes
+inchangées.
 
 ## 1. Prendre la lib
 

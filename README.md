@@ -127,8 +127,10 @@ unités se croisent de face entre deux cases d'au moins 2. Se garer veut toujour
 rien ne change.
 
 **Le trajet direct** (28/10/2026, celui de cuisine) : `astar(plan, from, to, { …, direct: createDistances(plan,
-passable) })` suit les distances au sol quand chacun de ses pas est libre, A* sinon. Un plus court chemin, mais pas
-toujours celui d'A* entre deux aussi courts : les empreintes d'un projet changent s'il l'adopte.
+passable) })` suit les distances au sol quand chacun de ses pas est libre, et permis par le `passable` de l'appel ; A*
+sinon. Les distances peuvent venir d'un sol plus permissif que celui de l'appel (une allée fermée pour un trajet, l'entrepôt
+le 28/10) : chaque pas relit le `passable` de l'appel. Un plus court chemin, mais pas toujours celui d'A* entre deux aussi
+courts : les empreintes d'un projet changent s'il l'adopte.
 
 **Ce que chaque projet prend de la lib**, et vérifie avant la file : [`docs/projets.md`](docs/projets.md).
 
