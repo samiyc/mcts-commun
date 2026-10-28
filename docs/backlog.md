@@ -36,7 +36,10 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
   plutôt celle qu'apprend l'archive (`src/estimate.js`) : la médiane des 5 derniers passages de la même commande
   dans le même dossier, sinon l'estimation corrigée du rythme du projet (ses 30 derniers jobs finis, 3 au moins).
   Sur les 292 jobs finis au 27/10, l'écart médian à la durée réelle passe de ×2,9 à ×1,5. `priority` vaut 1
-  (urgent), 2 (normal) ou 3 (peut attendre).
+  (urgent), 2 (normal) ou 3 (peut attendre) ; `--set-priority` la change en place.
+- **`measured: true`** (`--measured` sur `--add` ou `--add-file`) : l'estimation vient d'une mesure du code
+  d'aujourd'hui, la file la garde telle quelle (cuisine, 28/10/2026 : des estimations refaites après les gains de vitesse
+  étaient encore multipliées par ×0,12, le rythme de jobs estimés avant eux ; la file disait 108 min pour environ 45).
 - **`after`** liste les ids qui doivent être finis avant. `due` est l'heure où le résultat doit être là. `limit` est
   la durée maximale en minutes : au-delà, le job est arrêté et finit `timeout`.
 - **`skipIf`** est une commande du projet, lancée dans `cwd` juste avant le job. Si elle sort à 0, le job est
@@ -49,18 +52,24 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 - **La commande** après `--` : un seul mot est la ligne telle quelle pour le shell (`-- "npm run x -- --a 1"`) ;
   plusieurs mots sont mis bout à bout, chacun entre guillemets s'il contient un espace ou un caractère du shell
   (`-- node -e "console.log('a b')"` garde son code).
+- **Le shell est celui du système**, pour les jobs comme pour `--slot` : `cmd.exe` sous Windows, pas `sh` (lopin et
+  cuisine, 28/10/2026). Un `| grep`, un `&` qui met en arrière-plan ou un `$VAR` n'y font pas ce qu'on attend : un
+  `&` y enchaîne les commandes, et des écritures lancées ainsi en parallèle se sont perdues. Une commande qui en a
+  besoin devient un script du projet (`node scripts/….mjs`), écrit avec l'outil d'écriture de fichiers plutôt que
+  par un heredoc.
 
 ## Les commandes
 
 | Commande | Ce qu'elle fait | Sortie | Code |
 |---|---|---|---|
-| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--threads`, `--priority`, `--after A,B`, `--due`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant, dossier introuvable) |
-| `--add-file PROJET/night.json [--tag T | --no-tag]` | ajoute les jobs d'un fichier, chaque id suffixé de `-T` (la date du jour par défaut ; `--no-tag` garde les ids), chacun lancé dans son `cwd` (relatif au fichier, son dossier par défaut) | une ligne par job | 0 ou 1 |
+| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--measured`, `--threads`, `--priority`, `--after A,B`, `--due`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant, dossier introuvable) |
+| `--add-file PROJET/night.json [--tag T | --no-tag] [--measured]` | ajoute les jobs d'un fichier, chaque id suffixé de `-T` (la date du jour par défaut ; `--no-tag` garde les ids), chacun lancé dans son `cwd` (relatif au fichier, son dossier par défaut) | une ligne par job | 0 ou 1 |
 | `--status ID [--json]` | où en est un job : à venir (`plannedStart`, ou `waiting` et `blocked`), en cours, fini (`status`, `reason`, `minutes`) ; `output` et `trace` en chemins absolus ; tiré de sa trace, `incidents` (`errors`, `crashed`, `slow`, `overbooked`) et `reported` (le dernier `progress` : `done`, `of`, `unit`, `endAt`) | une ligne, ou un objet JSON (`null` si l'id est inconnu) | 0, ou 3 si l'id est inconnu |
 | `--wait ID [--timeout MIN] [--json]` | attend la fin du job, en relisant la file toutes les 2 s | comme `--status` | 0 fini, 1 échec ou trop long, 2 annulé ou sauté, 3 inconnu, 4 pas fini au bout de `--timeout` |
 | `--cancel ID` | un job à venir finit `cancelled` tout de suite, et ceux qui en dépendent sont bloqués ; un job en cours est marqué, et son lanceur l'arrête | une ligne | 0, ou 3 si l'id est inconnu |
-| `--retry ID` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
-| `--slot N [--id NOM] -- COMMANDE` | lance un test ou une mesure **hors file** dans N fils des créneaux de la machine : attend qu'ils soient libres (servi avant les jobs suivants de la file, voir la recommandation 9), lance la commande au premier plan avec `MCTS_THREADS=N`, puis les rend. **4 fils et 15 min au plus** : au-delà de 4, refusé ; à 15 min, arrêté | la sortie de la commande ; une ligne sur la sortie d'erreur tant qu'il attend | celui de la commande ; 2 refusé (plus de 4 fils) ; 124 arrêté à 15 min |
+| `--retry ID [--priority N]` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, même priorité sauf `--priority`, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
+| `--set-priority MOTIF N` | donne la priorité N (1 à 3) aux jobs à venir dont l'id correspond au motif (`*` : n'importe quels caractères, entre guillemets pour le shell), sans les annuler ni changer leur id ; le lanceur en route la suit dès le job suivant ; `priority-set` au journal | une ligne | 0, 1 si N n'est pas 1, 2 ou 3, 3 si aucun job à venir ne correspond |
+| `--slot N [--id NOM] -- COMMANDE` | lance un test ou une mesure **hors file** dans N fils des créneaux de la machine : attend qu'ils soient libres (servi avant les jobs suivants de la file, voir la recommandation 9), lance la commande au premier plan avec `MCTS_THREADS=N`, puis les rend. **4 fils et 15 min au plus** : au-delà de 4, refusé ; à 15 min, arrêté. Le shell est `cmd.exe` sous Windows (§ « Un job ») | la sortie de la commande ; une ligne sur la sortie d'erreur tant qu'il attend | celui de la commande ; 2 refusé (plus de 4 fils) ; 124 arrêté à 15 min |
 | `--push MACHINE`, `--pull MACHINE`, `--list --machine MACHINE` | une autre machine : les jobs marqués `--machine MACHINE` (sur `--add` ou `--add-file`) y partent, sa file se lit d'ici, ses résultats reviennent ([`distant.md`](distant.md)) | des lignes, ou la vue JSON de là-bas | 0, ou 1 si la machine est inconnue ou injoignable |
 | `--help` | l'aide ; une option inconnue est refusée (code 1) et ne lance jamais de lanceur | du texte | 0 |
 | `--list --json` | toute la vue : la machine, les jobs en cours, la nuit à venir, les bloqués, les finis, le journal, les traces | un objet JSON | 0 |
@@ -190,10 +199,29 @@ pendant 45 min, puis tout à la fin) :
 
    **Un lanceur qui attend se voit aussi** (28/10/2026, 19 h 40 : la TUI ne montrait que l'essai d'une session, à 6
    fils sur 18). Un lanceur en vie qui ne tient aucun fil reste dans la ligne de la machine, reconnu à ses lignes de
-   journal, avec ce qu'il attend : « attend 16 fils pour mondes-32 (12 libres) » (`node/backlog-runners.js`).
+   journal, avec ce qu'il attend : « attend 16 fils pour mondes-32 (12 libres) » (`node/backlog-runners.js`). Il ne
+   le dit que quand les créneaux des autres (un `--slot`, un autre lanceur) lui barrent la route : attendre la fin de
+   ses propres jobs, c'est une file au travail (29/10/2026 : « attend 1 fils (0 libres) » s'affichait toute la nuit).
 
    **Un dossier introuvable est refusé à l'ajout** (`--add`, `--add-file`, `--retry`), pour ne pas échouer en pleine nuit
    (urgences, 27/10 : un heredoc avait mangé les antislashs d'un `cwd`).
+
+10. **Les leçons de la journée du 28/10**, tirées des retours d'expérience des six sessions :
+    - **mesurer court avant de mettre en file** : un essai de 2 journées sous `--slot`, puis les jobs (l'entrepôt avait
+      mis 787 min en file avant sa mesure courte) ;
+    - **refaire ses estimations après un gain de vitesse**, et les marquer `--measured` ; elles étaient 8 à 20 fois
+      trop longues le 28/10 ;
+    - **comparer des temps dans un même job, ou en alternance, à charge égale** : les « 47 % » d'urgences venaient
+      surtout de l'ordre des mesures. Compter le temps dans le créneau, pas l'attente du créneau ;
+    - **prouver une équivalence avant d'adopter une optimisation** (un hachage des mesures, ou une comparaison à l'octet
+      près contre l'ancien code tiré de git) ;
+    - **ne rien conclure d'un ou deux services ou journées** : la note graduée de cuisine, promue sur 2 services, ne
+      tenait pas ;
+    - **`--test-concurrency=4`** dans `npm test` et dans les hooks : `node --test` ne lit pas `TEST_CONCURRENCY` ;
+    - **des pools de fils qui lisent `MCTS_THREADS`** et des jobs qui reprennent où ils se sont arrêtés, en
+      tranches de 30 min au plus (lopin) ;
+    - **un `--id` stable et lisible** pour une série d'essais ;
+    - **changer une priorité par `--set-priority`**, pas par des annulations (cuisine en a fait 115).
 
 ## Après une nuit : le bilan
 
@@ -355,3 +383,13 @@ maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **Corrigé dan
   L'onglet Tests dit « en série ».
 - `slot-waiting` est réécrit chaque fois qu'un job se remet à attendre, après un arrêt par exemple.
 - Les vues trouvent le vrai démarrage d'un lanceur dans tout le journal, une fois par lanceur.
+
+### Le 29/10 : ce que les retours d'expérience ont demandé à la file
+
+Sami a demandé à chaque session son retour d'expérience de la journée du 28/10. Ce qui en est venu pour la file :
+- **`--measured`** : une estimation refaite sur le code du jour n'est plus corrigée par le rythme de jobs plus anciens
+  (cuisine) ;
+- **`--set-priority MOTIF N`** et **`--retry ID --priority N`** : une priorité se change sans annuler (cuisine) ;
+- **le shell `cmd.exe` est dit** dans l'aide de `--slot` et dans § « Un job » (lopin, cuisine) ;
+- **un lanceur n'est plus dit « en attente »** quand il attend la fin de ses propres jobs ;
+- les leçons communes, dans la recommandation 10.

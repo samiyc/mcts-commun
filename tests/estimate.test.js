@@ -25,6 +25,9 @@ describe("a job's length learned from the archive (src/estimate.js, Sami 27/10)"
     assert.deepEqual(learnedOf(job, pastRuns(archive)), { minutes: 30, basis: "project", runs: 3 });
     assert.equal(learnedOf(job, pastRuns(archive.slice(0, PACE_MIN - 1))), null);
     assert.equal(learnedOf({ ...job, cwd: "E:/ailleurs" }, pastRuns(archive)), null, "another folder learns nothing");
+    // Measured on today's code, it keeps its own (cuisine, 28/10: fresh estimates taken ×0.12 by stale ones' pace).
+    assert.equal(learnedOf({ ...job, measured: true }, pastRuns(archive)), null);
+    assert.equal(learnedOf({ ...job, command: "a", measured: true }, pastRuns(archive)), null, "nor its command's past runs");
   });
 
   it("learns only from jobs done, on the same machine", () => {

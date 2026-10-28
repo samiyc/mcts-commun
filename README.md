@@ -192,7 +192,7 @@ npx mcts-backlog --list      # la machine, les jobs en cours, la nuit à venir, 
 npx mcts-backlog --tui       # la même chose en direct, façon k9s
 npx mcts-backlog             # joue la file jusqu'au bout
 npx mcts-backlog --add-file ../mcts-entrepot/night.json   # les mesures de nuit d'un projet
-npx mcts-backlog --status ent-sami --json   # où en est un job ; --wait l'attend, --cancel l'annule, --retry le relance
+npx mcts-backlog --status ent-sami --json   # où en est un job ; --wait l'attend, --cancel l'annule, --retry le relance, --set-priority "motif-*" N change sa priorité
 ```
 
 Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, command, estimate }] }`) : `--add-file` les ajoute, lancées dans le dossier du fichier, chaque id suivi de la date (`--tag` pour une autre), pour qu'on puisse remettre la même série la nuit suivante.
@@ -213,7 +213,7 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 
 **Après une nuit**, le bilan se fait en lecture seule, avant que la journée ne remplisse la file : la marche à suivre, et celui de la nuit du 26 au 27/10 (trois défauts trouvés et corrigés, des estimations apprises de l'archive), sont dans [`docs/backlog.md`](docs/backlog.md#après-une-nuit--le-bilan).
 
-**Se brancher depuis un autre outil** (Sami, 26/10/2026) : tout passe par la commande, jamais par `queue.json` à la main, parce que la commande tient le verrou de la file (`queue.lock`). `--status`, `--wait` (son code de sortie dit comment le job a fini), `--cancel`, `--retry`, et `skipIf` sur un job, une commande du projet qui peut l'annuler juste avant son départ. Le contrat complet est dans [`docs/backlog.md`](docs/backlog.md).
+**Se brancher depuis un autre outil** (Sami, 26/10/2026) : tout passe par la commande, jamais par `queue.json` à la main, parce que la commande tient le verrou de la file (`queue.lock`). `--status`, `--wait` (son code de sortie dit comment le job a fini), `--cancel`, `--retry`, `--set-priority`, `--measured` pour une estimation refaite sur le code du jour, et `skipIf` sur un job, une commande du projet qui peut l'annuler juste avant son départ. Le contrat complet est dans [`docs/backlog.md`](docs/backlog.md).
 
 **La charge, et une machine en plus** (Sami, 26/10/2026 : les 18 fils du PC suffiront-ils ?) : `--list`, le TUI et la page disent ce que la file demande à la machine, d'après les jobs déjà passés et à ses estimations, et comment se sont passées les dernières nuits. Quand elles saturent, `--push` envoie des jobs à un serveur loué ou au portable, `--pull` en rapatrie les résultats. Les coûts, ce que Sami fait lui-même et la marche à suivre sont dans [`docs/distant.md`](docs/distant.md).
 

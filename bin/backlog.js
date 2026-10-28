@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
-import { addJobs, cancelJob, commandOf, jobStatus, jobsOfFile, retryJob, waitCode, waitFor } from "../node/backlog-commands.js";
+import { addJobs, cancelJob, commandOf, jobStatus, jobsOfFile, retryJob, setPriority, waitCode, waitFor } from "../node/backlog-commands.js";
 import { colorsOn, listText, paren } from "../node/backlog-text.js";
 import { readBacklog, viewOf } from "../node/backlog-view.js";
 import { createJournal } from "../node/journal.js";
@@ -18,9 +18,10 @@ import { runQueue } from "../node/runner.js";
  *   mcts-backlog --list [--done N]  the machine, the jobs running, the night to come as the runner would play it,
  *                                what is blocked and why, the last N done (8); --json, the same as JSON
  *   mcts-backlog --tui           the same in a terminal view that follows it live (node/tui.js), read only
- *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--threads N] [--priority 1|2|3] [--after A,B]
+ *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--measured] [--threads N] [--priority 1|2|3] [--after A,B]
  *                [--due 2026-10-24T08:00] [--limit MIN] [--skip-if "COMMAND"] -- COMMAND…
- *   mcts-backlog --add-file PROJECT/night.json [--tag 2026-10-24 | --no-tag]
+ *                --measured: the estimate comes from a measure of today's code, the queue keeps it as it is
+ *   mcts-backlog --add-file PROJECT/night.json [--tag 2026-10-24 | --no-tag] [--measured]
  *                every job of a project's file (`{ jobs: [{ id, command, estimate, … }] }`), run in its `cwd` (the
  *                file's folder by default); each id (and its `after`) gets the tag, today's date by default, so the
  *                file can be queued again the next night; --no-tag keeps the ids as they are.
@@ -28,7 +29,8 @@ import { runQueue } from "../node/runner.js";
  *   mcts-backlog --wait ID [--timeout MIN]   waits for its end; exit 0 done, 1 failed or too long, 2 cancelled or
  *                                            skipped, 3 unknown, 4 still running at the timeout
  *   mcts-backlog --cancel ID                 a job to come ends cancelled; a running one is stopped by its runner
- *   mcts-backlog --retry ID                  a finished job queued again, as ID-r1
+ *   mcts-backlog --retry ID [--priority N]   a finished job queued again, as ID-r1 (at priority N)
+ *   mcts-backlog --set-priority PATTERN N    the jobs to come whose id matches (`*` any characters) at priority N
  *   mcts-backlog --push MACHINE              the jobs for another machine (`--machine MACHINE` on --add or --add-file)
  *                                            sent there with their folders, its runner started (node/remote.js)
  *   mcts-backlog --list --machine MACHINE    its queue (--json too); --pull MACHINE brings back what it did
@@ -54,12 +56,15 @@ function jobOfOptions() {
     console.error('usage : mcts-backlog --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 2] [--after A,B] [--due ISO] [--limit MIN] [--skip-if "COMMANDE"] -- COMMANDE…');
     process.exit(1);
   }
-  const job = { id, cwd: path.resolve(option("--cwd")), command: commandOf(args.slice(at + 1)), estimate: option("--estimate", "1 h"), status: "todo" };
+  const job = { id, cwd: path.resolve(option("--cwd")), command: commandOf(args.slice(at + 1)), estimate: option("--estimate", "1 h"), status: "todo", ...measured() };
   /** @type {Record<string, [string, (text: string) => any]>} */
   const read = { "--threads": ["threads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String], "--machine": ["machine", String] };
   for (const [flag, [key, parse]] of Object.entries(read)) if (option(flag) !== null) job[key] = parse(option(flag));
   return job;
 }
+
+/** `--measured`: the estimates come from a measure of today's code, kept as they are (src/estimate.js). */
+const measured = () => (args.includes("--measured") ? { measured: true } : {});
 
 async function add() {
   const job = jobOfOptions();
@@ -70,8 +75,8 @@ async function add() {
 
 async function addFile() {
   const file = path.resolve(option("--add-file"));
-  const machine = option("--machine") ? { machine: option("--machine") } : {};
-  const added = await jobsOfFile(file, args.includes("--no-tag") ? null : option("--tag", stamp().slice(0, 10)), machine);
+  const extra = { ...(option("--machine") ? { machine: option("--machine") } : {}), ...measured() };
+  const added = await jobsOfFile(file, args.includes("--no-tag") ? null : option("--tag", stamp().slice(0, 10)), extra);
   await addJobs(queue, added, " : --tag pour une autre série");
   journal("added", { ids: added.map((job) => job.id), file });
   for (const job of added) console.log(`Ajouté : ${lineOf(job)}`);
@@ -110,9 +115,17 @@ async function cancel() {
 }
 
 async function retry() {
-  const job = await retryJob(queue, option("--retry"));
+  const job = await retryJob(queue, option("--retry"), option("--priority") ? { priority: Number(option("--priority")) } : {});
   journal("added", { ids: [job.id], retryOf: option("--retry") });
   console.log(`Ajouté : ${lineOf(job)}`);
+}
+
+async function priority() {
+  const [pattern, value] = [option("--set-priority"), Number(args[args.indexOf("--set-priority") + 2])];
+  const ids = await setPriority(queue, pattern, value);
+  if (ids.length) journal("priority-set", { ids, priority: value });
+  console.log(ids.length ? `Priorité ${value} : ${ids.join(", ")}` : `Aucun job à venir ne correspond à ${pattern}`);
+  return ids.length ? 0 : 3;
 }
 
 async function tui() {
@@ -143,15 +156,17 @@ async function pull() {
   console.log(`${option("--pull")} : ${ended.length} fini(s) rapatrié(s)${ended.length ? " (" + ended.join(", ") + ")" : ""}, ${waiting.length} encore là-bas.`);
 }
 
-const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry, "--slot": slot };
-const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout", "--id"];
+const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry, "--set-priority": priority, "--slot": slot };
+const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout", "--id", "--measured"];
 const USAGE = `mcts-backlog : la file de la machine (docs/backlog.md)
   mcts-backlog                       lance la file jusqu'au bout
   --list [--done N] [--json] | --tui la file, en texte, en JSON ou en direct
-  --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 1|2|3] [--after A,B] [--due ISO] [--limit MIN] [--skip-if "COMMANDE"] [--machine M] -- COMMANDE…
-  --add-file FICHIER.json [--tag T | --no-tag] [--machine M]
-  --status ID [--json] · --wait ID [--timeout MIN] · --cancel ID · --retry ID
-  --slot N [--id NOM] -- COMMANDE    un test ou une mesure hors file, dans N fils libres des créneaux de la machine
+  --add ID --cwd DOSSIER [--estimate "40 min"] [--measured] [--threads N] [--priority 1|2|3] [--after A,B] [--due ISO] [--limit MIN] [--skip-if "COMMANDE"] [--machine M] -- COMMANDE…
+  --add-file FICHIER.json [--tag T | --no-tag] [--machine M] [--measured]
+  --status ID [--json] · --wait ID [--timeout MIN] · --cancel ID · --retry ID [--priority N]
+  --set-priority MOTIF N             les jobs à venir dont l'id correspond (* : n'importe quoi) en priorité N
+  --slot N [--id NOM] -- COMMANDE    un test court hors file (4 fils, 15 min au plus), dans N fils libres ; la
+                                     commande passe par le shell du système (cmd.exe sous Windows, comme les jobs)
   --push M · --pull M · --list --machine M
   options : --home DOSSIER, --budget FILS`;
 

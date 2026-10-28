@@ -106,6 +106,13 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       assert.deepEqual([retried.status, retried.retryOf, retried.command], ["todo", "long", sleeper(30_000)]);
       assert.ok(!("cancel" in retried) && !("doneAt" in retried));
       await assert.rejects(backlog(home, "--retry", "long-r1"), /pas fini/);
+      // A job to come moved in place, by a pattern; a retry at another priority (cuisine, 28/10: 115 cancellations).
+      assert.match((await backlog(home, "--set-priority", "long-*", "3")).stdout, /Priorité 3 : long-r1/);
+      assert.equal((await statusOf(home, "long-r1")).priority, 3);
+      assert.equal(await codeOf(home, "--set-priority", "nobody-*", "1"), 3, "no job to come matches");
+      await assert.rejects(backlog(home, "--set-priority", "long-r1", "5"), /1, 2 ou 3/);
+      await backlog(home, "--retry", "long", "--priority", "1");
+      assert.equal((await statusOf(home, "long-r2")).priority, 1);
     }));
 
   it("runs a session's command in the machine's slots: it waits for free threads, then gives them back (Sami, 27/10)", () =>

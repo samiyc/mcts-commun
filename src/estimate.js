@@ -11,6 +11,9 @@ import { minutesOf } from "./schedule.js";
  * Among the jobs done in its folder (on the same machine):
  * - `command`: the same command, the median of what its last `RUNS` took;
  * - `project`: its estimate times the median of what the last `PACE_RUNS` took against theirs, `PACE_MIN` at least.
+ *
+ * A job `measured: true` keeps its own (cuisine, 28/10/2026: estimates measured anew after the day's speed-ups were
+ * taken ×0.12, the pace of jobs whose estimates predated them; 108 min shown for some 45 of the whole machine).
  */
 export const RUNS = 5;
 export const PACE_RUNS = 30;
@@ -38,6 +41,7 @@ export function pastRuns(archive) {
 
 /** What `job` should take, learned from `runs` (`pastRuns`): `{ minutes, basis, runs }`, or null with nothing to go by. */
 export function learnedOf(job, runs) {
+  if (job.measured) return null;
   const place = runs.get(placeOf(job)) ?? [];
   const same = place.filter((one) => one.command === job.command).slice(-RUNS);
   if (same.length) return { minutes: median(same.map((one) => one.minutes)), basis: "command", runs: same.length };

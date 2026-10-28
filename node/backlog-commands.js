@@ -134,15 +134,34 @@ export async function cancelJob(queue, id) {
 /** What a retry keeps of a job: what it runs and how; not its end, nor prerequisites long over, nor a due passed. */
 const KEPT = ["cwd", "command", "estimate", "threads", "priority", "limit", "skipIf", "machine", "returns"];
 
-/** Queues a finished job again under a new id (`<id>-r1`, `-r2`…): the new job. */
-export async function retryJob(queue, id) {
+/** A pattern of ids, `*` any run of characters: `cuis-*-palierE-*`. */
+const idPattern = (pattern) => new RegExp(`^${pattern.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
+
+/**
+ * Gives the jobs to come whose id matches `pattern` (`*` any characters) priority `priority`, 1 to 3, in place
+ * (cuisine, 28/10/2026: two trials moved to priority 2 cost 115 cancellations and new tags). The ids changed; a
+ * running runner reads the queue anew before each start, so the next one already follows it.
+ */
+export async function setPriority(queue, pattern, priority) {
+  if (![1, 2, 3].includes(priority)) throw new Error(`priorité ${priority} : 1, 2 ou 3`);
+  const matches = idPattern(pattern);
+  return queue.change((current) => {
+    const ids = current.jobs.filter((job) => job.status === "todo" && matches.test(job.id)).map((job) => job.id);
+    if (ids.length === 0) return { keep: true, ids };
+    for (const job of current.jobs) if (ids.includes(job.id)) job.priority = priority;
+    return { ids };
+  }).then((done) => done.ids);
+}
+
+/** Queues a finished job again under a new id (`<id>-r1`, `-r2`…), `changed` over what it kept: the new job. */
+export async function retryJob(queue, id, changed = {}) {
   const archive = await queue.readArchive();
   const current = await queue.read();
   const last = [...archive, ...current.jobs].filter((job) => job.id === id).at(-1);
   if (!last) throw new Error(`job inconnu : ${id}`);
   if (!isFinished(last)) throw new Error(`le job ${id} n'est pas fini (${last.status})`);
   const tries = [...archive, ...current.jobs].filter((job) => job.id.startsWith(`${id}-r`)).length;
-  const again = { id: `${id}-r${tries + 1}`, status: "todo", retryOf: id, ...Object.fromEntries(KEPT.filter((key) => last[key] !== undefined).map((key) => [key, last[key]])) };
+  const again = { id: `${id}-r${tries + 1}`, status: "todo", retryOf: id, ...Object.fromEntries(KEPT.filter((key) => last[key] !== undefined).map((key) => [key, last[key]])), ...changed };
   await addJobs(queue, [again]);
   return again;
 }

@@ -17,15 +17,20 @@ export function startedRunners(journal = []) {
   return [...open];
 }
 
+const held = (slots) => slots.reduce((sum, slot) => sum + slot.threads, 0);
+
 /**
- * What a runner of the queue waits for: the next job of the night, when its threads are more than those free, with
- * who holds the others; else null. Read from the queue, not the journal: a runner says slot-waiting once a job.
+ * What runner `pid` waits for: the next job of the night, when its threads are more than those free and the others'
+ * slots stand in its way, with who holds them; else null. Waiting for its own jobs to end is a queue at work, not a
+ * wait (28/10/2026: « attend 1 fils (0 libres) » shown all night). Read from the queue, not the journal: a runner
+ * says slot-waiting once a job.
  */
-function waitingOf({ slots, next, budget }) {
+function waitingOf({ slots, next, budget, pid }) {
   if (!next) return null;
-  const free = budget - slots.reduce((sum, slot) => sum + slot.threads, 0);
-  if (next.threads <= free) return null;
-  return { id: next.id, threads: next.threads, free, holders: slots.map(({ id, threads, runner }) => ({ id, threads, runner })) };
+  const free = budget - held(slots);
+  const others = slots.filter((slot) => slot.pid !== pid);
+  if (next.threads <= free || next.threads > free + held(others)) return null;
+  return { id: next.id, threads: next.threads, free, holders: others.map(({ id, threads, runner }) => ({ id, threads, runner })) };
 }
 
 /** Since when runner `pid` works: its start in the journal's lines, else in the whole journal, else its first slot. */
@@ -46,7 +51,7 @@ export function runnersOf({ slots, jobs, journal, alivePids, next = null, budget
     const mine = slots.filter((slot) => slot.pid === pid);
     const since = sinceOf({ journal, starts, pid, mine });
     const runner = mine[0]?.runner ?? "mcts-backlog";
-    const waiting = runner === "session" || !alivePids.includes(pid) ? null : waitingOf({ slots, next, budget });
+    const waiting = runner === "session" || !alivePids.includes(pid) ? null : waitingOf({ slots, next, budget, pid });
     return { pid, runner, alive: alivePids.includes(pid), threads: mine.reduce((sum, slot) => sum + slot.threads, 0), jobs: mine.length, since, waiting };
   });
 }

@@ -121,6 +121,11 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     assert.equal(viewOf({ ...state, journal: [...state.journal, { at: at(1), pid: 40, kind: "runner-ended" }] }).runners.length, 1);
     assert.equal(viewOf({ ...state, alivePids: [50] }).runners.length, 1);
     assert.equal(viewOf({ ...state, slots: [] }).runners[0].waiting, null);
+    // Waiting for its own jobs to end is no wait (28/10: « attend 1 fils (0 libres) » all night).
+    const busy = { ...state, jobs: [job("next", { estimate: "1 min" })], slots: [{ pid: 40, runner: "mcts-backlog", id: "a", threads: 18, since: at(3) }] };
+    assert.equal(viewOf(busy).runners[0].waiting, null);
+    const shared = { ...busy, jobs: [job("next", { threads: 4, estimate: "1 min" })], slots: [{ ...busy.slots[0], threads: 12 }, state.slots[0]] };
+    assert.deepEqual(viewOf(shared).runners.find((one) => one.pid === 40).waiting, { id: "next", threads: 4, free: 0, holders: [{ id: "arena", threads: 6, runner: "session" }] });
   });
 
   it("lists the short tests of the slots: waiting, running, ended, and the jobs freed for them (Sami, 28/10)", () => {

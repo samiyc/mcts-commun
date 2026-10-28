@@ -66,7 +66,12 @@ pas d'écart imprévu ; **des empreintes recalculées** si le gain est réel, da
   plus** (refusé au-delà de 4 fils, arrêté à 15 min, Sami 28/10) ; une mesure longue va
   dans la file.
 - `progress()` à chaque service, journée ou vague ; des tranches de 30 min au plus ; des estimations refaites après
-  les gains de vitesse (la file les apprend, mais une commande neuve se fie à la vôtre).
+  les gains de vitesse (la file les apprend, mais une commande neuve se fie à la vôtre), marquées `--measured` pour
+  que la file les garde telles quelles (29/10).
+- Une priorité se change en place : `npx mcts-backlog --set-priority "motif-*" N`, ou `--retry ID --priority N` ;
+  jamais par des annulations.
+- Les commandes passent par `cmd.exe` sous Windows, jobs comme `--slot` : pas de `| grep`, de `&` ni de `$VAR`,
+  un script du projet à la place.
 - Une durée se compare à charge égale : une tranche prend 2,3 fois plus de temps quand 18 jobs tournent que seule.
 - La lib ne change pas pendant que la file tourne.
 
@@ -82,6 +87,7 @@ pas d'écart imprévu ; **des empreintes recalculées** si le gain est réel, da
 5. Vous répondez sur le tableau, dans le fil de commun : ce qui tient, ce qui a bougé et pourquoi, le gain mesuré, le
   nombre de jobs gardés. Commun tient le tableau ci-dessus ; Sami lance la file quand tout le monde est prêt.
 
-Les réglages de la recherche de chaque projet, face au bot 1.2 de lopin : [`reglages.md`](reglages.md).
+Les réglages de la recherche de chaque projet, face au bot 1.2 de lopin, et ce que le palier du 28/10 en a montré :
+[`reglages.md`](reglages.md). Les leçons communes de la journée : recommandation 10 de [`backlog.md`](backlog.md).
 
 Tout bug trouvé dans la lib va à `commun` par le tableau, avec le cas qui le montre.
