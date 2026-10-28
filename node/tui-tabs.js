@@ -103,7 +103,7 @@ function boardRow(thread, w, s) {
 }
 
 /** A short test's state: waiting, running, ended well or not, or a job of the queue freed for one. */
-const TEST_STATES = { waiting: ["◷", "gray"], running: ["▶", "cyan"], done: ["✔", "green"], failed: ["✖", "red"], preempted: ["⇄", "yellow"] };
+const TEST_STATES = { waiting: ["◷", "gray"], running: ["▶", "cyan"], done: ["✔", "green"], failed: ["✖", "red"], stopped: ["■", "red"], preempted: ["⇄", "yellow"] };
 
 /** How long: waited so far, running so far, or taken, with when it ended. */
 function testTime(test, now) {
@@ -115,7 +115,7 @@ function testTime(test, now) {
 
 function testRow(test, w, s, now) {
   const [icon, color] = TEST_STATES[test.state];
-  const what = test.state === "preempted" ? s.yellow("job de la file : a laissé sa place à un test") : s.gray(test.command);
+  const what = { preempted: s.yellow("job de la file : a laissé sa place à un test"), stopped: s.red("arrêté : trop long pour un test court, à mettre en file") }[test.state] ?? s.gray(test.command);
   const code = test.code === undefined || test.code === 0 ? fit("", 8) : s.red(fit(`code ${test.code}`, 8));
   return `${s[color](icon)}  ${fit(test.project, 10)} ${fit(test.id, w.id)} ${fit(test.threads, 5)} ${fit(testTime(test, now), 22)} ${code} ${what}`;
 }

@@ -8,6 +8,7 @@ const STATES = {
   running: () => badge("tourne", "ok"),
   done: () => badge("✔ fini", "ok"),
   failed: (test) => badge(`✖ code ${test.code}`, "bad"),
+  stopped: () => badge("■ arrêté : trop long", "bad"),
   preempted: () => badge("⇄ job libéré"),
 };
 

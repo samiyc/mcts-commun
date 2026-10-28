@@ -151,6 +151,22 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       assert.equal((await statusOf(home, "long")).status, "cancelled");
     }));
 
+  it("keeps a short test short: more than 4 threads refused, stopped at its time limit (Sami, 28/10: no hour on 12 threads)", () =>
+    scratch(async (home) => {
+      const big = await run(process.execPath, [RUNNER, "--home", home, "--slot", "5", "--", 'node -e "0"'], { env: quiet }).catch((error) => error);
+      assert.equal(big.code, 2);
+      assert.match(big.stderr, /c'est un job, pas un test court \(4 au plus\)/);
+      // The limit shortened for the test (MCTS_SLOT_LIMIT_MS may only shorten it): the command killed, code 124.
+      const started = Date.now();
+      const long = await run(process.execPath, [RUNNER, "--home", home, "--slot", "1", "--id", "long", "--", sleeper(30_000)], { env: { ...quiet, MCTS_SLOT_LIMIT_MS: "500" } }).catch((error) => error);
+      assert.equal(long.code, 124);
+      assert.ok(Date.now() - started < 15_000, `${Date.now() - started} ms`);
+      assert.match(long.stderr, /arrêté après 15 min/);
+      const lines = (await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      assert.deepEqual(lines.filter((entry) => entry.kind === "slot-ended").map(({ id, code, stopped }) => [id, code, stopped]), [["long", 124, true]]);
+      assert.deepEqual(JSON.parse(await readFile(path.join(home, "slots.json"), "utf8")).slots, [], "its threads given back");
+    }));
+
   it("fills the gap with a short job while the next waits for the threads of a session's test (Sami, 28/10)", () =>
     scratch(async (home, folder) => {
       // A session's test holds 2 of 4 threads; the next job wants 4, a short one 1.

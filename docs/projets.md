@@ -62,7 +62,8 @@ pas d'écart imprévu ; **des empreintes recalculées** si le gain est réel, da
 
 ## 4. Les règles de la file, rappelées
 
-- Un test ou un essai court à côté de la file passe par `npx mcts-backlog --slot N -- commande` ; une mesure longue va
+- Un test ou un essai court à côté de la file passe par `npx mcts-backlog --slot N -- commande`, **4 fils et 15 min au
+  plus** (refusé au-delà de 4 fils, arrêté à 15 min, Sami 28/10) ; une mesure longue va
   dans la file.
 - `progress()` à chaque service, journée ou vague ; des tranches de 30 min au plus ; des estimations refaites après
   les gains de vitesse (la file les apprend, mais une commande neuve se fie à la vôtre).

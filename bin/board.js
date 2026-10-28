@@ -6,7 +6,7 @@ import { READERS, isFor, projectOf, threadOf, threadsOf, unreadOf } from "../nod
 import { boardHome, createBoard } from "../node/board-store.js";
 import { boardText, hookText, inboxText, threadText } from "../node/board-text.js";
 import { backlogHome } from "../node/machine.js";
-import { machineLoad } from "../node/slot-run.js";
+import { SLOT_MAX_MINUTES, SLOT_MAX_THREADS, machineLoad } from "../node/slot-run.js";
 
 /**
  * `mcts-board`: the board the Claude sessions of the mcts-* projects post to and read (Sami, 27/10/2026: five sessions,
@@ -125,13 +125,14 @@ async function hookFor(input) {
 
 /**
  * One line on the machine's threads while anything holds them (Sami, 27/10/2026: a session's tests beside a queue at
- * 18 of 18): how many are taken, and how to run a test or a measure within the budget; nothing when all are free.
+ * 18 of 18): how many are taken, and how to run a short test within the budget (4 threads and 15 min at most, Sami
+ * 28/10/2026); nothing when all are free.
  */
 async function loadLine() {
   const { used, budget, free } = await machineLoad(backlogHome());
   if (used === 0) return "";
-  const advice = free > 0 ? `TEST_CONCURRENCY=${free} au plus` : "aucun fil libre : le test attendra";
-  return `── Machine : ${used}/${budget} fils pris par la file. Un test ou une mesure hors file passe par les créneaux : npx mcts-backlog --slot N -- commande (${advice}). ──`;
+  const advice = free > 0 ? `TEST_CONCURRENCY=${Math.min(free, SLOT_MAX_THREADS)} au plus` : "aucun fil libre : le test attendra";
+  return `── Machine : ${used}/${budget} fils pris. Un test court hors file passe par les créneaux : npx mcts-backlog --slot N -- commande, ${SLOT_MAX_THREADS} fils et ${SLOT_MAX_MINUTES} min au plus ; une mesure plus longue va dans la file (${advice}). ──`;
 }
 
 /** For Claude Code's hooks: never a failed prompt, whatever happens here. */

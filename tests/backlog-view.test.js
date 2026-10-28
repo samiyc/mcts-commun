@@ -154,6 +154,9 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     assert.deepEqual([running.command, running.waitedMin, Math.round(running.sinceMin)], ["node scripts/essai.js", 1.5, 3]);
     assert.equal(older.command, "npm run check", "un --slot d'avant le 28/10 : la commande lue dans son id");
     assert.deepEqual([tests[4].code, tests[4].waitedMin, tests[4].command], [3, 0.5, "npm test"]);
+    // Stopped at the short tests' limit (28/10/2026): said apart from an error.
+    const [stopped] = slotsOf({ now: NOW, journal: [{ at: at(1), pid: 12, kind: "slot-ended", id: "heure", threads: 4, minutes: 15, code: 124, stopped: true }] });
+    assert.deepEqual([stopped.state, stopped.code], ["stopped", 124]);
   });
 
   it("speaks of durations and projects plainly", () => {

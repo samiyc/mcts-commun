@@ -70,7 +70,7 @@ function traceDetail(row, field, { s }) {
 /** A thread of the board: its messages, whom it waits on; the panel's end is its last message. */
 const boardDetail = (row, field, { s }) => [`${s.bold(row.subject)}  ${s.gray(row.id)}`, ...field("messages", row.count), ...field("état", row.done ? "fermé" : row.waiting.join(", ") || "lu par tous"), ...field("lire", `npx mcts-board --read ${row.last.id}`)];
 
-const TEST_WORDS = { waiting: "attend ses fils", running: "tourne", done: "fini", failed: "fini en erreur", preempted: "job de la file, arrêté pour laisser sa place à un test" };
+const TEST_WORDS = { waiting: "attend ses fils", running: "tourne", done: "fini", failed: "fini en erreur", stopped: "arrêté à la limite d'un test court (15 min) : un job, à mettre dans la file", preempted: "job de la file, arrêté pour laisser sa place à un test" };
 
 const codeText = (code, s) => {
   if (code === undefined) return null;

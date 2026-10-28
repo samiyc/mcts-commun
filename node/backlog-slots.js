@@ -36,10 +36,16 @@ function runningOf(now, journal) {
   };
 }
 
+/** How a test ended: well, in error, or stopped at the short tests' limit (28/10/2026). */
+function endState({ stopped, code }) {
+  if (stopped) return "stopped";
+  return code === 0 ? "done" : "failed";
+}
+
 function endedOf(journal) {
   return (entry) => {
     const started = lastOf(journal, "slot-started", { pid: entry.pid, id: entry.id, before: Date.parse(entry.at) });
-    const state = entry.code === 0 ? "done" : "failed";
+    const state = endState(entry);
     return { state, pid: entry.pid, id: entry.id, threads: entry.threads, minutes: entry.minutes, code: entry.code, at: entry.at, stamp: localStamp(entry.at), waitedMin: started?.waitedMin ?? null, ...namedOf(started, entry.id) };
   };
 }

@@ -60,7 +60,7 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 | `--wait ID [--timeout MIN] [--json]` | attend la fin du job, en relisant la file toutes les 2 s | comme `--status` | 0 fini, 1 échec ou trop long, 2 annulé ou sauté, 3 inconnu, 4 pas fini au bout de `--timeout` |
 | `--cancel ID` | un job à venir finit `cancelled` tout de suite, et ceux qui en dépendent sont bloqués ; un job en cours est marqué, et son lanceur l'arrête | une ligne | 0, ou 3 si l'id est inconnu |
 | `--retry ID` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
-| `--slot N [--id NOM] -- COMMANDE` | lance un test ou une mesure **hors file** dans N fils des créneaux de la machine : attend qu'ils soient libres (servi avant les jobs suivants de la file, voir la recommandation 9), lance la commande au premier plan avec `MCTS_THREADS=N`, puis les rend | la sortie de la commande ; une ligne sur la sortie d'erreur tant qu'il attend | celui de la commande |
+| `--slot N [--id NOM] -- COMMANDE` | lance un test ou une mesure **hors file** dans N fils des créneaux de la machine : attend qu'ils soient libres (servi avant les jobs suivants de la file, voir la recommandation 9), lance la commande au premier plan avec `MCTS_THREADS=N`, puis les rend. **4 fils et 15 min au plus** : au-delà de 4, refusé ; à 15 min, arrêté | la sortie de la commande ; une ligne sur la sortie d'erreur tant qu'il attend | celui de la commande ; 2 refusé (plus de 4 fils) ; 124 arrêté à 15 min |
 | `--push MACHINE`, `--pull MACHINE`, `--list --machine MACHINE` | une autre machine : les jobs marqués `--machine MACHINE` (sur `--add` ou `--add-file`) y partent, sa file se lit d'ici, ses résultats reviennent ([`distant.md`](distant.md)) | des lignes, ou la vue JSON de là-bas | 0, ou 1 si la machine est inconnue ou injoignable |
 | `--help` | l'aide ; une option inconnue est refusée (code 1) et ne lance jamais de lanceur | du texte | 0 |
 | `--list --json` | toute la vue : la machine, les jobs en cours, la nuit à venir, les bloqués, les finis, le journal, les traces | un objet JSON | 0 |
@@ -161,6 +161,12 @@ pendant 45 min, puis tout à la fin) :
    Windows ne sait pas plafonner un processus : la règle tient parce que tout le monde passe par là. Le hook du tableau
    le rappelle à chaque prompt tant que la file tient des fils : « Machine : 18/18 fils pris… », avec
    `TEST_CONCURRENCY` conseillé.
+
+   **Un test court est court : 4 fils et 15 min au plus** (Sami, 28/10/2026 : « je ne veux plus voir un job d'une
+   heure sur 12 fils dans l'onglet des tests »). Un `--slot` de plus de 4 fils est refusé (code 2) : c'est un job,
+   il va dans la file (`--add`). À 15 min, le test est arrêté avec tout ce qu'il a lancé (code 124, `stopped` dans
+   `slot-ended`, « arrêté : trop long » dans l'onglet Tests). Les vérifications avant un commit tiennent dans 4 fils
+   et moins d'une minute ; une mesure qui dépasse 15 min se découpe en jobs.
 
    **Le test court passe devant** (Sami, 27/10/2026 : un `--slot 1` d'urgences avait attendu 12 min 43 derrière la
    file) :

@@ -12,7 +12,8 @@ export const LIMIT = 120;
 const PRELOAD = pathToFileURL(fileURLToPath(new URL("./trace-preload.js", import.meta.url))).href;
 
 /** Stops `child` and every process it started. */
-function kill(child) {
+/** Stops `child` and every process under it (a job's or a short test's). */
+export function kill(child) {
   if (process.platform === "win32") spawn(path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe"), ["/pid", String(child.pid), "/T", "/F"]);
   else child.kill("SIGTERM");
 }
