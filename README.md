@@ -103,7 +103,8 @@ export function createEvents(start) {}              // { schedule(at, event), ne
 export function readyTasks(tasks, done, free) {}    // prerequisites finished, resources free
 export function smithOrder(tasks) {}                // most weight per minute first
 export function parsePlan(text) {}                  // { width, height, lines, at(x, y), inside(x, y), find(char) }
-export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park, maxNodes, partial } → [{ x, y, t }] | null
+export function astar(plan, from, to, options) {}   // options: { passable(char, x, y), reservations, unit, start, horizon, park, maxNodes, partial, direct } → [{ x, y, t }] | null
+export function createDistances(plan, passable) {}  // { plan, to({ x, y }) → Int32Array } : les distances au sol, pour astar({ direct })
 export function createReservations() {}             // ({ shared, capacity, single }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, stayAt(x, y), clone }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
@@ -124,6 +125,12 @@ numériques) ; une case réservée a des coordonnées entières de −4096 à 40
 tient deux unités à la fois, une case `single` (celle d'où l'on travaille une station) n'en tient qu'une, et deux
 unités se croisent de face entre deux cases d'au moins 2. Se garer veut toujours la case pour soi. Sans `capacity`,
 rien ne change.
+
+**Le trajet direct** (28/10/2026, celui de cuisine) : `astar(plan, from, to, { …, direct: createDistances(plan,
+passable) })` suit les distances au sol quand chacun de ses pas est libre, A* sinon. Un plus court chemin, mais pas
+toujours celui d'A* entre deux aussi courts : les empreintes d'un projet changent s'il l'adopte.
+
+**Ce que chaque projet prend de la lib**, et vérifie avant la file : [`docs/projets.md`](docs/projets.md).
 
 **Chaque monde commun tiré une fois** (28/10/2026, urgences) : avec un `problem.copy(world)` fidèle, la recherche en
 mondes communs garde le k-ième monde tiré, et l'état de son flux, puis en donne une copie à chaque coup de la racine.
@@ -215,7 +222,7 @@ NODE_OPTIONS=--import=mcts-commun/trace-preload.js MCTS_TRACE=1 npm run compare 
 
 ## Les règles
 
-- Node 20, des modules ES, pas de build : le même code tourne sous Node et dans le navigateur.
+- Node 24 LTS (depuis le 28/10/2026 ; le code tourne encore sous 20.9), des modules ES, pas de build : le même code tourne sous Node et dans le navigateur.
 - Tout est pur et testé (`npm test`) ; aucun module de `src/` n'importe `node:*` (le lanceur et `node/`, qui ne servent que sous Node, sont à part ; `src/trace.js` ne charge `node/trace-file.js` que sous Node, par un import dynamique).
 - Tout tirage passe par `random` : un scénario et une recherche se rejouent depuis leur graine.
 - **Le contrat est testé** (`tests/api.test.js`) : ce que chaque module exporte, la forme du résultat de

@@ -10,7 +10,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  */
 const source = path.resolve(process.argv[2] ?? fileURLToPath(new URL("../src", import.meta.url)));
 const load = (name) => import(pathToFileURL(path.join(source, name)).href);
-const { astar, createReservations, parsePlan } = await load("grid.js");
+const grid = await load("grid.js");
+const { astar, createReservations, parsePlan } = grid;
 const { createRng } = await load("random.js");
 const { search } = await load("mcts.js");
 const { resetTrace, traceSnapshot } = await load("trace.js");
@@ -35,8 +36,8 @@ function timeOf(calls) {
   return { us: Math.round((1000 * ms) / made) / 1, nodes: counters.calls ? Math.round(counters.expanded / counters.calls) : null };
 }
 
-/** Ten robots planned one after the other, parking at the end, then many paths around them. */
-function warehouseCase() {
+/** Ten robots planned one after the other, parking at the end, then many paths around them; `direct`, the floor's way first. */
+function warehouseCase(direct = false) {
   const plan = warehouse(40, 21);
   const rng = createRng(7);
   const open = plan.find(".");
@@ -45,8 +46,10 @@ function warehouseCase() {
     const found = astar(plan, open[rng.int(open.length)], open[rng.int(open.length)], { passable, reservations: table, unit, park: true, horizon: 80 });
     if (found) table.reserve(unit, found, { stay: true });
   }
+  // An older library has no createDistances: the same calls, A* alone.
+  const options = { passable, reservations: table, unit: "u", park: true, horizon: 80, ...(direct && grid.createDistances ? { direct: grid.createDistances(plan, passable) } : {}) };
   return timeOf(() => {
-    for (let i = 0; i < 3000; i += 1) astar(plan, open[rng.int(open.length)], open[rng.int(open.length)], { passable, reservations: table, unit: "u", start: rng.int(5), park: true, horizon: 80 });
+    for (let i = 0; i < 3000; i += 1) astar(plan, open[rng.int(open.length)], open[rng.int(open.length)], { ...options, start: rng.int(5) });
     return 3000;
   });
 }
@@ -114,4 +117,4 @@ function commonCase(copy) {
   });
 }
 
-console.log(JSON.stringify({ source, warehouse: warehouseCase(), deadEnd: deadEndCase(), short: shortCase(), clone: cloneCase(), common: commonCase(false), commonCopy: commonCase(true) }));
+console.log(JSON.stringify({ source, warehouse: warehouseCase(), warehouseDirect: warehouseCase(true), deadEnd: deadEndCase(), short: shortCase(), clone: cloneCase(), common: commonCase(false), commonCopy: commonCase(true) }));

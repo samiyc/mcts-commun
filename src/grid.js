@@ -1,7 +1,9 @@
+import { directPath } from "./grid-distances.js";
 import { createOpen } from "./grid-open.js";
 import { outOfReach } from "./grid-reach.js";
 import { count, timed } from "./trace.js";
 
+export { createDistances } from "./grid-distances.js";
 export { createReservations } from "./reservations.js";
 
 /**
@@ -56,7 +58,11 @@ const STEPS = [
  * at most, null beyond (counted `capped`); `partial`, the path to the explored cell nearest the target rather than
  * null, when the search is capped or finds no way (counted `partial`; the horizon then cuts only by time).
  *
- * @param {{ passable: (char: string, x: number, y: number) => boolean, reservations?: object | null, unit?: any, start?: number, horizon?: number, park?: boolean, maxNodes?: number, partial?: boolean }} options
+ * `direct` (28/10/2026, the kitchen's way): the floor's distances (`createDistances(plan, passable)`, kept by the
+ * project with its plan); the path straight down them is taken when each of its steps is free, A* searching only when
+ * one is taken. A shortest path still, not always A*'s where two are as short: a project's fingerprints change.
+ *
+ * @param {{ passable: (char: string, x: number, y: number) => boolean, reservations?: object | null, unit?: any, start?: number, horizon?: number, park?: boolean, maxNodes?: number, partial?: boolean, direct?: { plan: object, to: (target: { x: number, y: number }) => Int32Array } }} options
  */
 export function astar(plan, from, to, options) {
   // Traced (src/trace.js): counted and timed, the paths not found counted, a slow or failing call kept with its ends.
@@ -85,6 +91,12 @@ const distanceTo = (to, x, y) => Math.abs(x - to.x) + Math.abs(y - to.y);
 /** The path, its nodes explored counted once a call (`expanded / calls`: what a call costs). */
 function shortestPath(plan, from, to, options) {
   const settings = settingsOf(plan, from, to, options);
+  // With `direct` (createDistances), the floor's way first, when every step of it is free (counted `direct`).
+  const straight = options.direct ? directPath(settings, from, options.direct) : null;
+  if (straight) {
+    count("astar", "direct");
+    return straight;
+  }
   const seen = new Set();
   const path = explore(settings, from, seen);
   count("astar", "expanded", seen.size);

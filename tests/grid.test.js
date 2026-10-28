@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { astar, createReservations, parsePlan } from "../src/grid.js";
+import { astar, createDistances, createReservations, parsePlan } from "../src/grid.js";
 import { resetTrace, traceSnapshot } from "../src/trace.js";
 
 const open = (char) => char !== "#";
@@ -192,5 +192,25 @@ describe("plans and paths (src/grid.js)", () => {
     assert.equal(traceSnapshot().counters.grid.overbooked, 1);
     table.release("c");
     assert.ok(table.isFree(1, 1, 0, "z"), "b seul y reste, a a perdu sa place");
+  });
+
+  it("follows the floor's distances when every step is free, A* when one is taken (direct, the kitchen's way, 28/10/2026)", () => {
+    const distances = createDistances(PLAN, open);
+    resetTrace();
+    const free = astar(PLAN, { x: 1, y: 1 }, { x: 5, y: 3 }, { passable: open, direct: distances });
+    assert.deepEqual(free.map(({ x, y }) => [x, y]), [[1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [5, 2], [5, 3]]);
+    assert.equal(traceSnapshot().counters.astar.direct, 1);
+    // Another unit on the way at that moment: A* goes round, or waits.
+    const table = createReservations();
+    table.reserve("b", [{ x: 3, y: 1, t: 2 }]);
+    const round = astar(PLAN, { x: 1, y: 1 }, { x: 5, y: 3 }, { passable: open, reservations: table, unit: "a", direct: distances });
+    assert.ok(!round.some(({ x, y, t }) => x === 3 && y === 1 && t === 2), JSON.stringify(round));
+    assert.equal(traceSnapshot().counters.astar.direct, 1, "A*, pas le trajet direct");
+    // Beyond the horizon, or a target someone parks on later: never the direct path.
+    assert.equal(astar(PLAN, { x: 1, y: 1 }, { x: 5, y: 3 }, { passable: open, horizon: 5, direct: distances }), null);
+    table.reserve("c", [{ x: 5, y: 3, t: 9 }]);
+    const parked = astar(PLAN, { x: 1, y: 1 }, { x: 5, y: 3 }, { passable: open, reservations: table, unit: "a", park: true, direct: distances });
+    assert.ok(parked === null || parked.at(-1).t > 9, JSON.stringify(parked));
+    assert.equal(traceSnapshot().counters.astar.direct, 1);
   });
 });

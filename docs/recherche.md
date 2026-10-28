@@ -51,6 +51,7 @@ n'y a rien à compter, et l'option est ignorée.
 | `horizon` | le nombre de pas au plus : c'est la « distance max » |
 | `maxNodes` | les cases-instants explorées au plus ; au-delà, null (compté `astar.capped`) |
 | `partial: true` | au lieu de null, le chemin vers la case explorée la plus proche de la cible (compté `astar.partial`) |
+| `direct: createDistances(plan, passable)` | le trajet au sol d'abord, quand chacun de ses pas est libre ; A* sinon (compté `astar.direct`) ; les mêmes trajets que celui de cuisine (28/10) |
 | `createReservations({ capacity, single })` | `capacity` unités par case à la fois (1 par défaut), une seule sur les cases `single` ; deux unités se croisent de face entre deux cases d'au moins 2 (28/10) |
 
 Depuis le 27/10 au soir :
@@ -204,7 +205,7 @@ qu'une règle simple, avec son intervalle.
 | **PIBT** (un pas pour toutes les unités, priorité à la bloquée) | l'entrepôt d'abord, puis la cuisine et les jeux à plusieurs unités | quand l'entrepôt grandit : plus de robots, des plans plus larges | des centaines d'unités en millisecondes ; à mesurer contre l'A* coopératif sur les mêmes journées |
 | **Smitsimax / UCT découplé** | CodinGame, coups simultanés | au premier défi de ce genre | notre ISMCTS fait jouer un acteur après l'autre |
 | **la réutilisation de l'arbre** d'un tour à l'autre (`reuse` de Lopin) | CodinGame, Lopin | au premier défi | les itérations du tour d'avant sont gratuites ; à mesurer, Lopin ne l'a pas départagée |
-| **le trajet direct** sur les distances au sol, A* seulement si une case du trajet est prise | cuisine l'a prouvé (28/10), l'entrepôt ensuite ? | quand un second projet le voudra | 2 à 4 fois plus vite chez cuisine ; il change les chemins, donc les empreintes |
+| **le trajet direct** sur les distances au sol, A* seulement si une case du trajet est prise | cuisine l'a prouvé (28/10) | **dans la lib depuis le 28/10** (`direct`, Sami : s'il va environ 4 fois plus vite) | 2 à 4 fois plus vite chez cuisine contre l'ancien A* ; contre le nouveau, 15 à 25 % au banc ; il change les chemins, donc les empreintes |
 | **le halving à la racine** | — | pas maintenant | neutre dans Lopin (49,5 %) |
 | **PUCT, le minimax implicite** | — | non | perdus dans Lopin (47 à 50 %) ; sans réseau, l'avis de la règle rapide pousse vers son favori, que l'arbre est là pour corriger |
 
@@ -253,6 +254,11 @@ code en alternance :
 | `clone` d'une table de dix chemins | 66 µs | 61 µs |
 | une recherche à 64 itérations sur 4 coups, en mondes communs, un tirage coûteux | 1,9 ms | 0,6 ms avec `copy`, 1,9 ms sans |
 
+Le **trajet direct** (`direct`), repris de cuisine le même jour : au banc, 0,15 → 0,12 ms l'appel sur le plan d'entrepôt
+(83 nœuds au lieu de 116), soit 15 à 25 % ; il valait 2 à 4 fois contre l'ancien A*. **Node 24** contre Node 20.10 :
+A* et `clone` 15 à 25 % plus vite au banc, et 3 journées du petit plan de l'entrepôt avec la recherche en 1,54 s au
+lieu de 1,99 s (−22 %).
+
 Un banc n'est pas une journée : le gain réel se lit dans les traces des jobs, par `astar.ms / astar.calls` et
 `search.ms / search.calls` (`docs/backlog.md`, « Le 28/10 »).
 
@@ -277,6 +283,8 @@ Un banc n'est pas une journée : le gain réel se lit dans les traces des jobs, 
   Un projet qui simule plus simple que la vraie règle le vérifie sur les décisions perdues « à coup sûr » ;
 - **`copy` se gagne sur les mondes chers à tirer** : il garde autant de mondes que le coup de la racine le plus
   visité a eu de visites, en mémoire. Sa copie doit être fidèle : les empreintes du projet le vérifient.
+
+Ce que chaque projet doit en prendre, et vérifier avant la file : [`projets.md`](projets.md).
 
 ## Sources
 

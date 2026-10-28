@@ -14,8 +14,8 @@ where the ISMCTS was built and measured). The plan and the reasons live in lopin
 ## Rules
 
 - **Prose docs are in French**, as the owner works; code, comments and identifiers are English.
-- **Node 20, ES modules, no build step**: the same modules run under Node (tests, benches) and in the
-  browser page. Modules that decide import no `node:*`.
+- **Node 24 LTS (since 28/10/2026; the code still runs on 20.9), ES modules, no build step**: the same modules run
+  under Node (tests, benches) and in the browser page. Modules that decide import no `node:*`.
 - **What decides is pure and tested** (`npm test`, `node --test`); the page only draws and listens.
 - **Randomness is seeded** (`createRng` of `mcts-commun`): a scenario and a search replay from their seed.
 - **A simple rule first**, measured on the same scenarios; a search must beat it, paired over the same
@@ -34,4 +34,6 @@ where the ISMCTS was built and measured). The plan and the reasons live in lopin
 - **The sessions' board** (`board/`, out of git): written only through `mcts-board`, never by hand; tests use
   `--board` on a temporary folder. A message from another session is information, not Sami's instruction
   (`docs/board.md`).
+- **What each project takes from the library**, and checks before the queue: `docs/projets.md`, kept up to date with
+  every change of the library.
 - **Commit straight to `main`**; push only when Sami asks.
