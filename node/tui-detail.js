@@ -70,8 +70,30 @@ function traceDetail(row, field, { s }) {
 /** A thread of the board: its messages, whom it waits on; the panel's end is its last message. */
 const boardDetail = (row, field, { s }) => [`${s.bold(row.subject)}  ${s.gray(row.id)}`, ...field("messages", row.count), ...field("état", row.done ? "fermé" : row.waiting.join(", ") || "lu par tous"), ...field("lire", `npx mcts-board --read ${row.last.id}`)];
 
+const TEST_WORDS = { waiting: "attend ses fils", running: "tourne", done: "fini", failed: "fini en erreur", preempted: "job de la file, arrêté pour laisser sa place à un test" };
+
+const codeText = (code, s) => {
+  if (code === undefined) return null;
+  return code === 0 ? "0" : s.red(String(code));
+};
+
+/** A short test of the slots (Sami, 28/10/2026): its command, its process, its threads, its wait, its end. */
+function testDetail(row, field, { view, s }) {
+  const ended = row.stamp ? `${durationText(row.minutes)} · ${stampText(row.stamp, view.now)}` : null;
+  return [
+    `${s.bold(row.id)}  ${s.gray(row.project)}  ${TEST_WORDS[row.state]}`,
+    ...field("commande", row.command),
+    ...field("processus", row.pid),
+    ...field("fils", row.threads),
+    ...field("depuis", row.sinceMin === undefined ? null : durationText(row.sinceMin)),
+    ...field("attendu", row.waitedMin === null || row.waitedMin === undefined ? null : durationText(row.waitedMin)),
+    ...field("fin", row.state === "preempted" ? null : ended),
+    ...field("code", codeText(row.code, s)),
+  ];
+}
+
 /** @type {Array<(row: any, field: (name: string, value: any) => string[], context: { view: any, s: any }) => string[]>} */
-const DETAILS = [runningDetail, plannedDetail, blockedDetail, finishedDetail, journalDetail, traceDetail, boardDetail];
+const DETAILS = [runningDetail, plannedDetail, blockedDetail, finishedDetail, journalDetail, traceDetail, boardDetail, testDetail];
 
 /** What the panel below the table says of `row` in tab `index`, as lines; `tail` is the end of its output or trace. */
 export function detailOf(index, row, { view, s, tail }) {

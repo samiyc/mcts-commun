@@ -187,8 +187,8 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 - `npx mcts-backlog --slot N -- commande` : un test ou une mesure hors file, dans N fils des 18 de la machine ; il passe
   avant les jobs suivants de la file, et au besoin un job commencé depuis moins de 5 min lui rend ses fils et repart
   plus tard ([`docs/backlog.md`](docs/backlog.md), recommandation 9) ;
-- `npx mcts-backlog --tui` : la même chose en direct au terminal, façon k9s : six onglets (en cours, à venir, bloqués, finis, journal, traces), la ligne choisie détaillée avec la fin de sa sortie, `Entrée` pour la sortie entière, `/` pour filtrer, `?` pour l'aide ;
-- `npm run page` dans `mcts-commun` (http://127.0.0.1:4800/web/) : la page, avec la frise de la nuit et la sortie de chaque job d'un clic.
+- `npx mcts-backlog --tui` : la même chose en direct au terminal, façon k9s : huit onglets (en cours, à venir, bloqués, finis, journal, traces, messages, tests : les `--slot` qui attendent, tournent ou ont fini), la ligne choisie détaillée avec la fin de sa sortie, `Entrée` pour la sortie entière, `/` pour filtrer, `?` pour l'aide ;
+- `npm run page` dans `mcts-commun` (http://127.0.0.1:4800/web/) : la page, avec la frise de la nuit, la sortie de chaque job d'un clic et les tests courts des créneaux.
 
 **Après une nuit**, le bilan se fait en lecture seule, avant que la journée ne remplisse la file : la marche à suivre, et celui de la nuit du 26 au 27/10 (trois défauts trouvés et corrigés, des estimations apprises de l'archive), sont dans [`docs/backlog.md`](docs/backlog.md#après-une-nuit--le-bilan).
 

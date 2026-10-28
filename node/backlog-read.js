@@ -4,6 +4,7 @@ import path from "node:path";
 import { readJournal } from "./journal.js";
 import { alive, heatSettings, readCpuTemperature, readSlots, threadBudget } from "./machine.js";
 import { tailOf } from "./tail.js";
+import { readWanted } from "./wanted.js";
 
 /**
  * The backlog read from its folder (Sami, 26/10/2026: the backlog was a black box), for its views (node/backlog-view.js):
@@ -93,7 +94,7 @@ function outputOf(job, runs) {
 
 /** Everything the views need, read from `home` without writing a byte. */
 export async function readBacklog(home, { now = Date.now(), budget = threadBudget(), machine = true } = {}) {
-  const [queue, archive, slots, journal, runs] = await Promise.all([readJson(path.join(home, "queue.json"), { jobs: [] }), readArchive(home), readSlots(home), readJournal(home, 300), readdir(path.join(home, "runs")).catch(() => [])]);
+  const [queue, archive, slots, wanted, journal, runs] = await Promise.all([readJson(path.join(home, "queue.json"), { jobs: [] }), readArchive(home), readSlots(home), readWanted(home), readJournal(home, 300), readdir(path.join(home, "runs")).catch(() => [])]);
   const jobs = queue.jobs ?? [];
   const running = jobs.filter((job) => job.status === "running");
   const outputs = {};
@@ -116,6 +117,7 @@ export async function readBacklog(home, { now = Date.now(), budget = threadBudge
     jobs,
     archive,
     slots,
+    wanted,
     journal,
     outputs,
     traces,

@@ -21,7 +21,11 @@ describe("the backlog's terminal view (node/tui.js, Sami 26/10: like k9s, read o
     jobs: [{ id: "cuis-long", cwd: "/x/mcts-cuisine", command: "npm run compare", estimate: "1 h", status: "running", startedAt: local(30), runnerPid: 1 }, { id: "ent-next", cwd: "/x/mcts-entrepot", command: "npm run compare", estimate: "20 min", status: "todo" }],
     archive: [{ id: "urg-old", cwd: "/x/mcts-urgences", command: "npm test", estimate: "5 min", status: "failed", doneAt: local(10), minutes: 2, reason: "code 1" }],
     slots: [{ pid: 1, runner: "mcts-backlog", id: "cuis-long", threads: 1, since: new Date(NOW - 1_800_000).toISOString() }],
-    journal: [{ at: new Date(NOW).toISOString(), pid: 1, kind: "job-ended", id: "urg-old", status: "failed", minutes: 2 }],
+    journal: [
+      { at: new Date(NOW).toISOString(), pid: 1, kind: "job-ended", id: "urg-old", status: "failed", minutes: 2 },
+      { at: new Date(NOW - 60_000).toISOString(), pid: 7, kind: "slot-ended", id: "session:mcts-urgences:npm test", threads: 2, minutes: 0.5, code: 1 },
+    ],
+    wanted: [{ pid: 8, id: "session:mcts-entrepot:npm run check", threads: 4, since: new Date(NOW - 120_000).toISOString() }],
     alivePids: [1],
   });
 
@@ -33,7 +37,7 @@ describe("the backlog's terminal view (node/tui.js, Sami 26/10: like k9s, read o
     const board = screenOf(view, { tab: 6, selected: 0, offset: 0, filter: "", tail: [] }, { cols: 120, rows: 20 }).map(visible).join("\n");
     for (const words of ["7 Messages 1", "commun → cuisine", "attend cuisine", "npx mcts-board --read"]) assert.ok(board.includes(words), words);
     for (const [cols, rows] of [[120, 30], [60, 12], [200, 50]]) {
-      for (let tab = 0; tab < 7; tab += 1) {
+      for (let tab = 0; tab < 8; tab += 1) {
         const lines = screenOf(view, { tab, selected: 0, offset: 0, filter: "", tail: ["une ligne de sortie"] }, { cols, rows });
         assert.equal(lines.length, rows);
         lines.forEach((line, i) => assert.equal(visible(line).length, i === rows - 1 ? cols - 1 : cols, `onglet ${tab}, ligne ${i} : ${visible(line)}`));
@@ -41,6 +45,9 @@ describe("the backlog's terminal view (node/tui.js, Sami 26/10: like k9s, read o
     }
     const running = screenOf(view, { tab: 0, selected: 0, offset: 0, filter: "", tail: [] }, { cols: 120, rows: 20 }).map(visible).join("\n");
     for (const words of ["1 En cours 1", "2 À venir 1", "4 Finis 1", "cuis-long", "30/60 min", "lanceur 1"]) assert.ok(running.includes(words), words);
+    // The short tests of the slots (28/10/2026): one waiting, one ended in error.
+    const tests = screenOf(view, { tab: 7, selected: 0, offset: 0, filter: "", tail: [] }, { cols: 120, rows: 20 }).map(visible).join("\n");
+    for (const words of ["8 Tests 2", "◷  entrepot", "attend 2 min", "✖  urgences", "code 1", "npm run check"]) assert.ok(tests.includes(words), words);
     const finished = screenOf(view, { tab: 3, selected: 0, offset: 0, filter: "", tail: [] }, { cols: 120, rows: 20 }).map(visible).join("\n");
     assert.match(finished, /✖ +19:50 +urgences +urg-old/);
     assert.equal(screenOf(view, { tab: 0, selected: 0, offset: 0, filter: "ent-", tail: [] }, { cols: 120, rows: 20 }).map(visible)[2].includes("1 En cours 0"), true, "the filter applies");

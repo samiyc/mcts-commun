@@ -22,6 +22,12 @@
         <div class="scroll"><table id="running"></table></div>
       </details>
 
+      <details id="slots-card">
+        <summary>Tests courts (créneaux) <span class="count" id="slots-count"></span></summary>
+        <p class="hint">Les tests et essais lancés à côté de la file par <code>npx mcts-backlog --slot N -- commande</code> : servis avant les jobs suivants, au besoin en libérant un job tout juste lancé.</p>
+        <div class="scroll"><table id="slots"></table></div>
+      </details>
+
       <details open id="night-card">
         <summary>La nuit à venir <span class="count" id="night-count"></span></summary>
         <p class="hint">Comme le lanceur la jouerait si chaque job prenait son estimation : côte à côte tant que leurs fils tiennent, le suivant dans l'ordre de Lopin (prérequis, échéances, règle de Smith).</p>

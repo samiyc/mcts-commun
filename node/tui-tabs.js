@@ -19,6 +19,8 @@ const KIND_WORDS = {
   "job-preempted": ["remis, pour un test", "yellow"],
   "cancel-asked": ["annulation", "yellow"],
   "slot-waiting": ["attend des fils", "gray"],
+  "slot-started": ["test lancé", "cyan"],
+  "slot-ended": ["test fini", "white"],
   "heat-alert": ["garde thermique", "red"],
   "heat-resumed": ["reprise au frais", "green"],
   "memory-stop": ["garde mémoire", "red"],
@@ -36,6 +38,8 @@ const JOURNAL_TEXT = {
   "job-started": (entry) => `${entry.id} (${entry.threads} fil${entry.threads > 1 ? "s" : ""}, pid ${entry.childPid ?? "?"})`,
   "runner-started": (entry) => `${entry.budget} fils au plus${entry.cpu ? ", CPU " + entry.cpu.celsius + " °C" : ""}`,
   "slot-waiting": (entry) => `${entry.id} : ${entry.threads} fil(s), ${entry.slots?.length ?? 0} job(s) tournent`,
+  "slot-started": (entry) => `${entry.id} : ${entry.threads} fil(s), après ${durationText(entry.waitedMin)} d'attente`,
+  "slot-ended": (entry) => `${entry.id} : code ${entry.code}, ${durationText(entry.minutes)}`,
   "heat-alert": (entry) => `${entry.celsius} °C, ${entry.stopping?.length ?? 0} job(s) arrêtés`,
   "memory-stop": (entry) => `${entry.id} : ${entry.freeGb} Go libres`,
   crash: (entry) => entry.message,
@@ -96,6 +100,24 @@ function boardRow(thread, w, s) {
   return `${s.gray(fit(when(thread.last.at), 12))} ${fit(ends, 24)} ${fit(thread.subject, w.id + 10)} ${s[color](threadState(thread))}`;
 }
 
+/** A short test's state: waiting, running, ended well or not, or a job of the queue freed for one. */
+const TEST_STATES = { waiting: ["◷", "gray"], running: ["▶", "cyan"], done: ["✔", "green"], failed: ["✖", "red"], preempted: ["⇄", "yellow"] };
+
+/** How long: waited so far, running so far, or taken, with when it ended. */
+function testTime(test, now) {
+  if (test.state === "waiting") return `attend ${durationText(test.sinceMin)}`;
+  if (test.state === "running") return `depuis ${durationText(test.sinceMin)}`;
+  if (test.state === "preempted") return stampText(test.stamp, now);
+  return `${durationText(test.minutes)}, ${stampText(test.stamp, now)}`;
+}
+
+function testRow(test, w, s, now) {
+  const [icon, color] = TEST_STATES[test.state];
+  const what = test.state === "preempted" ? s.yellow("job de la file : a laissé sa place à un test") : s.gray(test.command);
+  const code = test.code === undefined || test.code === 0 ? fit("", 8) : s.red(fit(`code ${test.code}`, 8));
+  return `${s[color](icon)}  ${fit(test.project, 10)} ${fit(test.id, w.id)} ${fit(test.threads, 5)} ${fit(testTime(test, now), 22)} ${code} ${what}`;
+}
+
 /** The tabs: what each lists, its columns, a row's line, and what an empty one says. */
 export const TABS = [
   { title: "En cours", rows: (view) => view.running, head: (w) => headOf(["", "projet", "job", "fils", "avancement", "à surveiller"], [2, 10, w.id, 5, 24, 40]), line: runningRow },
@@ -130,6 +152,13 @@ export const TABS = [
     empty: "Aucun message : les sessions postent par npx mcts-board --post (docs/board.md).",
     head: (w) => headOf(["dernier", "de → à", "sujet", "état"], [12, 24, w.id + 10, 30]),
     line: boardRow,
+  },
+  {
+    title: "Tests",
+    rows: (view) => view.slots ?? [],
+    empty: "Aucun test court : npx mcts-backlog --slot N -- commande (servi avant les jobs suivants de la file).",
+    head: (w) => headOf(["", "projet", "test", "fils", "durée", "", "commande"], [2, 10, w.id, 5, 22, 8, 30]),
+    line: testRow,
   },
 ];
 

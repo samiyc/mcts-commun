@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { alarmsOf, durationText, listText, progressNote, warningsOf } from "../node/backlog-text.js";
+import { slotsOf } from "../node/backlog-slots.js";
 import { projectNight, projectOf, readBacklog, viewOf } from "../node/backlog-view.js";
 import { tailOf } from "../node/tail.js";
 
@@ -97,6 +98,39 @@ describe("what the backlog's views show (node/backlog-view.js, Sami 26/10: the b
     await writeFile(path.join(home, "queue.json"), '{ "jobs": [');
     assert.equal((await readBacklog(home, { now: NOW, machine: false })).jobs.length, 1);
     await rm(home, { recursive: true, force: true });
+  });
+
+  it("lists the short tests of the slots: waiting, running, ended, and the jobs freed for them (Sami, 28/10)", () => {
+    const at = (minutesAgo) => new Date(NOW - minutesAgo * 60_000).toISOString();
+    const tests = slotsOf({
+      now: NOW,
+      wanted: [{ pid: 30, id: "session:mcts-urgences:npm test", threads: 2, since: at(1) }],
+      slots: [
+        { pid: 1, runner: "mcts-backlog", id: "cuis-long", threads: 4, since: at(40) },
+        { pid: 20, runner: "session", id: "essai", threads: 4, since: at(3) },
+        { pid: 21, runner: "session", id: "session:mcts-entrepot:npm run check", threads: 1, since: at(2) },
+      ],
+      journal: [
+        { at: at(9), pid: 10, kind: "slot-started", id: "vieux", threads: 2, waitedMin: 0.5, cwd: "E:\\Dev\\mcts-cuisine", command: "npm test" },
+        { at: at(8), pid: 1, kind: "job-preempting", id: "cuis-jeune", threads: 2, wanted: 2 },
+        { at: at(7), pid: 10, kind: "slot-ended", id: "vieux", threads: 2, minutes: 2, code: 3 },
+        { at: at(5), pid: 11, kind: "slot-ended", id: "session:lopin:npm test", threads: 1, minutes: 1, code: 0 },
+        { at: at(3), pid: 20, kind: "slot-started", id: "essai", threads: 4, waitedMin: 1.5, cwd: "E:\\Dev\\mcts-cuisine", command: "node scripts/essai.js" },
+      ],
+    });
+    assert.deepEqual(tests.map((test) => [test.state, test.id, test.project]), [
+      ["waiting", "session:mcts-urgences:npm test", "urgences"],
+      ["running", "essai", "cuisine"],
+      ["running", "session:mcts-entrepot:npm run check", "entrepot"],
+      ["done", "session:lopin:npm test", "lopin"],
+      ["failed", "vieux", "cuisine"],
+      ["preempted", "cuis-jeune", ""],
+    ]);
+    const [waiting, running, older] = tests;
+    assert.equal(Math.round(waiting.sinceMin), 1);
+    assert.deepEqual([running.command, running.waitedMin, Math.round(running.sinceMin)], ["node scripts/essai.js", 1.5, 3]);
+    assert.equal(older.command, "npm run check", "un --slot d'avant le 28/10 : la commande lue dans son id");
+    assert.deepEqual([tests[4].code, tests[4].waitedMin, tests[4].command], [3, 0.5, "npm test"]);
   });
 
   it("speaks of durations and projects plainly", () => {

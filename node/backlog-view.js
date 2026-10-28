@@ -1,6 +1,7 @@
 import { withLearned } from "../src/estimate.js";
 import { holdOf, indexJobs, isFinished, minutesOf, nextJob } from "../src/schedule.js";
 import { loadOf } from "./backlog-load.js";
+import { slotsOf } from "./backlog-slots.js";
 
 export { readBacklog } from "./backlog-read.js";
 
@@ -193,7 +194,7 @@ function countsOf({ now, archive, running, planned, held, order }) {
 
 /** What the views show, from `readBacklog`'s state: pure. */
 export function viewOf(state) {
-  const { now, budget, archive, slots, journal = [], outputs = {}, traces = [], alivePids = [], machine = null } = state;
+  const { now, budget, archive, slots, wanted = [], journal = [], outputs = {}, traces = [], alivePids = [], machine = null } = state;
   // Each job's length learned from the archive, as the runner orders them (src/estimate.js, 27/10/2026).
   const jobs = withLearned(state.jobs, archive);
   const traceById = new Map(traces.filter((one) => one.id).map((one) => [one.id, one]));
@@ -214,6 +215,7 @@ export function viewOf(state) {
     machine: machine && { ...machine, budget },
     threads: { used: slots.reduce((sum, slot) => sum + slot.threads, 0), budget },
     runners: runnersOf({ slots, jobs, journal, alivePids }),
+    slots: slotsOf({ now, slots, wanted, journal }),
     running,
     planned,
     blocked: held.filter((job) => job.blocked),

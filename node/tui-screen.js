@@ -6,7 +6,7 @@ import { TABS, rowsOf } from "./tui-tabs.js";
 /** The terminal view's screens (node/tui.js), as lines: the main one and the pager. Pure. */
 const HELP = [
   "↑ ↓  j k        choisir une ligne        PgUp PgDn  g G   défiler, début, fin",
-  "← →  Tab  1-7   changer d'onglet         Entrée           la sortie (ou la trace) en plein écran",
+  "← →  Tab  1-8   changer d'onglet         Entrée           la sortie (ou la trace) en plein écran",
   "/               filtrer (Échap efface)   r                relire maintenant",
   "?               cette aide               q  Ctrl+C        quitter",
   "l  L            (onglet Messages) marquer lus pour sami les messages du fil choisi, ou tous",

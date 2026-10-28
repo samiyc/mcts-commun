@@ -6,6 +6,7 @@ import { finished, held, running } from "./backlog-jobs.js";
 import { journal, traces } from "./backlog-log.js";
 import { alerts, machine } from "./backlog-machine.js";
 import { night, nights } from "./backlog-night.js";
+import { slots } from "./backlog-slots.js";
 
 const REFRESH_MS = 2_000;
 const dialog = () => /** @type {HTMLDialogElement} */ ($("tail"));
@@ -43,7 +44,7 @@ async function refresh() {
     const response = await fetch("/api/backlog", { cache: "no-store" });
     const view = await response.json();
     if (!response.ok) throw new Error(view.error ?? response.statusText);
-    for (const draw of [machine, alerts, running, night, nights, held, finished, journal, traces]) draw(view);
+    for (const draw of [machine, alerts, running, slots, night, nights, held, finished, journal, traces]) draw(view);
     // The board apart: a board that cannot be read leaves the backlog drawn.
     await fetch("/api/board", { cache: "no-store" })
       .then((answer) => answer.json())

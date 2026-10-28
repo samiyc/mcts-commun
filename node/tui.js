@@ -154,7 +154,7 @@ const LIST_ACTIONS = {
 function listKey(ctx, { name, text }) {
   const action = LIST_ACTIONS[name] ?? LIST_ACTIONS[text];
   if (action) return action(ctx, { name, text });
-  if (/^[1-7]$/.test(text ?? "")) return tabTo(ctx, Number(text) - 1);
+  if (/^[1-8]$/.test(text ?? "")) return tabTo(ctx, Number(text) - 1);
   if (!STEPS[name]) return undefined;
   const count = ctx.view ? rowsOf(ctx.view, ctx.ui.tab, ctx.ui.filter).length : 0;
   const page = Math.max(3, Math.round((size(ctx).rows - 6) * 0.55));

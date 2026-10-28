@@ -174,6 +174,14 @@ pendant 45 min, puis tout à la fin) :
 
    Le journal le dit : « place à un test », puis « remis, pour un test ».
 
+   **Les tests courts se voient** (Sami, 28/10/2026) : chaque `--slot` écrit au journal `slot-started` (`id`,
+   `threads`, `waitedMin`, `cwd`, `command`) quand il prend ses fils, et `slot-ended` (`id`, `threads`, `minutes`,
+   `code`) quand il les rend ; une écriture ratée ne fait jamais échouer le test. L'onglet **8 Tests** de la TUI et la
+   carte « Tests courts (créneaux) » de la page montrent ceux qui attendent (`wanted.json`), ceux qui tournent (les
+   créneaux `session` de `slots.json`), les 30 derniers finis avec leur code et leur attente, et les jobs de la file
+   libérés pour eux (`node/backlog-slots.js`). Un `--slot` d'avant ce jour-là se lit par son id,
+   `session:<projet>:<commande>`.
+
    **Un dossier introuvable est refusé à l'ajout** (`--add`, `--add-file`, `--retry`), pour ne pas échouer en pleine nuit
    (urgences, 27/10 : un heredoc avait mangé les antislashs d'un `cwd`).
 

@@ -120,6 +120,12 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       assert.match(first.stderr + second.stderr, /attend 2 fil\(s\), 2\/2 pris/);
       assert.deepEqual(JSON.parse(await readFile(path.join(home, "slots.json"), "utf8")).slots, []);
       assert.equal(await codeOf(home, "--slot", "1", "--", 'node -e "process.exit(3)"'), 3, "le code de la commande");
+      // Each in the journal, its start and its end, for the Tests tab (Sami, 28/10/2026).
+      const lines = (await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      const ends = lines.filter((entry) => entry.kind === "slot-ended");
+      assert.deepEqual(ends.map((entry) => entry.code).sort(), [0, 0, 3]);
+      assert.equal(lines.filter((entry) => entry.kind === "slot-started").length, 3);
+      assert.ok(lines.find((entry) => entry.kind === "slot-started" && entry.id === b).waitedMin > 0, "le second a attendu");
     }));
 
   it("serves a short test before the queue: a job just started gives its threads back and starts again later (Sami, 27/10)", () =>
