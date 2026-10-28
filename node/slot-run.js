@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { createJournal } from "./journal.js";
+import { createJournal, readJournal } from "./journal.js";
 import { readSlots, threadBudget, waitForSlot } from "./machine.js";
-import { dropWant, wantSlot } from "./wanted.js";
+import { dropWant, inSeries, wantSlot } from "./wanted.js";
 
 /**
  * A command run in the machine's slots, beside the queue (Sami, 27/10/2026: the sessions ran their tests beside a queue
@@ -10,12 +10,14 @@ import { dropWant, wantSlot } from "./wanted.js";
  * MCTS_THREADS=N, gives the threads back when it ends, and exits with its code. Windows cannot cap a process: the
  * sessions keep to the budget by passing through here. While it waits, its want is known to the runner
  * (node/wanted.js), which serves it before the queue's next job and frees young jobs if need be (node/preempt.js).
- * Its start and end go to the journal (slot-started, slot-ended), for the views' Tests tab (Sami, 28/10/2026).
+ * Its start and end go to the journal (slot-started, slot-ended), for the views' Tests tab (Sami, 28/10/2026). One
+ * started again less than 2 min after the same id ended is in a series, and waits like a job (node/wanted.js).
  */
 export async function runInSlot({ home, budget = threadBudget(), threads, id, command, cwd = process.cwd(), say = console.error }) {
   const asked = Math.min(threads, budget);
   const asking = Date.now();
-  await wantSlot(home, { pid: process.pid, id, threads: asked });
+  const series = inSeries(await readJournal(home, 200).catch(() => []), id, asking);
+  await wantSlot(home, { pid: process.pid, id, threads: asked, series });
   const slot = await waitForSlot({
     home,
     budget,
@@ -23,10 +25,10 @@ export async function runInSlot({ home, budget = threadBudget(), threads, id, co
     threads: asked,
     runner: "session",
     everyMs: 1_000,
-    onWait: (slots) => say(`mcts-backlog --slot : attend ${asked} fil(s), ${usedOf(slots)}/${budget} pris ; la file lui laisse la place`),
+    onWait: (slots) => say(`mcts-backlog --slot : attend ${asked} fil(s), ${usedOf(slots)}/${budget} pris ; ${series ? "en série, il attend comme un job" : "la file lui laisse la place"}`),
   }).finally(() => dropWant(home, process.pid, id));
   const started = Date.now();
-  note(home, "slot-started", { id, threads: asked, waitedMin: minutesSince(asking, started), cwd, command });
+  note(home, "slot-started", { id, threads: asked, waitedMin: minutesSince(asking, started), cwd, command, series });
   let code = 1;
   try {
     code = await new Promise((resolve) => {

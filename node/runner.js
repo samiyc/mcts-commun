@@ -4,6 +4,7 @@ import path from "node:path";
 import { withLearned } from "../src/estimate.js";
 import { nextJob } from "../src/schedule.js";
 import { alive, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, waitUntilCool, watchHeat, watchMemory } from "./machine.js";
+import { fillGap } from "./fill.js";
 import { preemptFor } from "./preempt.js";
 import { stamp } from "./queue.js";
 import { runJob, skipCheck } from "./run-job.js";
@@ -19,7 +20,8 @@ import { roomFor } from "./wanted.js";
  * the queue, and the queue goes on once the CPU is under `MCTS_HEAT_RESUME` °C (75); a job stopped three times by the
  * heat ends failed. A job marked `cancel` (`mcts-backlog --cancel`) is stopped and ends cancelled; one whose `skipIf`
  * says so is skipped before it starts. The threads a short test waits for (`mcts-backlog --slot`) go to it before the
- * queue's next job, and if need be the youngest jobs give theirs back and start again later (node/preempt.js).
+ * queue's next job, and if need be the youngest jobs give theirs back and start again later (node/preempt.js). While
+ * the next job waits for threads a session holds, a short job that fits starts in the gap (node/fill.js).
  */
 const HEAT_STOPS = 3;
 const CANCELLED = "annulé (mcts-backlog --cancel)";
@@ -85,12 +87,15 @@ async function loop(runner) {
     stopCancelled(runner, current.jobs);
     await preemptFor(runner);
     const job = await pickNext(runner, current);
-    if (job && (await tryStart(runner, job))) continue;
+    if (job && (await startOrFill(runner, current, job))) continue;
     if (!job && runner.running.size === 0) return;
     // Wait for a job to end, or for another runner to free threads.
     await Promise.race([...[...runner.running.values()].map((one) => one.done), sleep(runner.pollMs)]);
   }
 }
+
+/** Starts `job`, else a short one in the gap while it waits for threads others hold: true if one started. */
+const startOrFill = async (runner, current, job) => (await tryStart(runner, job)) || fillGap(runner, current, job, tryStart);
 
 /** Stops the running jobs a `--cancel` marked. */
 function stopCancelled({ running, journal }, jobs) {
@@ -124,6 +129,8 @@ async function tryStart(runner, job) {
     runner.waitingForSlot.add(job.id);
     return false;
   }
+  // Said again if it waits again (28/10/2026: after a stop for a test, its wait went unsaid).
+  runner.waitingForSlot.delete(job.id);
   // Taken under the queue's lock: another runner that read the same queue does not start it too.
   const taken = await claim(runner.queue, job);
   if (!taken || (job.skipIf && (await skipped(runner, job)))) {

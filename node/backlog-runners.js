@@ -28,18 +28,23 @@ function waitingOf({ slots, next, budget }) {
   return { id: next.id, threads: next.threads, free, holders: slots.map(({ id, threads, runner }) => ({ id, threads, runner })) };
 }
 
+/** Since when runner `pid` works: its start in the journal's lines, else in the whole journal, else its first slot. */
+function sinceOf({ journal, starts, pid, mine }) {
+  const started = journal.filter((entry) => entry.pid === pid && entry.kind === "runner-started").at(-1)?.at ?? starts[pid];
+  return started ?? mine.map((slot) => slot.since).sort()[0] ?? null;
+}
+
 /**
  * The runners at work: those holding slots or running jobs, alive or not, and those alive the journal says started;
  * since when, and for a runner of the queue, the next job it waits threads for (`next`, the night's first).
  */
-export function runnersOf({ slots, jobs, journal, alivePids, next = null, budget = Infinity }) {
+export function runnersOf({ slots, jobs, journal, alivePids, next = null, budget = Infinity, starts = {} }) {
   const held = [...slots.map((slot) => slot.pid), ...jobs.filter((job) => job.status === "running").map((job) => job.runnerPid)];
   const idle = startedRunners(journal).filter((pid) => alivePids.includes(pid));
   const pids = [...new Set([...held, ...idle].filter(Boolean))];
   return pids.map((pid) => {
     const mine = slots.filter((slot) => slot.pid === pid);
-    const started = journal.filter((entry) => entry.pid === pid && entry.kind === "runner-started").at(-1)?.at;
-    const since = started ?? mine.map((slot) => slot.since).sort()[0] ?? null;
+    const since = sinceOf({ journal, starts, pid, mine });
     const runner = mine[0]?.runner ?? "mcts-backlog";
     const waiting = runner === "session" || !alivePids.includes(pid) ? null : waitingOf({ slots, next, budget });
     return { pid, runner, alive: alivePids.includes(pid), threads: mine.reduce((sum, slot) => sum + slot.threads, 0), jobs: mine.length, since, waiting };

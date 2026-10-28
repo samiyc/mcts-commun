@@ -2,7 +2,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { startedRunners } from "./backlog-runners.js";
-import { readJournal } from "./journal.js";
+import { readJournal, runnerStarts } from "./journal.js";
 import { alive, heatSettings, readCpuTemperature, readSlots, threadBudget } from "./machine.js";
 import { tailOf } from "./tail.js";
 import { readWanted } from "./wanted.js";
@@ -93,6 +93,17 @@ function outputOf(job, runs) {
   return name ? path.join("runs", name) : null;
 }
 
+// A runner's start, read from the whole journal once a runner (its pid does not change while it lives).
+const knownStarts = new Map();
+
+/** When the runners `pids` started, `{ pid: at }`: those not in the journal's last lines read once from all of it. */
+async function startsOf(home, pids, journal) {
+  const inTail = Object.fromEntries(journal.filter((entry) => entry.kind === "runner-started").map((entry) => [entry.pid, entry.at]));
+  const missing = pids.filter((pid) => !(pid in inTail) && !knownStarts.has(`${home}:${pid}`));
+  if (missing.length) for (const [pid, at] of Object.entries(await runnerStarts(home, missing))) knownStarts.set(`${home}:${pid}`, at);
+  return Object.fromEntries(pids.map((pid) => [pid, inTail[pid] ?? knownStarts.get(`${home}:${pid}`) ?? null]));
+}
+
 /** Everything the views need, read from `home` without writing a byte. */
 export async function readBacklog(home, { now = Date.now(), budget = threadBudget(), machine = true } = {}) {
   const [queue, archive, slots, wanted, journal, runs] = await Promise.all([readJson(path.join(home, "queue.json"), { jobs: [] }), readArchive(home), readSlots(home), readWanted(home), readJournal(home, 300), readdir(path.join(home, "runs")).catch(() => [])]);
@@ -123,6 +134,7 @@ export async function readBacklog(home, { now = Date.now(), budget = threadBudge
     outputs,
     traces,
     alivePids: pids.filter((pid) => alive(pid)),
+    runnerStarts: await startsOf(home, startedRunners(journal).filter((pid) => alive(pid)), journal),
     machine: machine ? { cores: os.cpus().length, freeGb: round(os.freemem() / GB), totalGb: round(os.totalmem() / GB), cpu: await cpuReading(now) } : null,
   };
 }

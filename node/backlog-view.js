@@ -204,7 +204,7 @@ export function viewOf(state) {
     now,
     machine: machine && { ...machine, budget },
     threads: { used: slots.reduce((sum, slot) => sum + slot.threads, 0), budget },
-    runners: runnersOf({ slots, jobs, journal, alivePids, next: planned[0], budget }),
+    runners: runnersOf({ slots, jobs, journal, alivePids, next: planned[0], budget, starts: state.runnerStarts }),
     slots: slotsOf({ now, slots, wanted, journal }),
     running,
     planned,

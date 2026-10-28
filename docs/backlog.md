@@ -336,8 +336,16 @@ les estimations dataient d'avant les gains de vitesse (8 à 20 fois trop longues
 - les vues ne montraient pas le lanceur, qui ne tenait aucun fil : la TUI ne disait que « session 33724 ».
 
 Réglé par une pause de codingame (19 h 44), à la demande de Sami ; ses séries passeront à 3 fils. Les vues montrent
-maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **À faire dans le lanceur** (Sami, 28/10) :
-remplir les trous avec les jobs qui tiennent dans les fils libres quand le suivant attend ceux d'un `--slot` ; compter
-une série de `--slot` qui se relance aussitôt comme un job, pas comme un test court (l'avis de codingame) ;
-réécrire `slot-waiting` après chaque arrêt (le lanceur ne l'écrit qu'une fois par job) ; retrouver son vrai
-démarrage dans les vues.
+maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **Corrigé dans le lanceur le soir même** (Sami,
+28/10, la file vide) :
+- **Les trous se remplissent** (`node/fill.js`). Quand le job suivant tiendrait sans les fils d'un `--slot` ou d'un
+  autre lanceur, un job prêt qui tient dans les fils libres et dure 15 min au plus (d'après ce que la file a appris)
+  démarre en attendant. Le journal le dit : `gap-filled` (« trou rempli »). Rien ne remplit quand le suivant attend
+  les propres jobs du lanceur : une suite de petits jobs le tiendrait dehors pour toujours. Le 28/10, les `diagnose`
+  de 8 fils auraient tourné pendant l'arène.
+- **Une série de `--slot` attend comme un job** (l'avis de codingame) : un `--slot` relancé moins de 2 min après la
+  fin d'un autre du même id (`--id`, ou l'id par défaut : le dossier et la commande) est `series` dans
+  `wanted.json`. Il ne retient plus les jobs suivants et n'en arrête aucun : il prend les fils quand ils se libèrent.
+  L'onglet Tests dit « en série ».
+- `slot-waiting` est réécrit chaque fois qu'un job se remet à attendre, après un arrêt par exemple.
+- Les vues trouvent le vrai démarrage d'un lanceur dans tout le journal, une fois par lanceur.

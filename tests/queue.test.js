@@ -126,6 +126,10 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       assert.deepEqual(ends.map((entry) => entry.code).sort(), [0, 0, 3]);
       assert.equal(lines.filter((entry) => entry.kind === "slot-started").length, 3);
       assert.ok(lines.find((entry) => entry.kind === "slot-started" && entry.id === b).waitedMin > 0, "le second a attendu");
+      // The same id again right after its end: a series, which waits like a job (codingame's arena, 28/10/2026).
+      await backlog(home, "--budget", "2", "--slot", "1", "--id", "un", "--", 'node -e "0"');
+      const again = (await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      assert.deepEqual(again.filter((entry) => entry.kind === "slot-started" && entry.id === "un").map((entry) => entry.series), [false, true]);
     }));
 
   it("serves a short test before the queue: a job just started gives its threads back and starts again later (Sami, 27/10)", () =>
@@ -145,6 +149,23 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       await backlog(home, "--cancel", "long");
       await ended;
       assert.equal((await statusOf(home, "long")).status, "cancelled");
+    }));
+
+  it("fills the gap with a short job while the next waits for the threads of a session's test (Sami, 28/10)", () =>
+    scratch(async (home, folder) => {
+      // A session's test holds 2 of 4 threads; the next job wants 4, a short one 1.
+      const tenant = spawn(process.execPath, [RUNNER, "--home", home, "--budget", "4", "--slot", "2", "--id", "locataire", "--", sleeper(2_500)], { env: quiet });
+      const gone = new Promise((resolve) => tenant.once("exit", resolve));
+      while (!(await readFile(path.join(home, "slots.json"), "utf8").catch(() => "")).includes("locataire")) await new Promise((resolve) => setTimeout(resolve, 50));
+      await backlog(home, "--add", "gros", "--cwd", folder, "--estimate", "1 min", "--threads", "4", "--", sleeper(200));
+      await backlog(home, "--add", "petit", "--cwd", folder, "--estimate", "1 min", "--threads", "1", "--", sleeper(200));
+      await backlog(home, "--budget", "4");
+      await gone;
+      const lines = (await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      const order = lines.filter((entry) => entry.kind === "job-started").map((entry) => entry.id);
+      assert.deepEqual(order, ["petit", "gros"], "le petit dans le trou, le gros après le test");
+      assert.ok(lines.some((entry) => entry.kind === "gap-filled" && entry.id === "petit" && entry.waiting === "gros" && entry.others === 2));
+      assert.deepEqual((await archiveOf(home)).map((job) => job.status), ["done", "done"]);
     }));
 
   it("refuses a job whose folder does not exist, before it fails at night (urgences, 27/10)", () =>

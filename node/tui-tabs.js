@@ -21,6 +21,7 @@ const KIND_WORDS = {
   "slot-waiting": ["attend des fils", "gray"],
   "slot-started": ["test lancé", "cyan"],
   "slot-ended": ["test fini", "white"],
+  "gap-filled": ["trou rempli", "cyan"],
   "heat-alert": ["garde thermique", "red"],
   "heat-resumed": ["reprise au frais", "green"],
   "memory-stop": ["garde mémoire", "red"],
@@ -40,6 +41,7 @@ const JOURNAL_TEXT = {
   "slot-waiting": (entry) => `${entry.id} : ${entry.threads} fil(s), ${entry.slots?.length ?? 0} job(s) tournent`,
   "slot-started": (entry) => `${entry.id} : ${entry.threads} fil(s), après ${durationText(entry.waitedMin)} d'attente`,
   "slot-ended": (entry) => `${entry.id} : code ${entry.code}, ${durationText(entry.minutes)}`,
+  "gap-filled": (entry) => `${entry.id} (${entry.threads} fil(s)) pendant que ${entry.waiting} attend ${entry.waitingThreads} fils`,
   "heat-alert": (entry) => `${entry.celsius} °C, ${entry.stopping?.length ?? 0} job(s) arrêtés`,
   "memory-stop": (entry) => `${entry.id} : ${entry.freeGb} Go libres`,
   crash: (entry) => entry.message,
@@ -105,7 +107,7 @@ const TEST_STATES = { waiting: ["◷", "gray"], running: ["▶", "cyan"], done: 
 
 /** How long: waited so far, running so far, or taken, with when it ended. */
 function testTime(test, now) {
-  if (test.state === "waiting") return `attend ${durationText(test.sinceMin)}`;
+  if (test.state === "waiting") return `attend ${durationText(test.sinceMin)}${test.series ? ", en série" : ""}`;
   if (test.state === "running") return `depuis ${durationText(test.sinceMin)}`;
   if (test.state === "preempted") return stampText(test.stamp, now);
   return `${durationText(test.minutes)}, ${stampText(test.stamp, now)}`;

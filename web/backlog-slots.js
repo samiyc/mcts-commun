@@ -13,7 +13,7 @@ const STATES = {
 
 /** How long: waited so far, running so far, or taken; with the wait before it ran. */
 function timeOf(test) {
-  if (test.state === "waiting") return `attend depuis ${durationText(test.sinceMin)}`;
+  if (test.state === "waiting") return `attend depuis ${durationText(test.sinceMin)}${test.series ? ", en série (comme un job)" : ""}`;
   if (test.state === "running") return `depuis ${durationText(test.sinceMin)}`;
   if (test.state === "preempted") return "";
   return durationText(test.minutes);

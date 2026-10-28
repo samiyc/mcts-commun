@@ -27,7 +27,7 @@ function lastOf(journal, kind, { pid, id, before = Infinity }) {
   return journal.findLast((entry) => entry.kind === kind && entry.pid === pid && entry.id === id && Date.parse(entry.at) <= before);
 }
 
-const waitingOf = (now) => (want) => ({ state: "waiting", pid: want.pid, id: want.id, threads: want.threads, sinceMin: minutesBetween(want.since, now), ...fromId(want.id) });
+const waitingOf = (now) => (want) => ({ state: "waiting", pid: want.pid, id: want.id, threads: want.threads, series: Boolean(want.series), sinceMin: minutesBetween(want.since, now), ...fromId(want.id) });
 
 function runningOf(now, journal) {
   return (slot) => {
