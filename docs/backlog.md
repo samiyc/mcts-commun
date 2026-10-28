@@ -319,3 +319,25 @@ sur l'en-tête de son tableau pendant 45 min. D'où `progress` et les recommanda
   calls`, `expanded / calls`, `givenUp` ; `counters.search.ms / calls`), job par job, contre ceux d'un passage
   précédent de la même commande. La lib ne change pas pendant que la file tourne : un job qui démarre après un
   correctif ne se compare plus à ceux d'avant.
+
+### Le 28/10 au soir : la file de jour, et une série de `--slot` qui l'a ralentie
+
+La file lancée à 18 h 31, d'un commun accord, sur la lib `684c3ad` et Node 24 : **167 jobs finis à 20 h 00, aucun
+en échec** (cuisine 130 de 18 h 31 à 19 h 05, urgences 22, l'entrepôt 15), en 1 h 29 au lieu des 3 h 27 annoncées :
+les estimations dataient d'avant les gains de vitesse (8 à 20 fois trop longues chez cuisine).
+
+**De 19 h 04 à 19 h 44, la machine a tourné à 6 fils sur 18** (40 % des fils vides en moyenne depuis 18 h 45) :
+- le job suivant, `mondes-16` puis `mondes-32` d'urgences, voulait 16 fils ;
+- l'arène de codingame enchaînait des `--slot 6` de 5 à 8 min, chacun relancé aussitôt : 6 + 16 > 18 ;
+- chaque `--slot` arrêtait le job de 16 fils tout juste lancé (4 fois, chacun reparti de zéro), jusqu'à sa
+  limite de 2 arrêts ; ensuite le job attendait que l'arène rende ses fils ;
+- le lanceur ne démarre les jobs que dans l'ordre : les `diagnose` de 8 fils, qui tenaient dans les 12 libres,
+  attendaient derrière ;
+- les vues ne montraient pas le lanceur, qui ne tenait aucun fil : la TUI ne disait que « session 33724 ».
+
+Réglé par une pause de codingame (19 h 44), à la demande de Sami ; ses séries passeront à 3 fils. Les vues montrent
+maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **À faire dans le lanceur** (Sami, 28/10) :
+remplir les trous avec les jobs qui tiennent dans les fils libres quand le suivant attend ceux d'un `--slot` ; compter
+une série de `--slot` qui se relance aussitôt comme un job, pas comme un test court (l'avis de codingame) ;
+réécrire `slot-waiting` après chaque arrêt (le lanceur ne l'écrit qu'une fois par job) ; retrouver son vrai
+démarrage dans les vues.

@@ -58,9 +58,36 @@ par le tableau, et ce que commun en a fait, est dans [`recherche.md`](recherche.
   changer le vainqueur ;
 - **codingame** : son arène passe maintenant par `mcts-backlog --slot` ; rien ne manque à la lib.
 
-Les décisions qui attendent les mesures de la file : moins de mondes chez urgences (tag `2026-10-28-mondes` ; Sami
+Les décisions qui attendaient les mesures de la file : moins de mondes chez urgences (tag `2026-10-28-mondes` ; Sami
 accepte que ses empreintes changent), `legHorizon` à l'entrepôt (`horizon-2026-10-28`), le budget 128 et `grace=30`
-chez cuisine (`budget-grace-2026-10-28`).
+chez cuisine (`budget-grace-2026-10-28`). Ce qu'elles sont devenues : la section suivante.
+
+## Le 28/10 au soir : ce que la file de jour a mesuré
+
+La file de 18 h 31 à 20 h 00, chaque projet sur la lib `684c3ad` et Node 24 ([`backlog.md`](backlog.md)).
+
+- **urgences, moins de mondes** : 8, 16 et 32 mondes réutilisés à 100 itérations font gagner 6 à 10 % de temps par
+  recherche, pas mieux que de faire moins d'itérations ; sous 16 mondes, la recherche perd en qualité. **Sami : on ne
+  casse pas les empreintes, l'essai reste éteint.** Les « 47 % plus rapide » de 13 h 06 venaient surtout de l'ordre
+  des lignes de la mesure ; depuis `copy`, il ne reste presque rien à gagner sur les tirages.
+- **l'entrepôt, `legHorizon`** : remesuré en court sur la nouvelle lib, 1 à 4 % de temps en moins par décision ; les
+  50 jobs annulés par Sami avant la file. `day-reach` retiré (`9a439c8`).
+- **cuisine, budget 128 et `grace`** : par paires sur les mêmes services, les plats à temps ne bougent pas (tous
+  les intervalles contiennent zéro), sauf les tables de la grande brigade (+2,2, de −0,17 à 4,57) ;
+  `mcts-cuisine/docs/mesures-28-10.md`.
+- **`diagnose` recompté avec `a2c66bd`** (la marge par paires) :
+  - urgences : `closeCall` tombe là où le choix est net (HET 84 → 10 %, Plan blanc 37 → 19 %, SAUV 95 → 49 %) et
+    reste haut là où les deux premiers coups se valent vraiment (la garde 78 à 81 %, les box 70 à 78 % : 8 graines
+    n'y font le même choix qu'à 65 à 85 %) ;
+  - l'entrepôt : `fewIterations` ne se déclenche plus quand `earlyStop` a tranché (les quais 82 → 0 %) ; `closeCall`
+    monte avec `earlyStop` (les quais 28 → 64 %) ; `flatScore` baisse sur les lignes grâce à `calm` (75 → 15 %) ;
+    une décision prend 4 à 11 fois moins de temps que le 27/10 ;
+  - cuisine : 76 à 94 % des décisions arrêtées tôt (`settled`), et pourtant `closeCall` à 56 à 87 %.
+- **`settled` et `closeCall` à la fois**, la question de cuisine : `settled` dit que les visites restantes ne
+  rattraperont plus le coup en tête, `closeCall` que sa valeur n'est pas sûrement meilleure que celle du second. Les
+  deux ensemble, ce sont des coups presque équivalents : le choix compte peu, et le conseil « plus d'itérations »
+  trompe (128 itérations ne changent presque rien chez cuisine). **Sami (28/10, par la session cuisine) : ok pour un
+  autre texte quand la décision est `settled`, et un champ `settled` compté à part.**
 
 ## Cuisine
 

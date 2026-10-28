@@ -18,7 +18,8 @@ dans [`recherche.md`](recherche.md) (§ 6) et [`backlog.md`](backlog.md).
 | codingame | oui (684c3ad), Node 24 | 66 tests sur 66, parité des arbitres inchangée | — | — | aucun job | **oui** (17:48) |
 
 **Tout le monde est prêt (28/10, 18 h 18)** : 167 jobs en file (cuisine 130, urgences 22, entrepôt 15), environ 2,9 h
-de la machine entière d'après les jobs passés. Sami lance la file.
+de la machine entière d'après les jobs passés. Sami lance la file : **finie à 20 h 00, 167 jobs, aucun échec**
+([`backlog.md`](backlog.md), ce qu'elle a mesuré dans [`essais-projets.md`](essais-projets.md)).
 
 **Corrigé après les réponses** : le trajet direct relit à chaque pas le `passable` de l'appel (l'entrepôt : ses distances
 viennent d'un sol plus permissif, une allée fermée ou les cases camion changeant d'un trajet à l'autre) ; un pas
