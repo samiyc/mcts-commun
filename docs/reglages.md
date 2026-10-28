@@ -101,13 +101,33 @@ projet a ensuite relu sa colonne et l'a corrigée par le tableau des sessions, a
   (`grace=30`) y a été mesurée le 28/10 et y perd des plats (la grande brigade : −2,37, de −3,69 à −1,04) ; 128
   itérations n'y font rien. Sami : la note graduée reste désactivée, le budget reste à 64.
 
-## Ce que commun pourrait ajouter
+## Ce que commun a ajouté (28/10, `ef28dfd`)
 
-- **Une largeur de racine à part** : `shortlist(world, moves, { root })`, pour qu'un projet garde 8 coups à la racine et
-  4 plus bas, comme lopin. Rien ne change pour qui ne s'en sert pas.
-- **Le rang du coup joué dans le `shortlist`**, compté par `diagnose` : s'il est presque toujours le premier, la
-  largeur ne sert à rien.
-- **Deux arbres indépendants** (`trees`, ce qui a payé chez lopin), à essayer sur un projet sans mondes communs, ou en
-  comparant les deux.
+- **Une largeur de racine à part** : `shortlist(world, moves, { root })` reçoit `root: true` à la racine. Un projet
+  peut garder 8 coups à la racine et 4 plus bas, comme lopin. Rien ne change pour qui ne s'en sert pas.
+- **Le rang du coup joué** dans le `shortlist` de la racine (`result.rank`, `{ played, of }`) : si les derniers rangs
+  ne sont presque jamais joués, plus de coups à la racine n'y gagnera rien.
+- **`closeCall` sur une recherche arrêtée par `earlyStop`** dit « coups presque équivalents », avec `settled: true`.
+- Reste à essayer : **deux arbres indépendants** (`trees`, ce qui a payé chez lopin).
 
-Rien n'est fait : c'est à Sami de décider, puis à chaque projet de mesurer, par paires, à temps égal.
+## Le palier à mesurer (Sami, 28/10)
+
+Sami : « les valeurs sont très basses en comparaison de lopin ; trouver les bons réglages pour un palier raisonnable,
+qui ne prenne pas trop de temps à tester ». Quatre réglages, un à la fois puis ensemble, chacun contre les réglages
+d'aujourd'hui, **par paires sur les mêmes journées ou services**, avec `diagnose` :
+
+| Variante | Ce qu'elle essaie | Budget | Racine | Plus bas | Profondeur | Élargissement |
+|---|---|---|---|---|---|---|
+| **A** | aujourd'hui | 64 (urgences : 100) | 4 ou 5 | 4 ou 5 | 2 | non |
+| **B** | plus de budget | ×4 | = | = | 2 | non |
+| **C** | plus de candidats à la racine | = | 8 | = | 2 | non |
+| **D** | plus profond | ×2 | = | = | 3 | non |
+| **E** | tout ensemble (« lopin léger ») | ×4 | 8 | +1 | 3 | 1 (progressif) |
+
+- **Pour chaque variante** : le gain par paires avec son intervalle (plats à temps, journées, retard), le temps par
+  décision contre A, et ce que dit `diagnose` (`closeCall` dont `settled`, `shallow`, le rang du coup joué).
+- **Le temps** : B et E coûtent jusqu'à 4 fois plus par décision (moins avec `earlyStop`). Chaque projet choisit ses
+  journées ou services pour tenir dans **1 h de la machine entière** au plus, et met l'estimation dans ses jobs.
+- **Ce qu'on en retient** : un réglage gagne si l'intervalle de son gain est au-dessus de zéro ; Sami décide ensuite
+  avec le prix en temps. Si E gagne et pas les autres, c'est la combinaison qui compte. Si rien ne gagne, les
+  réglages d'aujourd'hui suffisent pour ces problèmes, et la piste suivante est ailleurs (le déroulé, le score).
