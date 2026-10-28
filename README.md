@@ -17,7 +17,7 @@ planificateur de cette même file, puis aux urgences.
 | `mcts-urgences` | l'organisation des urgences d'un hôpital en crise | `random`, `events`, `schedule`, `mcts`, `measure`, puis `grid` |
 | `mcts-entrepot` | des robots d'entrepôt et un cariste | `random`, `events`, `mcts`, `grid`, `measure` |
 | `mcts-cuisine` | une cuisine à la *Overcooked*, un cuisinier et des robots | les mêmes que l'entrepôt |
-| `mcts-codingame` (venu de `E:\Dev\Algo code in game` le 27/10/2026) | les bots CodinGame de Sami, un dossier par jeu, leur build en un seul fichier et une arène locale | `mcts`, `grid`, `random` |
+| `mcts-codingame` (venu de `E:\Dev\Algo code in game` le 27/10/2026) | les bots CodinGame de Sami, un dossier par jeu, leur build en un seul fichier et une arène locale | `mcts`, `grid`, `random`, `beam`, `climb`, `pool` |
 
 Les essais demandés à chacun le 27/10 au soir, après les réglages pour un temps court : [`docs/essais-projets.md`](docs/essais-projets.md).
 
@@ -35,6 +35,9 @@ dans Lopin.
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
 | `grid` | les plans en texte, A* dans l'espace et le temps (qui renonce tôt à une cible hors d'atteinte), la table de réservations (`src/reservations.js`, réexportée) | fait |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
+| `beam` | le faisceau des tours courts, sans allocation (celui d'Hypersonic, 29/10) | fait |
+| `climb` | l'escalade d'un plan de nombres, sans allocation (celle de Mad Pod Racing, 29/10) | fait |
+| `pool` | des états réservés une fois, vues d'un seul tampon typé | fait |
 | `trace` | ce qui passe par la bibliothèque : compteurs, erreurs, appels lents (voir « Les traces ») | fait |
 
 ## Les signatures de `mcts`
@@ -159,6 +162,82 @@ c'est `escapeRoutes` avec la bombe ajoutée aux sources : au moins un `steps` à
 mondes communs garde le k-ième monde tiré, et l'état de son flux, puis en donne une copie à chaque coup de la racine.
 Les mêmes coups et les mêmes visites, sans les tirages répétés, contre autant de mondes en mémoire que le coup le plus
 visité a eu de visites.
+
+## Le faisceau et l'escalade, pour les tours de 50 ms (`beam`, `climb`, `pool`)
+
+Codingame en a eu besoin le 28/10/2026, et Sami a demandé de les mettre dans la lib le 29/10. MCTS ne sert pas ses deux
+meilleurs bots :
+- **Hypersonic v2** cherche par un faisceau : 14 tours sur 120 états ;
+- **Mad Pod Racing v4** cherche par une escalade sur le plan de ses deux pods. Il est 60e à 64e sur 1841 en Légende.
+
+Les deux recherches de la lib reprennent leur code dans le même ordre : un bot qui passe dessus joue les mêmes
+ordres.
+
+**Rien d'alloué pendant un tour.** Sur CodinGame, le ramasse-miettes poussait un tour d'objets à 45–72 ms sur 75.
+- **Les tampons sont réservés à la création** : les états, les tables, et un objet résultat réécrit à chaque appel.
+  Copiez ce que vous gardez.
+- **Les rappels du problème reçoivent des nombres et des vues typées.** Créez-les une fois, et qu'ils n'allouent rien
+  non plus.
+- **Ni trace ni chronométrage dans ces modules.**
+
+```js
+import { createBeam } from "mcts-commun/beam.js";
+import { createClimb } from "mcts-commun/climb.js";
+import { createStatePool, copyState } from "mcts-commun/pool.js";
+
+createStatePool(size, capacity, Type = Uint8Array)   // { buffer, states, size, capacity, count, take(), clear() }
+createBeam({ size, width, actions, Type = Uint8Array, table })
+  .run(root, problem, { depth, deadline, fade = 1, now }) → { first, score, depth, states }
+createClimb({ genes, Type = Float64Array })
+  .run(problem, { deadline, budget, rng, freshEvery = 10, clockEvery = 1, now }) → { plan, score, evaluations }
+```
+
+**Le faisceau** :
+- **Le problème** fournit trois fonctions :
+  - `play(parent, child, action, depth)` joue l'action sur `child`, une copie de `parent`. Elle rend le gain, ou `NaN`
+    pour écarter l'enfant (l'action ne se joue pas, ou il meurt) ;
+  - `value(state, depth)` dit ce que vaut l'état au-delà de ses gains ;
+  - `hash(state)`, facultative, rend une clé de 32 bits. Deux états de même clé n'en font qu'un, et le meilleur score
+    reste.
+- **Le score d'un enfant** : celui du parent, plus le gain atténué de `fade^depth`, plus `value`.
+- **Les `width` meilleurs enfants** forment la couche suivante, choisis par quickselect.
+- **L'échéance** est lue avant chaque parent. Une couche coupée est jetée : c'est la dernière complète qui décide.
+- **Le résultat** : `first`, la première action du meilleur plan, ou −1 si rien ne vit. Ce qu'un bot garde par nœud
+  va dans des octets de son état.
+
+**L'escalade** :
+- **Le problème** fournit ces fonctions :
+  - `start(plan)` écrit le premier plan ;
+  - `score(plan)` note un plan ;
+  - `shift(next, last, rng)`, facultative, écrit le meilleur plan du dernier appel décalé d'un tour, que la lib garde
+    dans son propre tampon ;
+  - `mutate(child, best, amplitude, rng)` et `fresh(plan, rng)`.
+- **Le déroulé** : un plan neuf tous les `freshEvery` plans, sinon le meilleur légèrement modifié. L'amplitude
+  descend de 1 à 0,1 à mesure que le temps, ou le budget, s'épuise. Un plan meilleur prend la place du meilleur.
+- **`budget`** fixe le nombre de plans notés, pour des tests et une équivalence déterministes.
+- **`forget()`** oublie le dernier plan, au début d'une nouvelle partie.
+- **Une recherche par instance** : prédire l'adversaire en demande une seconde.
+
+**L'horloge** : `performance.now()` alloue le nombre qu'il rend. C'est un passage du ramasse-miettes pour environ
+65 000 appels.
+- **Le faisceau** la lit une fois par parent.
+- **L'escalade** la lit à chaque plan, comme Mad Pod Racing. Avec `clockEvery: 8`, elle la lit un plan sur 8, et au
+  banc elle note 2 fois plus de plans dans le même temps.
+
+**Le hasard** n'allouait rien non plus après coup : `createRng` garde son état dans un `Uint32Array` depuis le
+29/10/2026. Les tirages sont les mêmes, et les empreintes n'ont pas bougé.
+- **Avant**, 4,5 millions de tirages appelaient le ramasse-miettes 104 à 139 fois.
+- **Maintenant**, ces tirages ne l'appellent plus, et ils vont 5 fois plus vite.
+
+**Le banc** : `node bench/beam-climb.js`, sous `--slot 1` à côté de la file, sur 1 000 tours d'un jeu de pièces.
+
+| Recherche | Temps d'un tour | Passages du ramasse-miettes |
+|---|---|---|
+| le faisceau de la lib (120 états, 10 actions, 14 tours) | 5,2 ms | 0 |
+| le même faisceau écrit avec des objets et un tri | 8,5 ms | 281 |
+| l'escalade (24 gènes), budget de 1 500 plans | 0,13 ms | 1 |
+
+Quand les prendre plutôt que MCTS : [`docs/recherche.md`](docs/recherche.md), « Faisceau et escalade ».
 
 ## Comment les projets s'en servent
 

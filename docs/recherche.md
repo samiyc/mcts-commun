@@ -92,6 +92,28 @@ const path = astar(plan, me, target, { passable, horizon: 30, maxNodes: 3000, pa
   concaténer les modules au moment de soumettre (un petit script, ou esbuild). À faire au premier défi, pas avant.
 - **Les traces** coûtent une addition par appel quand `MCTS_TRACE` n'est pas posé ; le fichier n'est jamais chargé.
 
+### Faisceau et escalade, pour les jeux à 50 ms (29/10/2026)
+
+MCTS (`search`) cherche sous incertitude : il tire des mondes, il fait jouer les acteurs chacun leur tour. Dans un jeu
+presque déterministe à 50 ms le tour, deux recherches de la lib font mieux (le README, « Le faisceau et l'escalade ») :
+- **le faisceau** (`createBeam`), quand nos actions sont peu nombreuses et discrètes et que les adversaires se
+  modélisent simplement. Hypersonic v2 : 10 actions, 14 tours, 120 états ; « la profondeur paie, pas la largeur »
+  (75/3/2 à 14 tours, 65/7/8 à 10 ; 300 états au lieu de 120 n'apportent rien) ;
+- **l'escalade** (`createClimb`), quand le coup est un plan de nombres (un angle et une poussée par tour) et que le plan
+  du tour d'avant, décalé, est déjà bon. Mad Pod Racing v4 : 24 gènes, l'adversaire prédit par une seconde escalade.
+
+Ce qu'il faut pour le ramasse-miettes, appris par codingame le 28/10 et mesuré au banc le 29/10
+(`bench/beam-climb.js`) :
+- **un état typé et compact** (un `Uint8Array` copié par `set`), avec un test d'équivalence champ par champ contre
+  le moteur lisible ;
+- **rien d'alloué par nœud ni par plan** : ni objet, ni tableau, ni `Map`, ni tri complet. Un faisceau d'objets
+  coûte 1,6 fois le temps et 281 passages du ramasse-miettes en 1 000 tours, contre 0 pour celui de la lib ;
+- **le hasard et l'horloge** : `createRng` n'alloue plus rien depuis le 29/10, et il va 5 fois plus vite ;
+  `performance.now()` alloue toujours, `clockEvery` le lit moins souvent ;
+- **une feuille atténuée comme les gains** (`fade`), sinon la recherche remet à plus tard ce qui rapporte ;
+- **une prudence par niveaux** quand rien ne survit au pire, plutôt que de rester sur place : le bot rappelle `run`
+  avec un modèle moins méfiant.
+
 ### Pour les jobs de la backlog
 
 - `earlyStop: true` sur les recherches à `budget` des cuisines et de l'entrepôt : le même coup, moins d'itérations.
@@ -201,7 +223,8 @@ qu'une règle simple, avec son intervalle.
 
 | Quoi | Pour qui | Quand | Pourquoi |
 |---|---|---|---|
-| **beam search** (`expand`, `score`, `width`, `deadline`, une quarantaine de lignes) | CodinGame | au premier défi qui s'y prête | l'outil le plus cité des post-mortems pour un jeu presque déterministe ; inutile pour nos projets, où le hasard (les durées, les arrivées) appelle des scénarios |
+| **beam search** | CodinGame | **dans la lib depuis le 29/10** (`beam`, celui d'Hypersonic v2) | l'outil le plus cité des post-mortems pour un jeu presque déterministe ; inutile pour nos projets, où le hasard (les durées, les arrivées) appelle des scénarios |
+| **l'escalade d'un plan continu** | CodinGame | **dans la lib depuis le 29/10** (`climb`, celle de Mad Pod Racing v4) | 1152e à 64e sur 1841 en une soirée ; le génétique, cité aussi par les post-mortems, attend qu'un bot le prouve |
 | **PIBT** (un pas pour toutes les unités, priorité à la bloquée) | l'entrepôt d'abord, puis la cuisine et les jeux à plusieurs unités | quand l'entrepôt grandit : plus de robots, des plans plus larges | des centaines d'unités en millisecondes ; à mesurer contre l'A* coopératif sur les mêmes journées |
 | **Smitsimax / UCT découplé** | CodinGame, coups simultanés | au premier défi de ce genre | notre ISMCTS fait jouer un acteur après l'autre |
 | **la réutilisation de l'arbre** d'un tour à l'autre (`reuse` de Lopin) | CodinGame, Lopin | au premier défi | les itérations du tour d'avant sont gratuites ; à mesurer, Lopin ne l'a pas départagée |

@@ -30,6 +30,9 @@
     "./grid.js": "./src/grid.js",
     "./schedule.js": "./src/schedule.js",
     "./trace.js": "./src/trace.js",
+    "./beam.js": "./src/beam.js",
+    "./climb.js": "./src/climb.js",
+    "./pool.js": "./src/pool.js",
     "./machine.js": "./node/machine.js",
     "./trace-preload.js": "./node/trace-preload.js"
   },
