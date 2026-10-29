@@ -96,12 +96,14 @@ que personne ait à le relancer.
   ```
   La fenêtre réduite est le lanceur. La fermer l'arrête, et les jobs qu'il laisse reviennent dans la file au démarrage
   suivant (`requeueOrphans`).
-- **La nuit** : un lanceur permanent prend un job dès qu'il arrive, de jour aussi. Un long job qui doit attendre la
-  nuit s'ajoute avec `--not-before 2026-10-30T20:00`. La priorité et `due` ne changent pas.
+- **Le jour aussi** : un lanceur permanent prend un job dès qu'il arrive. Sami (30/10/2026) : les jobs de jour sont
+  bienvenus tant que la file reste sous contrôle, 18 fils au plus ; s'il veut le PC pour lui, il coupe le lanceur. Un
+  job qui doit attendre la nuit s'ajoute avec `--not-before 2026-10-30T20:00`. La priorité et `due` ne changent pas.
 - **Son code** : un lanceur garde le code de `node/` chargé à son démarrage. Après un changement de la file dans
   commun, il faut le relancer pour qu'il le prenne, quand aucun job ne tourne, et seulement avec l'accord de Sami.
 - **Le premier** a démarré le 30/10/2026 à 00:30, à la main (la commande du raccourci), sur le code de `c5a6295` :
-  il tourne jusqu'à ce que sa fenêtre soit fermée ou le PC éteint. Le raccourci reprend la suite au démarrage suivant.
+  il tourne jusqu'à ce que sa fenêtre soit fermée ou le PC éteint. Sami a installé le raccourci le même jour : le
+  lanceur repart à chaque ouverture de session.
 
 Pour suivre un job pas à pas, on lit la fin de `output` (le fichier grandit pendant le job) ou de `trace`. On peut
 aussi passer par le serveur de la page : `GET /api/backlog` et `GET /api/backlog/tail?id=…&kind=output|trace`, en
