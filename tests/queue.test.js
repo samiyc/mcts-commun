@@ -208,4 +208,35 @@ describe("the backlog for other tools (bin/backlog.js, docs/backlog.md, Sami 26/
       const journal = await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8");
       assert.match(journal, /"kind":"job-skipped","id":"skip"/);
     }));
+
+  it("stays with --stay: waits on an empty queue, runs a job added later, lets no second one start (Sami, 29/10)", () =>
+    scratch(async (home, folder) => {
+      const runner = spawn(process.execPath, [RUNNER, "--home", home, "--stay"], { env: quiet });
+      const ended = new Promise((resolve) => runner.once("exit", resolve));
+      try {
+        while (!(await readFile(path.join(home, "stay.json"), "utf8").catch(() => ""))) await new Promise((resolve) => setTimeout(resolve, 50));
+        assert.match((await backlog(home, "--stay")).stdout, new RegExp(`tourne déjà \\(pid ${runner.pid}`));
+        await backlog(home, "--add", "later", "--cwd", folder, "--estimate", "1 min", "--", sleeper(10));
+        assert.equal(await codeOf(home, "--wait", "later", "--timeout", "1"), 0);
+        assert.equal(runner.exitCode, null, "still there once the queue is empty again");
+        const view = JSON.parse((await backlog(home, "--list", "--json")).stdout);
+        assert.ok(view.runners.some((one) => one.pid === runner.pid && one.alive && one.stay), "shown, as the permanent runner");
+        const journal = await readFile(path.join(home, "journal", (await readdir(path.join(home, "journal")))[0]), "utf8");
+        assert.equal(journal.match(/"kind":"runner-idle"/g)?.length, 2, "said once a time the queue went empty");
+      } finally {
+        runner.kill();
+        await ended;
+      }
+    }));
+
+  it("holds a job until its time with --not-before, and refuses a time it cannot read (Sami, 29/10)", () =>
+    scratch(async (home, folder) => {
+      await backlog(home, "--add", "night", "--cwd", folder, "--not-before", "2099-01-01T20:00", "--", sleeper(10));
+      const night = await statusOf(home, "night");
+      assert.deepEqual([night.status, night.notBefore], ["scheduled", "2099-01-01T20:00"]);
+      await assert.rejects(backlog(home, "--add", "bad", "--cwd", folder, "--not-before", "ce soir", "--", sleeper(10)), /illisible/);
+      assert.match((await backlog(home, "--set-priority", "night", "1")).stdout, /night/, "a scheduled job is a job to come");
+      await backlog(home);
+      assert.equal((await statusOf(home, "night")).status, "scheduled", "a runner without --stay does not wait for it");
+    }));
 });

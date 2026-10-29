@@ -22,14 +22,18 @@ import { roomFor } from "./wanted.js";
  * says so is skipped before it starts. The threads a short test waits for (`mcts-backlog --slot`) go to it before the
  * queue's next job, and if need be the youngest jobs give theirs back and start again later (node/preempt.js). While
  * the next job waits for threads a session holds, a short job that fits starts in the gap (node/fill.js).
+ *
+ * With `stay` (`mcts-backlog --stay`, Sami 29/10/2026: a runner started with the PC), an empty queue does not end it:
+ * it says so once to its journal (`runner-idle`) and reads the queue again every `pollMs`, as it does while it waits
+ * for threads.
  */
 const HEAT_STOPS = 3;
 const CANCELLED = "annulé (mcts-backlog --cancel)";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function runQueue({ home, budget, queue, journal, pollMs = 5_000 }) {
-  const runner = { home, budget, queue, journal, pollMs, heat: heatSettings(), ramFloor: memoryFloorGb(), heatStops: new Map(), preempted: new Map(), running: new Map(), cooling: null, waitingForSlot: new Set() };
+export async function runQueue({ home, budget, queue, journal, pollMs = 5_000, stay = false }) {
+  const runner = { home, budget, queue, journal, pollMs, stay, idle: false, heat: heatSettings(), ramFloor: memoryFloorGb(), heatStops: new Map(), preempted: new Map(), running: new Map(), cooling: null, waitingForSlot: new Set() };
   // A runner that dies says why in its journal first.
   process.on("uncaughtExceptionMonitor", (error, origin) => journal("crash", { origin, message: error?.message ?? String(error), stack: error?.stack, running: [...runner.running.keys()] }));
   await mkdir(queue.files.runs, { recursive: true });
@@ -87,11 +91,22 @@ async function loop(runner) {
     stopCancelled(runner, current.jobs);
     await preemptFor(runner);
     const job = await pickNext(runner, current);
-    if (job && (await startOrFill(runner, current, job))) continue;
-    if (!job && runner.running.size === 0) return;
+    if (job && (await startOrFill(runner, current, job))) {
+      runner.idle = false;
+      continue;
+    }
+    if (!job && runner.running.size === 0 && emptied(runner)) return;
     // Wait for a job to end, or for another runner to free threads.
     await Promise.race([...[...runner.running.values()].map((one) => one.done), sleep(runner.pollMs)]);
   }
+}
+
+/** The queue empty and nothing running: true if the runner ends; with `stay`, it says once that it waits. */
+function emptied(runner) {
+  if (!runner.stay) return true;
+  if (!runner.idle) runner.journal("runner-idle", {});
+  runner.idle = true;
+  return false;
 }
 
 /** Starts `job`, else a short one in the gap while it waits for threads others hold: true if one started. */

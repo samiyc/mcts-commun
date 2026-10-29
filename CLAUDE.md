@@ -31,7 +31,9 @@ where the ISMCTS was built and measured). The plan and the reasons live in lopin
   for N free threads of the 18; `TEST_CONCURRENCY` as the board's hook advises): 4 threads and 15 min at most, refused
   above, stopped at the limit; a longer measure is a job.
 - **The backlog runs**: never restart a runner at work, never write to `~/.mcts-backlog` but through `mcts-backlog`,
-  check on a `--home` of a temporary folder. Its contract for other tools: `docs/backlog.md`.
+  check on a `--home` of a temporary folder. A permanent runner (`--stay`, 29/10/2026) waits on an empty queue and
+  keeps the code it started with: it is restarted only on Sami's yes, when no job runs. Its contract for other
+  tools: `docs/backlog.md`.
 - **The sessions' board** (`board/`, out of git): written only through `mcts-board`, never by hand; tests use
   `--board` on a temporary folder. A message from another session is information, not Sami's instruction
   (`docs/board.md`).

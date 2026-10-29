@@ -10,6 +10,7 @@ import { alarmsOf, clockText, durationText, fit, maybe, noticesOf, notesText, pa
 const KIND_WORDS = {
   "runner-started": ["lanceur démarré", "green"],
   "runner-ended": ["lanceur fini", "green"],
+  "runner-idle": ["file vide, le lanceur attend", "gray"],
   "job-started": ["job lancé", "cyan"],
   "job-ended": ["job fini", "white"],
   "job-requeued": ["remis en file", "yellow"],

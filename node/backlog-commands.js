@@ -17,6 +17,7 @@ const REQUIRED = ["id", "cwd", "command"];
 function checkJob(job) {
   const missing = REQUIRED.filter((key) => typeof job[key] !== "string" || job[key].trim() === "");
   if (missing.length) throw new Error(`job ${job.id ?? "?"} incomplet : ${missing.join(", ")}`);
+  if (job.notBefore !== undefined && Number.isNaN(Date.parse(job.notBefore))) throw new Error(`job ${job.id} : notBefore illisible, « ${job.notBefore} » (2026-10-30T20:00)`);
 }
 
 /**
@@ -60,7 +61,7 @@ export async function jobsOfFile(file, tag, extra = {}) {
   const { jobs } = JSON.parse(await readFile(file, "utf8"));
   const tagged = (id) => (tag === null ? id : `${id}-${tag}`);
   const cwdOf = (job) => path.resolve(path.dirname(file), job.cwd ?? ".");
-  return jobs.map((job) => ({ status: "todo", estimate: "1 h", ...job, ...extra, id: tagged(job.id), cwd: cwdOf(job), ...(job.after ? { after: job.after.map(tagged) } : {}) }));
+  return jobs.map((job) => ({ status: job.notBefore ? "scheduled" : "todo", estimate: "1 h", ...job, ...extra, id: tagged(job.id), cwd: cwdOf(job), ...(job.after ? { after: job.after.map(tagged) } : {}) }));
 }
 
 /** Where a job stands, read from the queue or the archive: null for an id never seen. */
@@ -146,7 +147,7 @@ export async function setPriority(queue, pattern, priority) {
   if (![1, 2, 3].includes(priority)) throw new Error(`priorité ${priority} : 1, 2 ou 3`);
   const matches = idPattern(pattern);
   return queue.change((current) => {
-    const ids = current.jobs.filter((job) => job.status === "todo" && matches.test(job.id)).map((job) => job.id);
+    const ids = current.jobs.filter((job) => ["todo", "scheduled"].includes(job.status) && matches.test(job.id)).map((job) => job.id);
     if (ids.length === 0) return { keep: true, ids };
     for (const job of current.jobs) if (ids.includes(job.id)) job.priority = priority;
     return { ids };

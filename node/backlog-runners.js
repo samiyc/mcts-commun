@@ -5,7 +5,7 @@
  */
 
 // What only a runner writes: its start, its jobs, its waits, its guards ("added" or "cancel-asked" come from anyone).
-const RUNNER_KINDS = new Set(["runner-started", "job-started", "job-ended", "job-preempting", "job-preempted", "job-requeued", "job-skipped", "job-cancelled", "slot-waiting", "heat-alert", "heat-resumed", "memory-stop", "orphans-requeued"]);
+const RUNNER_KINDS = new Set(["runner-started", "job-started", "job-ended", "job-preempting", "job-preempted", "job-requeued", "job-skipped", "job-cancelled", "slot-waiting", "heat-alert", "heat-resumed", "memory-stop", "orphans-requeued", "runner-idle"]);
 
 /** The pids of the runners the journal shows at work and not ended: its start may be long past the lines read. */
 export function startedRunners(journal = []) {
@@ -40,18 +40,19 @@ function sinceOf({ journal, starts, pid, mine }) {
 }
 
 /**
- * The runners at work: those holding slots or running jobs, alive or not, and those alive the journal says started;
- * since when, and for a runner of the queue, the next job it waits threads for (`next`, the night's first).
+ * The runners at work: those holding slots or running jobs, alive or not, those alive the journal says started, and
+ * the permanent one (`stay`, node/stay.js); since when, and for a runner of the queue, the next job it waits threads
+ * for (`next`, the night's first).
  */
-export function runnersOf({ slots, jobs, journal, alivePids, next = null, budget = Infinity, starts = {} }) {
+export function runnersOf({ slots, jobs, journal, alivePids, next = null, budget = Infinity, starts = {}, stay = null }) {
   const held = [...slots.map((slot) => slot.pid), ...jobs.filter((job) => job.status === "running").map((job) => job.runnerPid)];
-  const idle = startedRunners(journal).filter((pid) => alivePids.includes(pid));
+  const idle = [...startedRunners(journal), stay?.pid].filter((pid) => alivePids.includes(pid));
   const pids = [...new Set([...held, ...idle].filter(Boolean))];
   return pids.map((pid) => {
     const mine = slots.filter((slot) => slot.pid === pid);
     const since = sinceOf({ journal, starts, pid, mine });
     const runner = mine[0]?.runner ?? "mcts-backlog";
     const waiting = runner === "session" || !alivePids.includes(pid) ? null : waitingOf({ slots, next, budget, pid });
-    return { pid, runner, alive: alivePids.includes(pid), threads: mine.reduce((sum, slot) => sum + slot.threads, 0), jobs: mine.length, since, waiting };
+    return { pid, runner, alive: alivePids.includes(pid), threads: mine.reduce((sum, slot) => sum + slot.threads, 0), jobs: mine.length, since, waiting, stay: pid === stay?.pid };
   });
 }

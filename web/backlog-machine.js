@@ -9,7 +9,8 @@ function runnerTile(view) {
   const runner = queue.find((one) => one.alive) ?? queue[0];
   if (!runner) return ["Lanceur", '<span class="dot off"></span>aucun', "npx mcts-backlog pour jouer la file"];
   const since = runner.since ? durationText((view.now - Date.parse(runner.since)) / 60_000) : "";
-  const state = runner.alive ? '<span class="dot on"></span>en marche' : '<span class="dot off"></span>arrêté';
+  const working = runner.stay ? "permanent" : "en marche";
+  const state = runner.alive ? `<span class="dot on"></span>${working}` : '<span class="dot off"></span>arrêté';
   const waits = runner.waiting ? ` · attend ${runner.waiting.threads} fils pour ${escape(runner.waiting.id)} (${runner.waiting.free} libres)` : "";
   return ["Lanceur", state, `${escape(runner.runner)} pid ${runner.pid}${maybe(since, " · depuis ")}${waits}`];
 }

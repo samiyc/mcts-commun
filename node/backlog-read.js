@@ -4,6 +4,7 @@ import path from "node:path";
 import { startedRunners } from "./backlog-runners.js";
 import { readJournal, runnerStarts } from "./journal.js";
 import { alive, heatSettings, readCpuTemperature, readSlots, threadBudget } from "./machine.js";
+import { readStay } from "./stay.js";
 import { tailOf } from "./tail.js";
 import { readWanted } from "./wanted.js";
 
@@ -104,6 +105,12 @@ async function startsOf(home, pids, journal) {
   return Object.fromEntries(pids.map((pid) => [pid, inTail[pid] ?? knownStarts.get(`${home}:${pid}`) ?? null]));
 }
 
+/** The runners' starts: the journal's, and the permanent runner's own (node/stay.js). */
+async function allStarts(home, journal, stay) {
+  const starts = await startsOf(home, startedRunners(journal).filter((pid) => alive(pid)), journal);
+  return stay ? { [stay.pid]: stay.since, ...starts } : starts;
+}
+
 /** Everything the views need, read from `home` without writing a byte. */
 export async function readBacklog(home, { now = Date.now(), budget = threadBudget(), machine = true } = {}) {
   const [queue, archive, slots, wanted, journal, runs] = await Promise.all([readJson(path.join(home, "queue.json"), { jobs: [] }), readArchive(home), readSlots(home), readWanted(home), readJournal(home, 300), readdir(path.join(home, "runs")).catch(() => [])]);
@@ -121,7 +128,8 @@ export async function readBacklog(home, { now = Date.now(), budget = threadBudge
   );
   const folders = [...new Set([...jobs, ...archive.slice(-50)].map((job) => job.cwd).filter(Boolean))];
   const traces = await readTraces(home, folders);
-  const pids = [...new Set([...slots.map((slot) => slot.pid), ...running.map((job) => job.runnerPid), ...startedRunners(journal)].filter(Boolean))];
+  const stay = await readStay(home);
+  const pids = [...new Set([...slots.map((slot) => slot.pid), ...running.map((job) => job.runnerPid), ...startedRunners(journal), stay?.pid].filter(Boolean))];
   return {
     home,
     now,
@@ -134,7 +142,8 @@ export async function readBacklog(home, { now = Date.now(), budget = threadBudge
     outputs,
     traces,
     alivePids: pids.filter((pid) => alive(pid)),
-    runnerStarts: await startsOf(home, startedRunners(journal).filter((pid) => alive(pid)), journal),
+    runnerStarts: await allStarts(home, journal, stay),
+    stay,
     machine: machine ? { cores: os.cpus().length, freeGb: round(os.freemem() / GB), totalGb: round(os.totalmem() / GB), cpu: await cpuReading(now) } : null,
   };
 }

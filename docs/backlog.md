@@ -47,6 +47,9 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
   sert pour ses duels : une série partie trop bas s'arrête là.
 - **Les statuts** : `todo`, `scheduled` (avec `notBefore`), `running`, puis une fin parmi `done`, `failed`,
   `timeout`, `skipped` et `cancelled`. Un job fini part dans `done/`.
+- **`notBefore`** (`--not-before 2026-10-30T20:00` sur `--add`, ou dans le fichier de `--add-file`) : le job attend
+  cette heure, en `scheduled`. Une heure illisible est refusée à l'ajout. C'est ainsi qu'un long job garde la nuit
+  quand un lanceur permanent tourne (§ « Un lanceur permanent »).
 - Le job reçoit `MCTS_THREADS` (ses fils), `MCTS_TRACE_FILE` (sa trace), `MCTS_BACKLOG_HOME`, et dans
   `NODE_OPTIONS` un `--import` qui ouvre sa trace avant ses propres modules (`node/trace-preload.js`).
 - **La commande** après `--` : un seul mot est la ligne telle quelle pour le shell (`-- "npm run x -- --a 1"`) ;
@@ -62,7 +65,9 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 
 | Commande | Ce qu'elle fait | Sortie | Code |
 |---|---|---|---|
-| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--measured`, `--threads`, `--priority`, `--after A,B`, `--due`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant, dossier introuvable) |
+| (aucune) | lance la file jusqu'au bout : le lanceur s'arrête quand plus rien n'est prêt | ses lignes | 0 |
+| `--stay` | lance la file et reste : la file vide, il la relit toutes les 5 s et prend les jobs qui arrivent, `scheduled` compris à leur heure. Un seul à la fois : un second `--stay` s'en va (§ « Un lanceur permanent ») | ses lignes ; « Un lanceur permanent tourne déjà » | 0 |
+| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--measured`, `--threads`, `--priority`, `--after A,B`, `--due`, `--not-before`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant, dossier introuvable, heure illisible) |
 | `--add-file PROJET/night.json [--tag T | --no-tag] [--measured]` | ajoute les jobs d'un fichier, chaque id suffixé de `-T` (la date du jour par défaut ; `--no-tag` garde les ids), chacun lancé dans son `cwd` (relatif au fichier, son dossier par défaut) | une ligne par job | 0 ou 1 |
 | `--status ID [--json]` | où en est un job : à venir (`plannedStart`, ou `waiting` et `blocked`), en cours, fini (`status`, `reason`, `minutes`) ; `output` et `trace` en chemins absolus ; tiré de sa trace, `incidents` (`errors`, `crashed`, `slow`, `overbooked`) et `reported` (le dernier `progress` : `done`, `of`, `unit`, `endAt`) | une ligne, ou un objet JSON (`null` si l'id est inconnu) | 0, ou 3 si l'id est inconnu |
 | `--wait ID [--timeout MIN] [--json]` | attend la fin du job, en relisant la file toutes les 2 s | comme `--status` | 0 fini, 1 échec ou trop long, 2 annulé ou sauté, 3 inconnu, 4 pas fini au bout de `--timeout` |
@@ -73,6 +78,28 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 | `--push MACHINE`, `--pull MACHINE`, `--list --machine MACHINE` | une autre machine : les jobs marqués `--machine MACHINE` (sur `--add` ou `--add-file`) y partent, sa file se lit d'ici, ses résultats reviennent ([`distant.md`](distant.md)) | des lignes, ou la vue JSON de là-bas | 0, ou 1 si la machine est inconnue ou injoignable |
 | `--help` | l'aide ; une option inconnue est refusée (code 1) et ne lance jamais de lanceur | du texte | 0 |
 | `--list --json` | toute la vue : la machine, les jobs en cours, la nuit à venir, les bloqués, les finis, le journal, les traces | un objet JSON | 0 |
+
+## Un lanceur permanent
+
+Sami (29/10/2026) : le lanceur démarre avec le PC, et la file vide ne l'arrête plus. Il attend les jobs suivants, sans
+que personne ait à le relancer.
+- **`mcts-backlog --stay`** : la file vide, le lanceur écrit une fois `runner-idle` à son journal, puis relit la
+  file toutes les 5 s (`MCTS_BACKLOG_POLL_MS`). C'est la relecture qu'il fait déjà en attendant des fils, et elle ne
+  coûte presque rien. Les créneaux `--slot` sont servis comme avant.
+- **Un seul à la fois** : il s'inscrit dans `stay.json` (`{ pid, since }`, `node/stay.js`). Un second `--stay` y
+  trouve un pid vivant et s'en va, avec le code 0 : le lancer à chaque ouverture de session ne risque rien. Les vues le
+  montrent « permanent » même quand son démarrage est sorti des lignes du journal qu'elles lisent.
+- **Le démarrage avec le PC**, que Sami installe lui-même, puisque c'est un réglage permanent de sa machine. Un
+  raccourci dans le dossier de démarrage (`Win+R`, `shell:startup`), dont la cible est :
+  ```
+  cmd /c start "mcts-backlog" /min node "E:DevMy projectsmcts-communinacklog.js" --stay
+  ```
+  La fenêtre réduite est le lanceur. La fermer l'arrête, et les jobs qu'il laisse reviennent dans la file au démarrage
+  suivant (`requeueOrphans`).
+- **La nuit** : un lanceur permanent prend un job dès qu'il arrive, de jour aussi. Un long job qui doit attendre la
+  nuit s'ajoute avec `--not-before 2026-10-30T20:00`. La priorité et `due` ne changent pas.
+- **Son code** : un lanceur garde le code de `node/` chargé à son démarrage. Après un changement de la file dans
+  commun, il faut le relancer pour qu'il le prenne, quand aucun job ne tourne, et seulement avec l'accord de Sami.
 
 Pour suivre un job pas à pas, on lit la fin de `output` (le fichier grandit pendant le job) ou de `trace`. On peut
 aussi passer par le serveur de la page : `GET /api/backlog` et `GET /api/backlog/tail?id=…&kind=output|trace`, en
@@ -393,3 +420,6 @@ Sami a demandé à chaque session son retour d'expérience de la journée du 28/
 - **le shell `cmd.exe` est dit** dans l'aide de `--slot` et dans § « Un job » (lopin, cuisine) ;
 - **un lanceur n'est plus dit « en attente »** quand il attend la fin de ses propres jobs ;
 - les leçons communes, dans la recommandation 10.
+
+Le soir, Sami a demandé un lanceur permanent (codingame) : **`--stay`** et **`--not-before`**, § « Un lanceur
+permanent ».

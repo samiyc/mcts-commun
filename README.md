@@ -297,6 +297,7 @@ npx mcts-backlog --add ent-sami --cwd ../mcts-entrepot --estimate "40 min" -- np
 npx mcts-backlog --list      # la machine, les jobs en cours, la nuit à venir, les bloqués, les derniers finis
 npx mcts-backlog --tui       # la même chose en direct, façon k9s
 npx mcts-backlog             # joue la file jusqu'au bout
+npx mcts-backlog --stay      # la joue et reste, à attendre les jobs suivants (un lanceur permanent, démarré avec le PC)
 npx mcts-backlog --add-file ../mcts-entrepot/night.json   # les mesures de nuit d'un projet
 npx mcts-backlog --status ent-sami --json   # où en est un job ; --wait l'attend, --cancel l'annule, --retry le relance, --set-priority "motif-*" N change sa priorité
 ```
