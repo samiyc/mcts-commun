@@ -147,7 +147,9 @@ chaque projet. Le détail est dans leurs dépôts :
 | **urgences** (garde, box, HET) | 3 à 7 % de mieux, sûr sur la garde seulement | **pendant l'accident** : garde −16 %, box −5 % | la garde d'un jour ordinaire : −9 % | **pendant l'accident** : garde −19 %, box −13 % |
 | **Le temps d'une décision, contre A** | 3 à 4 fois | 1 fois | 1,6 à 2 fois | 3,3 à 4 fois |
 
-Rien n'est prouvé sur les lignes et à l'usine de l'entrepôt, ni sur le HET d'urgences (deux coups, un choix net). Sur
+Rien n'est prouvé sur les lignes et à l'usine de l'entrepôt. Sur le HET d'urgences (deux coups, un choix net), aucun
+gain n'est prouvé, mais D y fait sûrement moins bien que A : +70 (+14 à +125) sur 42 347. Il obtient plus de lits (4,7
+contre 3,9), qui lui coûtent plus qu'ils ne rapportent (urgences, 29/10). Sur
 le plan de Sami, toutes les variantes perdent 2 à 4 tours, mais ses 30 journées sont presque une seule situation
 répétée : l'intervalle y surestime la généralité.
 
