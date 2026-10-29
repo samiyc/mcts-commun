@@ -100,7 +100,9 @@ presque déterministe à 50 ms le tour, deux recherches de la lib font mieux (le
   modélisent simplement. Hypersonic v2 : 10 actions, 14 tours, 120 états ; « la profondeur paie, pas la largeur »
   (75/3/2 à 14 tours, 65/7/8 à 10 ; 300 états au lieu de 120 n'apportent rien). La largeur paie pourtant quand elle
   s'étale : Hypersonic v4 garde 500 états, mais au plus 12 sur la case de son joueur (`group`, `perGroup`), et gagne
-  61 % des duels à 4 contre la v3 [54-68] (de la 241e place à environ la 20e en Légende) ;
+  61 % des duels à 4 contre la v3 [54-68] (de la 241e place à environ la 20e en Légende). Le plafond par case est plat
+  de 6 à 30 ; contraindre la racine (un quota par premier coup, le Sequential Halving) fait perdre, 36 % contre la v4
+  (codingame, 29/10 au soir, `docs/beam-search-infos.md` de mcts-codingame) : le faisceau local simple reste le réglage ;
 - **l'escalade** (`createClimb`), quand le coup est un plan de nombres (un angle et une poussée par tour) et que le plan
   du tour d'avant, décalé, est déjà bon. Mad Pod Racing v4 : 24 gènes, l'adversaire prédit par une seconde escalade.
 

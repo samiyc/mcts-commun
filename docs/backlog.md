@@ -92,7 +92,7 @@ que personne ait à le relancer.
 - **Le démarrage avec le PC**, que Sami installe lui-même, puisque c'est un réglage permanent de sa machine. Un
   raccourci dans le dossier de démarrage (`Win+R`, `shell:startup`), dont la cible est :
   ```
-  cmd /c start "mcts-backlog" /min node "E:DevMy projectsmcts-communinacklog.js" --stay
+  cmd /c start "mcts-backlog" /min node "E:\Dev\My projects\mcts-commun\bin\backlog.js" --stay
   ```
   La fenêtre réduite est le lanceur. La fermer l'arrête, et les jobs qu'il laisse reviennent dans la file au démarrage
   suivant (`requeueOrphans`).
@@ -100,6 +100,8 @@ que personne ait à le relancer.
   nuit s'ajoute avec `--not-before 2026-10-30T20:00`. La priorité et `due` ne changent pas.
 - **Son code** : un lanceur garde le code de `node/` chargé à son démarrage. Après un changement de la file dans
   commun, il faut le relancer pour qu'il le prenne, quand aucun job ne tourne, et seulement avec l'accord de Sami.
+- **Le premier** a démarré le 30/10/2026 à 00:30, à la main (la commande du raccourci), sur le code de `c5a6295` :
+  il tourne jusqu'à ce que sa fenêtre soit fermée ou le PC éteint. Le raccourci reprend la suite au démarrage suivant.
 
 Pour suivre un job pas à pas, on lit la fin de `output` (le fichier grandit pendant le job) ou de `trace`. On peut
 aussi passer par le serveur de la page : `GET /api/backlog` et `GET /api/backlog/tail?id=…&kind=output|trace`, en
