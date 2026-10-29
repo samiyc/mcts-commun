@@ -89,6 +89,34 @@ function plainBeam(root, problem, { width, depth, fade }) {
   return found;
 }
 
+/**
+ * A local beam written plainly, as Hypersonic v4's `pruneLocal` (codingame, 29/10/2026): the children of a layer
+ * (in the order they are made, a state seen again in its first place) sorted by score with a stable sort, then at
+ * most `perGroup` of a cell taken in turn.
+ */
+function plainLocalBeam(root, problem, { width, depth, fade, perGroup }) {
+  let beam = [{ state: root, reward: 0, score: 0, firsts: new Set([0]) }];
+  let found = { firsts: new Set([-1]), score: 0, depth: 0 };
+  for (let d = 1; d <= depth; d += 1) {
+    const seen = new Map();
+    for (const node of beam) for (let a = 0; a < STEPS.length; a += 1) offer(seen, problem, { node, a, d, fade });
+    if (seen.size === 0) break;
+    const onCell = new Map();
+    const fits = (node) => {
+      const cell = problem.group(node.state);
+      onCell.set(cell, (onCell.get(cell) ?? 0) + 1);
+      return onCell.get(cell) <= perGroup;
+    };
+    beam = [...seen.values()].sort((a, b) => b.score - a.score).filter(fits).slice(0, width);
+    const top = beam.reduce((best, node) => (node.score > best.score ? node : best));
+    found = { firsts: top.firsts, score: top.score, depth: d };
+  }
+  return found;
+}
+
+/** The walker's cell, a local beam's group. */
+const cellOf = (s) => s[1] * SIDE + s[0];
+
 describe("the beam (src/beam.js, codingame 28/10)", () => {
   it("finds what a plain beam finds: the same score and depth, a first action of the best, on 200 seeds", () => {
     const beam = createBeam({ size: SIZE, width: 12, actions: STEPS.length });
@@ -126,6 +154,36 @@ describe("the beam (src/beam.js, codingame 28/10)", () => {
     const play = (parent, child, action, depth) => ((late ||= depth === 3), problem.play(parent, child, action));
     const found = beam.run(game.root, { ...problem, play }, { depth: 9, deadline: 1, now: () => (late ? 2 : 0) });
     assert.deepEqual([found.first, found.score, found.depth], [two.first, two.score, 2]);
+  });
+
+  it("keeps a local beam as Hypersonic v4 does: the same as a plain one sorted and capped by cell, on 200 seeds", () => {
+    const beam = createBeam({ size: SIZE, width: 12, actions: STEPS.length, groups: SIDE * SIDE });
+    let capped = 0;
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const game = gameOf(seed);
+      const problem = { ...problemOf(game), group: cellOf };
+      const found = beam.run(game.root, problem, { depth: 9, fade: 0.9, perGroup: 1 });
+      const plain = plainLocalBeam(game.root, problem, { width: 12, depth: 9, fade: 0.9, perGroup: 1 });
+      assert.deepEqual([found.score, found.depth], [plain.score, plain.depth], `seed ${seed}`);
+      assert.ok(plain.firsts.has(found.first), `seed ${seed}: ${found.first} not among ${[...plain.firsts]}`);
+      if (found.score !== plainBeam(game.root, problemOf(game), { width: 12, depth: 9, fade: 0.9 }).score) capped += 1;
+    }
+    assert.ok(capped > 20, `the cap changed ${capped} searches only: the check would say little`);
+  });
+
+  it("puts at most perGroup states of a cell in each layer, and wants its groups at creation", () => {
+    const game = gameOf(5);
+    const problem = problemOf(game);
+    const parents = new Map();
+    const play = (parent, child, action, depth) => {
+      const key = `${depth}:${cellOf(parent)}`;
+      if (action === 0) parents.set(key, (parents.get(key) ?? 0) + 1);
+      return problem.play(parent, child, action);
+    };
+    createBeam({ size: SIZE, width: 30, actions: STEPS.length, groups: SIDE * SIDE }).run(game.root, { ...problem, play, group: cellOf }, { depth: 8, perGroup: 3 });
+    assert.ok(Math.max(...parents.values()) <= 3, "at most 3 parents a cell in a layer");
+    assert.ok([...parents.values()].includes(3), "the cap was reached");
+    assert.throws(() => createBeam({ size: SIZE, width: 4, actions: 5 }).run(game.root, { ...problem, group: cellOf }, { depth: 2 }), /groups/);
   });
 
   it("says -1 when no child lives, and rewrites one result object, allocating none", () => {

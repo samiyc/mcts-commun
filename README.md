@@ -187,8 +187,8 @@ import { createClimb } from "mcts-commun/climb.js";
 import { createStatePool, copyState } from "mcts-commun/pool.js";
 
 createStatePool(size, capacity, Type = Uint8Array)   // { buffer, states, size, capacity, count, take(), clear() }
-createBeam({ size, width, actions, Type = Uint8Array, table })
-  .run(root, problem, { depth, deadline, fade = 1, now }) → { first, score, depth, states }
+createBeam({ size, width, actions, Type = Uint8Array, table, groups })
+  .run(root, problem, { depth, deadline, fade = 1, now, perGroup }) → { first, score, depth, states }
 createClimb({ genes, Type = Float64Array })
   .run(problem, { deadline, budget, rng, freshEvery = 10, clockEvery = 1, now }) → { plan, score, evaluations }
 ```
@@ -203,6 +203,10 @@ createClimb({ genes, Type = Float64Array })
 - **Le score d'un enfant** : celui du parent, plus le gain atténué de `fade^depth`, plus `value`.
 - **Les `width` meilleurs enfants** forment la couche suivante, choisis par quickselect.
 - **L'échéance** est lue avant chaque parent. Une couche coupée est jetée : c'est la dernière complète qui décide.
+- **Les faisceaux locaux** (Hypersonic v4, 29/10 : de la 241e place à environ la 20e en Légende) : avec `group(state)`,
+  un entier de 0 à `groups` − 1 (la case de notre joueur), le faisceau trie ses enfants, le meilleur d'abord, et n'en
+  garde que `perGroup` par groupe. Il s'étale ainsi sur le plateau au lieu de s'entasser sur quelques cases.
+  `createBeam` réserve alors ses compteurs (`groups`). Sans `group`, rien ne change.
 - **Le résultat** : `first`, la première action du meilleur plan, ou −1 si rien ne vit. Ce qu'un bot garde par nœud
   va dans des octets de son état.
 
@@ -239,6 +243,7 @@ createClimb({ genes, Type = Float64Array })
 |---|---|---|
 | le faisceau de la lib (120 états, 10 actions, 14 tours) | 5,2 ms | 0 |
 | le même faisceau écrit avec des objets et un tri | 8,5 ms | 281 |
+| un faisceau local de la lib (500 états, au plus 12 par case, 14 tours) | 14,8 ms | 0 (300 tours) |
 | l'escalade (24 gènes), budget de 1 500 plans | 0,13 ms | 1 |
 
 Quand les prendre plutôt que MCTS : [`docs/recherche.md`](docs/recherche.md), « Faisceau et escalade ».

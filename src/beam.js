@@ -1,3 +1,4 @@
+import { sortBest } from "./beam-local.js";
 import { createStatePool } from "./pool.js";
 
 /**
@@ -10,6 +11,9 @@ import { createStatePool } from "./pool.js";
  * - the same state reached twice (`hash`) is kept once, the better score in its place;
  * - the `width` best children become the beam (a quickselect, Hoare's partition, the better first);
  * - the deadline is read before each parent: a layer cut short is dropped, the last full one decides.
+ * Local beams (codingame, 29/10/2026: Hypersonic v4, 500 states but at most 12 with our player on a cell, from 241st to
+ * about 20th in Legend): with `group`, the children are sorted, the best first, and at most `perGroup` of a group go
+ * into the beam, as Hypersonic's `pruneLocal` does.
  *
  * What a bot keeps a node goes in bytes of its state. The result is one object, rewritten by each run.
  */
@@ -100,10 +104,37 @@ function expand(beam, deadline, now) {
   return true;
 }
 
+/** Child `n` may go into the beam: fewer than `perGroup` of its group are there yet (counters stamped by layer). */
+function admit({ problem, children, groups, perGroup }, n) {
+  const g = problem.group(children.states[n]);
+  if (groups.stamp[g] !== groups.now) {
+    groups.stamp[g] = groups.now;
+    groups.count[g] = 0;
+  }
+  if (groups.count[g] >= perGroup) return false;
+  groups.count[g] += 1;
+  return true;
+}
+
+/** The best children become the beam, at most `perGroup` of a group: all sorted, then taken in turn. */
+function pruneGrouped(beam) {
+  const { children, layer, order } = beam;
+  sortBest(beam, children.count);
+  beam.groups.now += 1;
+  let kept = 0;
+  for (let k = 0; k < children.count && kept < beam.width; k += 1) {
+    if (!admit(beam, order[k])) continue;
+    copyNode(children, order[k], layer, kept);
+    kept += 1;
+  }
+  layer.count = kept;
+}
+
 /** The best children become the beam. */
 function prune(beam) {
   const { children, layer, order } = beam;
   for (let n = 0; n < children.count; n += 1) order[n] = n;
+  if (beam.problem.group) return pruneGrouped(beam);
   const kept = Math.min(beam.width, children.count);
   selectBest(beam, children.count, kept);
   for (let i = 0; i < kept; i += 1) copyNode(children, order[i], layer, i);
@@ -132,9 +163,18 @@ function reset({ layer, result }, root) {
 
 const clock = () => globalThis.performance.now();
 
-function runBeam(beam, root, problem, { depth, deadline = Infinity, fade = 1, now = clock }) {
-  reset(beam, root);
+/** The run's problem, and for a local beam its cap a group. */
+function take(beam, problem, perGroup = Infinity) {
+  if (problem.group && !beam.groups) throw new Error("beam : un problème à groupes demande createBeam({ groups })");
   beam.problem = problem;
+  beam.perGroup = perGroup;
+}
+
+/** @param {{ depth: number, deadline?: number, fade?: number, now?: () => number, perGroup?: number }} options */
+function runBeam(beam, root, problem, options) {
+  const { depth, deadline = Infinity, fade = 1, now = clock, perGroup } = options;
+  reset(beam, root);
+  take(beam, problem, perGroup);
   const { result } = beam;
   for (beam.depth = 1; beam.depth <= depth; beam.depth += 1) {
     beam.faded = fade ** beam.depth;
@@ -154,6 +194,8 @@ function runBeam(beam, root, problem, { depth, deadline = Infinity, fade = 1, no
  *   copy of `parent`, at `depth` (1 the first turn): the gain, NaN to drop the child
  * @property {(state: any, depth: number) => number} value  what a state reached is worth beyond its rewards
  * @property {(state: any) => number} [hash]  a 32-bit key: states of the same key are one (none: no merging)
+ * @property {(state: any) => number} [group]  its group, 0 to `groups` - 1 (our player's cell): a local beam keeps at most
+ *   `perGroup` states of a group (none: a plain beam)
  */
 
 /**
@@ -161,11 +203,12 @@ function runBeam(beam, root, problem, { depth, deadline = Infinity, fade = 1, no
  * `table`: the size of the table of states seen, a power of two at least twice the children by default. Its
  * `run(root, problem, { depth, deadline, fade, now })` searches a turn (`now`: performance.now by default) and
  * returns `{ first, score, depth, states }`: the best plan's first action (-1 if no child lives), its score, the
- * last full layer, the children kept over all layers. The same object each run: copy what you keep.
+ * last full layer, the children kept over all layers. The same object each run: copy what you keep. `groups`: the
+ * groups a problem's `group` may say, for local beams (`run`'s `perGroup`, Infinity by default).
  *
- * @param {{ size: number, width: number, actions: number, Type?: any, table?: number }} shape
+ * @param {{ size: number, width: number, actions: number, Type?: any, table?: number, groups?: number }} shape
  */
-export function createBeam({ size, width, actions, Type = Uint8Array, table = powerOf2(2 * width * actions) }) {
+export function createBeam({ size, width, actions, Type = Uint8Array, table = powerOf2(2 * width * actions), groups = 0 }) {
   const beam = {
     width,
     actions,
@@ -174,6 +217,8 @@ export function createBeam({ size, width, actions, Type = Uint8Array, table = po
     seen: { size: table, key: new Int32Array(table), slot: new Int32Array(table), stamp: new Uint32Array(table), now: 0 },
     order: new Int32Array(width * actions),
     bounds: { i: 0, j: 0 },
+    groups: groups > 0 ? { count: new Int32Array(groups), stamp: new Uint32Array(groups), now: 0 } : null,
+    perGroup: Infinity,
     result: { first: -1, score: 0, depth: 0, states: 0 },
     problem: /** @type {BeamProblem | null} */ (null),
     depth: 0,
@@ -183,7 +228,7 @@ export function createBeam({ size, width, actions, Type = Uint8Array, table = po
     size,
     width,
     actions,
-    /** @param {ArrayLike<number>} root @param {BeamProblem} problem @param {{ depth: number, deadline?: number, fade?: number, now?: () => number }} options */
+    /** @param {ArrayLike<number>} root @param {BeamProblem} problem @param {{ depth: number, deadline?: number, fade?: number, now?: () => number, perGroup?: number }} options */
     run: (root, problem, options) => runBeam(beam, root, problem, options),
   };
 }

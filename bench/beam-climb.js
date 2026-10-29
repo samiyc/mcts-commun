@@ -9,6 +9,7 @@ import { createRng } from "../src/random.js";
  * to 45-72 ms of 75 on CodinGame). `node bench/beam-climb.js [TURNS]` plays TURNS turns (300 by default) of:
  * - the beam of Hypersonic's shape (120 states, 10 actions, 14 turns deep) on a small game of coins;
  * - the same beam written with objects and a sort a layer, as a bot's first version would be;
+ * - a local beam of Hypersonic v4's shape (500 states, at most 12 with the walker on a cell, 14 turns deep);
  * - a climb of Mad Pod Racing's shape (24 genes): 1 500 plans a turn, then 2 ms a turn with the clock read at every
  *   plan, then every 8 plans (`clockEvery`: performance.now() allocates its number).
  * One line of JSON: milliseconds and plans a turn, and the collections (minor and major) during the turns, after a
@@ -100,7 +101,8 @@ const climbing = {
   },
 };
 
-// The collections, counted for the turns being measured only (the observer's entries come in after them).
+// The collections, counted for the turns being measured only (the observer's entries come in after them). The
+// library's searches first: the object beam's garbage leaves major collections to the runs after it.
 let counting = null;
 const observer = new PerformanceObserver((list) => {
   for (const entry of list.getEntries()) if (counting) counting[/** @type {any} */ (entry).detail?.kind === 1 ? "minor" : "major"] += 1;
@@ -124,9 +126,12 @@ async function measure(turn) {
 }
 
 const beam = createBeam({ size: SIZE, width: 120, actions: 10 });
+const localBeam = createBeam({ size: SIZE, width: 500, actions: 10, groups: SIDE * SIDE });
+const local = { ...problem, group: (s) => s[1] * SIDE + s[0] };
 const climb = createClimb({ genes: GENES });
 const draws = createRng(2017);
 const options = { depth: 14, fade: 0.95 };
+const localOptions = { depth: 14, fade: 0.95, perGroup: 12 };
 const climbOptions = { budget: 1500, rng: draws };
 const timed = { deadline: 0, rng: draws, clockEvery: 1 };
 /** A turn of the climb given 2 ms, the clock read every `every` plans. */
@@ -137,6 +142,7 @@ const climbFor = (every) => () => {
 };
 const results = {
   beam: await measure(() => beam.run(root, problem, options)),
+  localBeam: await measure(() => localBeam.run(root, local, localOptions)),
   objectBeam: await measure(() => objectBeam(120, 14)),
   climb: await measure(() => climb.run(climbing, climbOptions)),
   climb2msClock1: await measure(climbFor(1)),

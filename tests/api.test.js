@@ -63,8 +63,8 @@ describe("the library's contract (tests/api.test.js)", () => {
 
   it("states in the README the beam, the climb and the pools as the code makes them (codingame, 29/10)", () => {
     const stated = (text) => assert.ok(README.includes(text), `README: ${text}`);
-    stated("createBeam({ size, width, actions, Type = Uint8Array, table })");
-    stated(".run(root, problem, { depth, deadline, fade = 1, now }) → { first, score, depth, states }");
+    stated("createBeam({ size, width, actions, Type = Uint8Array, table, groups })");
+    stated(".run(root, problem, { depth, deadline, fade = 1, now, perGroup }) → { first, score, depth, states }");
     stated("createClimb({ genes, Type = Float64Array })");
     stated(".run(problem, { deadline, budget, rng, freshEvery = 10, clockEvery = 1, now }) → { plan, score, evaluations }");
     stated("createStatePool(size, capacity, Type = Uint8Array)");
