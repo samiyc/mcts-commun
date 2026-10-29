@@ -33,6 +33,7 @@
     "./beam.js": "./src/beam.js",
     "./climb.js": "./src/climb.js",
     "./pool.js": "./src/pool.js",
+    "./replay-keys.js": "./src/replay-keys.js",
     "./machine.js": "./node/machine.js",
     "./trace-preload.js": "./node/trace-preload.js"
   },

@@ -10,6 +10,7 @@ import * as mcts from "../src/mcts.js";
 import * as measure from "../src/measure.js";
 import * as pool from "../src/pool.js";
 import * as random from "../src/random.js";
+import * as replayKeys from "../src/replay-keys.js";
 import * as trace from "../src/trace.js";
 import { doors, nim, twoJobs } from "./fixtures/problems.js";
 
@@ -40,6 +41,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     assert.deepEqual([Object.keys(beam), Object.keys(climb), Object.keys(pool).sort()], [["createBeam"], ["createClimb"], ["copyState", "createStatePool"]]);
     assert.deepEqual(Object.keys(beam.createBeam({ size: 1, width: 1, actions: 1 })).sort(), ["actions", "run", "size", "width"]);
     assert.deepEqual(Object.keys(climb.createClimb({ genes: 1 })).sort(), ["forget", "genes", "run"]);
+    assert.deepEqual(Object.keys(replayKeys).sort(), ["nextSpeed", "replayHint", "replayKeys", "within"]);
     assert.deepEqual(Object.keys(pool.createStatePool(1, 1)).sort(), ["buffer", "capacity", "clear", "count", "size", "states", "take"]);
     assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "progress", "resetTrace", "setTraceLevel", "timed", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
   });

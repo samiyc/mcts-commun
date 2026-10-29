@@ -38,6 +38,7 @@ dans Lopin.
 | `beam` | le faisceau des tours courts, sans allocation (celui d'Hypersonic, 29/10) | fait |
 | `climb` | l'escalade d'un plan de nombres, sans allocation (celle de Mad Pod Racing, 29/10) | fait |
 | `pool` | des états réservés une fois, vues d'un seul tampon typé | fait |
+| `replay-keys` | les touches d'un lecteur de replay dans une page, comme sur une vidéo, dans l'unité du projet (29/10) | fait |
 | `trace` | ce qui passe par la bibliothèque : compteurs, erreurs, appels lents (voir « Les traces ») | fait |
 
 ## Les signatures de `mcts`
@@ -261,6 +262,24 @@ Un *worker* ne lit pas l'import map : le serveur réécrit donc, dans le JavaScr
 **L'allure commune** (Sami, 23/10) : `web/theme.css`, lié en premier par chaque page (`../node_modules/mcts-commun/web/theme.css`), donne le bandeau en haut, les réglages en carte, les sections pliables bien visibles (une barre, un chevron, « Ouvrir / Fermer »), les boutons, les tableaux, le thème sombre. Chaque page n'y met que sa couleur dominante (`--accent`, `--masthead`…) et ce qui est à elle : rouge et blanc pour les urgences, bleu-gris métal pour l'entrepôt, orange pour la cuisine.
 
 **La page de `mcts-commun`** (26/10) : `npm run page` ici montre la backlog de la machine (`GET /api/backlog`, `GET /api/backlog/tail`, servis par le même serveur, donc aussi dans chaque projet). Une requête qui échoue est écrite dans `logs/serve-AAAA-MM.jsonl` du dossier servi.
+
+**Les touches d'un lecteur** (Sami, 29/10) : les trois copies d'urgences, de l'entrepôt et de la cuisine n'en font
+qu'une, `mcts-commun/replay-keys.js`. Espace lit ou met en pause. ← → reculent ou avancent d'un pas, d'un grand pas
+avec Maj. ↑ ↓ changent la vitesse. 0 à 9 vont à 0 %, 10 % … 90 %, sur la rangée d'un clavier AZERTY comme sur le pavé.
+
+```js
+import { replayKeys, replayHint, nextSpeed, within } from "mcts-commun/replay-keys.js";
+
+replayKeys({ step, bigStep, whole = false }) → (player, event) => boolean   // player : { t(), end(), seek(t), toggle(), faster(way) }
+replayHint({ step, bigStep, of = "" }) → la ligne d'aide                      // les pas en texte : "10 min", "1 h"
+```
+
+- **Le module ne connaît pas l'unité** : chaque projet donne ses pas dans celle de son lecteur. `whole` arrondit au tour
+  entier. Le temps demandé reste entre 0 et la fin.
+- **Une touche n'est pas prise** avec Ctrl, Alt ou Méta, ni dans un champ. Sur un bouton, Espace appuie sur le bouton,
+  et les autres touches vont au lecteur.
+- **En mode jeu, la page n'appelle pas le module** : quand un personnage est joué au clavier (ZQSD et E), toutes les
+  touches sont au jeu.
 
 **Les replays** (Sami, 23/10) : `POST /api/replays` écrit le replay reçu dans le dossier `replays/` du projet (exclu de git, comme `replays/` dans Lopin) ; `GET /api/replays` les liste. Les pages y envoient chaque partie jouée.
 
