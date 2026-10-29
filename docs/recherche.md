@@ -109,7 +109,8 @@ Ce qu'il faut pour le ramasse-miettes, appris par codingame le 28/10 et mesuré 
 - **rien d'alloué par nœud ni par plan** : ni objet, ni tableau, ni `Map`, ni tri complet. Un faisceau d'objets
   coûte 1,6 fois le temps et 281 passages du ramasse-miettes en 1 000 tours, contre 0 pour celui de la lib ;
 - **le hasard et l'horloge** : `createRng` n'alloue plus rien depuis le 29/10, et il va 5 fois plus vite ;
-  `performance.now()` alloue toujours, `clockEvery` le lit moins souvent ;
+  `performance.now()` alloue toujours, et `clockEvery` le lit moins souvent. Cela ne paie que pour une note presque
+  gratuite : Mad Pod Racing, qui simule ses plans, n'y gagne rien ;
 - **une feuille atténuée comme les gains** (`fade`), sinon la recherche remet à plus tard ce qui rapporte ;
 - **une prudence par niveaux** quand rien ne survit au pire, plutôt que de rester sur place : le bot rappelle `run`
   avec un modèle moins méfiant.

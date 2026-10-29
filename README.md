@@ -214,15 +214,18 @@ createClimb({ genes, Type = Float64Array })
   - `mutate(child, best, amplitude, rng)` et `fresh(plan, rng)`.
 - **Le déroulé** : un plan neuf tous les `freshEvery` plans, sinon le meilleur légèrement modifié. L'amplitude
   descend de 1 à 0,1 à mesure que le temps, ou le budget, s'épuise. Un plan meilleur prend la place du meilleur.
-- **`budget`** fixe le nombre de plans notés, pour des tests et une équivalence déterministes.
+- **`budget`** fixe le nombre de plans notés, pour des tests et une équivalence déterministes. Le premier plan
+  compte pour un, et le plan décalé pour un autre, s'il y en a un.
 - **`forget()`** oublie le dernier plan, au début d'une nouvelle partie.
 - **Une recherche par instance** : prédire l'adversaire en demande une seconde.
 
 **L'horloge** : `performance.now()` alloue le nombre qu'il rend. C'est un passage du ramasse-miettes pour environ
 65 000 appels.
 - **Le faisceau** la lit une fois par parent.
-- **L'escalade** la lit à chaque plan, comme Mad Pod Racing. Avec `clockEvery: 8`, elle la lit un plan sur 8, et au
-  banc elle note 2 fois plus de plans dans le même temps.
+- **L'escalade** la lit à chaque plan, comme Mad Pod Racing. Avec `clockEvery: 8`, elle la lit un plan sur 8.
+  Cela ne paie que si noter un plan ne coûte presque rien : au banc, où la note est une somme de 24 carrés, elle note
+  2 fois plus de plans. Mad Pod Racing simule ses plans, et il note 7 500 plans par tour avec ou sans (codingame,
+  29/10/2026).
 
 **Le hasard** n'allouait rien non plus après coup : `createRng` garde son état dans un `Uint32Array` depuis le
 29/10/2026. Les tirages sont les mêmes, et les empreintes n'ont pas bougé.

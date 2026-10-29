@@ -11,7 +11,8 @@
  *
  * The clock: `performance.now()` allocates its number, once in about 65 000 calls a collection (29/10/2026). Read
  * at every plan by default, as Mad Pod Racing does; `clockEvery: 8` reads it every 8 plans, the time between taken as
- * the last read. With a budget alone, never.
+ * the last read. With a budget alone, never. Worth it only when scoring a plan costs next to nothing: twice the plans
+ * at the bench, nothing for Mad Pod Racing, which simulates its plans (codingame, 29/10/2026).
  */
 
 const clock = () => globalThis.performance.now();
