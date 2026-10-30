@@ -148,7 +148,8 @@ main details > :last-child:not(summary) { margin-bottom: 14px; }
 .scroll { overflow-x: auto; border-radius: var(--radius); }
 table { width: 100%; border-collapse: collapse; background: var(--panel); font-size: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); background: var(--accent-soft); }
+/* A header wraps, a cell does not: a wide table fits its page (entrepot, 30/10/2026: 7 columns scrolled at 1 000 px). */
+th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); background: var(--accent-soft); white-space: normal; }
 tbody tr:hover td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
 th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 tr.current td { background: color-mix(in srgb, var(--accent) 13%, transparent); font-weight: 600; }

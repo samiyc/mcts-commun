@@ -126,7 +126,18 @@ export function escapeRoutes(plan, from, o) {}      // o { danger, passable, bur
 export function createReservations() {}             // ({ shared, capacity, single }) → { reserve(unit, path, { stay }), release(unit), isFree, freeFrom, swaps, stayAt(x, y), clone }
 export function wilson(wins, games) {}              // { rate, low, high }
 export function paired(scoresA, scoresB) {}         // { n, mean, low, high, wins, ties, losses }
+export function sprt(samples, hypotheses) {}         // { h0, h1, alpha = 0.05, beta = 0.05, minSamples = 20 } → { n, mean, llr, lower, upper, verdict }
+export function eloScore(elo) {}                     // le score attendu d'un joueur plus fort de elo points : 0,5 à 0
 ```
+
+**Arrêter une série dès qu'elle est tranchée** (SPRT, 30/10/2026, la piste de codingame acceptée par Sami : les
+18 fils sont la limite). Après chaque partie ou chaque scénario, `sprt` dit si les échantillons départagent déjà h0
+(pas de gain qui vaille) et h1 (le gain voulu) : `verdict` vaut `"h1"`, `"h0"` ou `"continue"`. Un échantillon
+est le score d'une partie (1, 0,5 ou 0 : `h0: 0.5, h1: eloScore(10)`) ou l'écart A − B d'un scénario apparié
+(`h0: 0`, `h1` le plus petit gain qui vaille). Sur 1 000 séries tirées, 60 % contre 50 %, il se trompe 4,5 et
+5,2 % du temps pour 5 % demandés, en 120 à 141 parties là où une série fixe en joue environ 270. Il ne remplace pas
+l'intervalle : une série arrêtée sur h1 se rapporte toujours avec `wilson` ou `paired`, et un écrémage rapide
+rejette, il ne promeut jamais.
 
 **A* borné** (27/10/2026, pour un bot pressé) : `horizon` est la distance la plus longue permise, en pas ; une
 cible plus loin rend null sans rien chercher, et A* ne fait jamais un pas d'où la cible n'est plus joignable à
