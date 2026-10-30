@@ -353,11 +353,38 @@ inlinés ; la lib n'y pèse rien.
   (`{ at, event }`) et les tests y tiennent ;
 - du parallélisme dans la lib : la file remplit déjà les 18 fils, rien à gagner en débit.
 
-**Ce qui reste à faire, dans l'ordre choisi par Sami** : le ramasse-miettes des jobs (`--max-semi-space-size`, mesuré
-sur un run déterministe par projet ; dans le lanceur s'il paie 5 %) ; puis A* sur tableaux typés (l'arène des nœuds en
-`Int32Array`, un tas d'indices, les nœuds vus horodatés), derrière un corpus de 4 000 appels dont l'empreinte ne doit pas
-bouger : −30 à −50 % sur A* au banc attendus, soit −10 à −15 % d'une journée d'entrepôt, −3 à −5 % d'un service de
-cuisine ; enfin, si les compteurs le disent, `clone` en copie à l'écriture et `reserve` sans tableaux intermédiaires.
+**A* sur tableaux typés : essayé le 31/10, sans gain, abandonné.** L'arène des nœuds en `Int32Array`, un tas d'indices,
+les nœuds vus horodatés au lieu d'un `Set` : les mêmes chemins (le corpus de 4 000 appels de `tests/fingerprint.test.js`,
+ajouté pour l'occasion et gardé), mais au banc, cinq passages en alternance, l'entrepôt 131 → 137 µs l'appel, les
+appels courts 3 → 4 µs. Le profil le dit : le ramasse-miettes passe de 4 à 2 % et le tas disparaît du haut, mais
+`explore` et `expand` ne baissent pas, et `isFree`, `swaps`, `canStep` sortent de l'inlining. V8 alloue ces petits
+objets pour presque rien ; ce qui coûte dans A*, ce sont les appels (`passable`, `isFree`, `swaps`), pas les objets.
+On attendait −30 à −50 % ; la mesure a tranché avant le commit. Les pistes qui restent sur A* sont ailleurs :
+- **une cible occupée par une unité garée pour de bon**, demandée sans `park` par une unité qui n'arrivera pas avant
+  qu'elle se gare : A* explore tout l'espace jusqu'à l'horizon (dans le corpus, 5 s pour un appel à l'horizon par défaut
+  de 4 × largeur × hauteur). La borne `t + distance ≥ stay.from` coupe ces appels à la racine, avec le même résultat
+  (null), mais ses compteurs et les chemins partiels changent : une empreinte à recalculer, à décider. Depuis le 31/10,
+  `astar.parkedTarget` compte ces appels dans la trace : si le compte pèse face à `notFound` chez entrepôt ou cuisine,
+  la borne vaut le coup ;
+- **un `passable` précalculé** (un `Uint8Array` par plan et par règle, fourni par le projet), pour épargner l'appel par
+  voisin : à mesurer chez cuisine, dont 11,6 M d'appels sont des trajets directs.
+
+**Le ramasse-miettes des jobs, mesuré le 31/10** : un run court et déterministe par projet, 4 fils, trois passages en
+alternance, `--trace-gc` pour compter les collections de la jeune génération.
+
+| Projet (le run) | Par défaut | Semi-espace forcé à 32 Mo | Forcé à 64 Mo |
+|---|---|---|---|
+| cuisine (20 services, petite cuisine) | 6 985 ms, 435 collections | −2,1 % | **−4,9 %**, 115 collections |
+| entrepôt (8 jours, plan de Sami) | 31 428 ms, 1 029 collections | −1,7 % | −1,2 % (dans le bruit), 613 collections |
+| urgences (8 journées du parcours, budget 100) | 4 187 ms, 524 collections | −7,5 % | **−10,1 %**, 242 collections |
+
+Deux leçons. `--max-semi-space-size` seul ne change rien : la jeune génération ne grandit qu'à forte survie, et ces
+runs n'y arrivent pas (le même nombre de collections à 32, 64 ou 128 Mo). Il faut la fixer,
+`--min-semi-space-size=64 --max-semi-space-size=64`, et `--min-semi-space-size` est **refusé dans `NODE_OPTIONS`** : le
+lanceur ne peut donc pas le donner aux jobs. Sa place est sur la ligne `node` des commandes des jobs
+(`node --min-semi-space-size=64 --max-semi-space-size=64 scripts/…`, les workers du processus en héritent), chez
+urgences et cuisine d'abord, chacun après l'avoir vu sur son job de référence. Le coût : 128 Mo de jeune génération
+par processus et par worker (8 fils : 1 Go). Entrepôt n'y gagne rien, ses journées allouent moins.
 
 ## Sources
 

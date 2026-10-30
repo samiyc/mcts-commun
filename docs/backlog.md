@@ -262,6 +262,13 @@ pendant 45 min, puis tout à la fin) :
       tranches de 30 min au plus (lopin) ;
     - **un `--id` stable et lisible** pour une série d'essais ;
     - **changer une priorité par `--set-priority`**, pas par des annulations (cuisine en a fait 115).
+11. **Le ramasse-miettes des jobs qui allouent** (31/10/2026, [`recherche.md`](recherche.md) § 6) : la jeune
+    génération de V8 fixée à 64 Mo, sur la ligne `node` de la commande du job,
+    `node --min-semi-space-size=64 --max-semi-space-size=64 scripts/…` (les workers du processus en héritent) :
+    −10 % sur les journées du parcours d'urgences, −5 % sur les services de cuisine, rien sur les journées
+    d'entrepôt. `--max-semi-space-size` seul ne fait rien, et `--min-semi-space-size` est refusé dans `NODE_OPTIONS` :
+    le lanceur ne peut pas le donner à votre place. Le coût : 128 Mo par processus et par worker. À vérifier sur
+    votre job de référence avant de l'adopter.
 
 ## Après une nuit : le bilan
 

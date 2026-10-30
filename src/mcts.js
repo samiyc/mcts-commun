@@ -30,7 +30,8 @@ import { count, timed, timing, trace } from "./trace.js";
  * @property {(world, actor) => number} score      the reward of a finished world, 0 to 1
  * @property {(world) => World} [copy]           a faithful copy: on common worlds, each is drawn once, then copied
  */
-export const SEARCH = Object.freeze({ depth: 5, explore: 0.7 });
+// Typed as numbers: frozen, the literals 5 and 0.7 would type `depth` and `explore` of `search` (codingame, 31/10/2026).
+export const SEARCH = Object.freeze(/** @type {{ depth: number, explore: number }} */ ({ depth: 5, explore: 0.7 }));
 
 /** What a `Problem` must and may hold: the contract the README states and `tests/api.test.js` pins. */
 export const PROBLEM = Object.freeze({
@@ -232,6 +233,9 @@ function iterateCommon(root, state, settings) {
  * `earlyStop`: with a `budget`, stop once the most visited root move leads by more than the iterations left: the
  * same move, sooner (Lopin's `smart`). Both off by default: the same moves and visits.
  *
+ * @param {any} state
+ * @param {Problem} problem
+ * @param {{ budget?: number, deadline?: number, now?: () => number, rng?: any, depth?: number, explore?: number, common?: boolean, widening?: number, earlyStop?: boolean }} options every one optional but a `budget` or a `deadline` (codingame, 31/10/2026: a client passing numbers must type-check)
  * @returns {{ move: Move | null, value: number, visits: Map<string, number>, stats: object[], size: number, iterations: number, depth: number, levels: number[], ms: number, stopped: string, margin: object | null, rank: { played: number, of: number } | null }}
  */
 export function search(state, problem, { budget, deadline, now = clock, rng = createRng(1), depth = SEARCH.depth, explore = SEARCH.explore, common = false, widening = 0, earlyStop = false }) {

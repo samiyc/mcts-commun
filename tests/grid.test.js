@@ -54,6 +54,11 @@ describe("plans and paths (src/grid.js)", () => {
     const begin = performance.now();
     assert.equal(astar(tee, { x: 1, y: 1 }, { x: 5, y: 1 }, { passable: open, reservations, unit: "r2", start: 6, horizon: 1e6, park: true }), null);
     assert.ok(performance.now() - begin < 200);
+    // The cell r1 parks on, asked by r2 without parking (31/10/2026): counted, since such a call explores to its horizon.
+    resetTrace();
+    assert.equal(astar(tee, { x: 1, y: 1 }, { x: 3, y: 1 }, { passable: open, reservations, unit: "r2", start: 6, horizon: 20 }), null);
+    assert.ok(astar(tee, { x: 1, y: 1 }, { x: 3, y: 1 }, { passable: open, reservations, unit: "r1", start: 6, horizon: 20 }), "its own parking cell");
+    assert.equal(traceSnapshot().counters.astar.parkedTarget, 1);
   });
 
   it("checks a target out of reach in a breadth-first pass that stays small on a wide plan (27/10/2026)", () => {

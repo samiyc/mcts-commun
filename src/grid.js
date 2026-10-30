@@ -91,9 +91,16 @@ function settingsOf(plan, from, to, options) {
 const given = (value, fallback) => (value === undefined ? fallback : value);
 const distanceTo = (to, x, y) => Math.abs(x - to.x) + Math.abs(y - to.y);
 
-/** The path, its nodes explored counted once a call (`expanded / calls`: what a call costs). */
+/**
+ * The path, its nodes explored counted once a call (`expanded / calls`: what a call costs). A target another unit is
+ * parked on for good is counted (`parkedTarget`, 31/10/2026): asked without `park` by a unit that cannot get there
+ * first, it costs the whole space to the horizon (5 s a call in the corpus at the default horizon); the count says
+ * whether a bound on such calls would pay.
+ */
 function shortestPath(plan, from, to, options) {
   const settings = settingsOf(plan, from, to, options);
+  const stay = settings.reservations?.stayAt(to.x, to.y);
+  if (stay && stay.unit !== settings.unit) count("astar", "parkedTarget");
   // With `direct` (createDistances), the floor's way first, when every step of it is free (counted `direct`).
   const straight = options.direct ? directPath(settings, from, options.direct) : null;
   if (straight) {
