@@ -1,4 +1,4 @@
-import { trace } from "./trace.js";
+import { count, trace } from "./trace.js";
 
 /**
  * A discrete-event queue: what happens next, by time. Two events at the same time come out in the order they
@@ -49,7 +49,8 @@ function queueOf(heap, order, now) {
      */
     clone(keep = () => true) {
       // The entries kept with their order, the heap built again in O(n), not sorted (urgences, 28/10/2026: 2 % of its
-      // time): equals still come out in the order they were scheduled.
+      // time): equals still come out in the order they were scheduled. Counted (30/10): how many worlds a job clones.
+      count("events", "clones");
       return queueOf(createHeap(heap.entries.filter((entry) => keep(entry.event))), order, now);
     },
   };

@@ -44,7 +44,7 @@ describe("the library's contract (tests/api.test.js)", () => {
     assert.deepEqual(Object.keys(climb.createClimb({ genes: 1 })).sort(), ["forget", "genes", "run"]);
     assert.deepEqual(Object.keys(replayKeys).sort(), ["nextSpeed", "replayHint", "replayKeys", "within"]);
     assert.deepEqual(Object.keys(pool.createStatePool(1, 1)).sort(), ["buffer", "capacity", "clear", "count", "size", "states", "take"]);
-    assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "progress", "resetTrace", "setTraceLevel", "timed", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
+    assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "progress", "resetTrace", "setTraceLevel", "timed", "timing", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
   });
 
   it("returns the search's result in its stated shape", () => {

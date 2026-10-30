@@ -1,6 +1,6 @@
 import { createRng, streamOf } from "./random.js";
 import { hintsOf, meanOf, resultOf } from "./search-report.js";
-import { count, timed, trace } from "./trace.js";
+import { count, timed, timing, trace } from "./trace.js";
 
 /**
  * A tree search over hidden information (single-observer ISMCTS, Cowling, Powley & Whitehouse 2012): the
@@ -254,9 +254,23 @@ function checkLimit({ budget, deadline }) {
   if (!Number.isInteger(budget) || budget < 1) throw new Error(`budget: a whole number of iterations, not ${budget}`);
 }
 
-function searchTree(state, problem, { limit, rng, depth, explore, common, widening }) {
+/**
+ * The problem with its `sample`, `copy`, `play` and `rollout` counted and timed as scopes of the trace (30/10/2026: the
+ * three projects' traces timed A* and the search, 10 to 29 % of a search, and nothing of the 70 to 90 % left; a job's
+ * trace now says where an iteration goes, `rollout.ms / search.ms`). The rest is read through it unchanged.
+ */
+function tracedProblem(problem) {
+  const traced = Object.create(problem);
+  traced.sample = timing("sample", problem.sample, problem);
+  traced.play = timing("play", problem.play, problem);
+  traced.rollout = timing("rollout", problem.rollout, problem);
+  if (problem.copy) traced.copy = timing("copy", problem.copy, problem);
+  return traced;
+}
+
+function searchTree(state, given, { limit, rng, depth, explore, common, widening }) {
   checkLimit(limit);
-  checkProblem(problem);
+  const problem = tracedProblem(checkProblem(given));
   // Real time, not `now`: a test's clock counts its own ticks.
   const begin = clock();
   const root = createNode(null, "", "");

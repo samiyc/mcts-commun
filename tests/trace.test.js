@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { createEvents } from "../src/events.js";
 import { astar, createReservations, parsePlan } from "../src/grid.js";
 import { search } from "../src/mcts.js";
-import { DEBUG_CAP, RING, progress, resetTrace, setTraceLevel, timed, trace, traceSnapshot, traceTo } from "../src/trace.js";
+import { DEBUG_CAP, RING, progress, resetTrace, setTraceLevel, timed, timing, trace, traceSnapshot, traceTo } from "../src/trace.js";
 import { traceFileOf } from "../node/trace-file.js";
 import { doors } from "./fixtures/problems.js";
 
@@ -33,6 +33,31 @@ describe("the library's trace (src/trace.js, node/trace-file.js), Sami 26/10", (
     assert.equal(counters.astar.notFound, 1);
     assert.deepEqual(recent.map((event) => [event.scope, event.kind]), [["search", "error"], ["events", "error"]]);
     assert.equal(recent[0].budget, 5);
+  });
+
+  it("wraps a function once and counts each call (timing), its errors and its this; counts bookings and clones (30/10)", () => {
+    resetTrace();
+    const twice = timing("twice", (n) => {
+      if (n < 0) throw new Error("négatif");
+      return 2 * n;
+    });
+    assert.equal(twice(21), 42);
+    assert.throws(() => twice(-1), /négatif/);
+    const scaled = { k: 3 };
+    const scale = timing("scale", function scale(n) {
+      return this.k * n;
+    }, scaled);
+    assert.equal(scale(5), 15);
+    const table = createReservations();
+    table.reserve("a", [{ x: 1, y: 1, t: 0 }]);
+    table.clone().reserve("b", [{ x: 2, y: 1, t: 0 }]);
+    createEvents().clone();
+    const { counters, recent } = traceSnapshot();
+    assert.deepEqual([counters.twice.calls, counters.twice.errors, counters.scale.calls], [2, 1, 1]);
+    assert.ok(counters.twice.ms >= 0 && counters.twice.maxMs >= 0);
+    assert.deepEqual([counters.reservations.calls, counters.reservations.clones, counters.events.clones], [2, 1, 1]);
+    assert.deepEqual(recent.map((event) => [event.scope, event.kind, event.message]), [["twice", "error", "négatif"]]);
+    resetTrace();
   });
 
   it("warns when a cell is booked over another unit (the robots that met, 23/10)", () => {

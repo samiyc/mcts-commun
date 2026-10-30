@@ -191,7 +191,10 @@ pendant 45 min, puis tout à la fin) :
 6. **Ne jamais écrire dans `~/.mcts-backlog`** : passer par `mcts-backlog` (`--add-file`, `--status --json`,
    `--wait`).
 7. **Lire sa trace après coup** : `--status ID --json` donne `incidents` et `reported` ; une erreur ou une case
-   réservée hors clone, c'est à regarder dans le projet.
+   réservée hors clone, c'est à regarder dans le projet. Le dernier battement de la trace (`counters`) dit où passe le
+   temps (30/10/2026) : `astar.ms / search.ms` la part d'A*, `rollout.ms`, `play.ms`, `sample.ms` et `copy.ms` celle de
+   chaque rappel du problème, `reservations.ms` celle des réservations. Ce qui reste est le code du projet autour de la
+   recherche. Le 30/10, la lib chronométrée faisait 10 % d'une recherche de cuisine et 29 % d'une d'entrepôt.
 8. **Essayer les réglages du 27/10 au soir** ([`recherche.md`](recherche.md)), éteints par défaut :
    - `earlyStop` sur les recherches à `budget` : le même coup, moins d'itérations. Il se mesure par paires contre la
      recherche actuelle, puisque le hasard consommé change ;

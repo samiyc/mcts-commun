@@ -318,6 +318,47 @@ Un banc n'est pas une journée : le gain réel se lit dans les traces des jobs, 
 
 Ce que chaque projet doit en prendre, et vérifier avant la file : [`projets.md`](projets.md).
 
+### Le 30/10 : où passe le temps aujourd'hui
+
+Sami, 30/10 au soir : « réanalyser la lib pour voir s'il n'y a pas d'autres optimisations possibles ». Relevé dans le
+dernier battement des traces de trois jobs du jour (`~/.mcts-backlog/traces`) :
+
+| Projet | A* | `search` | Part de la lib chronométrée |
+|---|---|---|---|
+| entrepôt (`regle-assemblage-021`) | 2 689 461 appels, 151 s : **56 µs l'appel**, 23,6 nœuds, 7,7 % sans chemin | 334 recherches, 514 s, 39 782 itérations : **13 ms l'itération** | **29 %** |
+| cuisine (`cuis-tables-detour-…`) | 11 644 308 appels, 112 s : **9,6 µs l'appel**, 91,5 % en trajet direct | 2 535 recherches, 1 098 s, 307 520 itérations : **3,6 ms l'itération**, 38 appels A* chacune | **10 %** |
+| urgences (`gains-chu-accident`) | aucun | 27 198 recherches, 910 s, 2,72 M d'itérations : **0,33 ms l'itération** | ~0 % |
+
+Le reste, 70 à 90 % d'une itération, est dans les rappels du problème (`sample`, `copy`, `play`, `rollout`) et dans ce que
+la lib ne chronométrait pas (`reserve`, `clone`, la file d'événements). D'où les scopes ajoutés le même soir : la trace
+d'un job dit maintenant `rollout.ms / search.ms` et `copy.ms / search.ms` (0,16 µs le chronométrage, moins de 0,5 %
+d'une itération d'urgences), et `bench/profile.js` donne les fonctions au plus de temps propre.
+
+**Le banc de la lib** (`npm run bench`, Node 24, trois passages : le bruit est de ±5 %, donc un gain se mesure en
+alternance, ancien et nouveau, cinq passages chacun) : l'entrepôt 127-141 µs l'appel (116 nœuds), le trajet direct
+111-118, le cul-de-sac 20-22, les appels courts 3, `clone` 55, la recherche commune 1,9-2,0 ms, avec `copy`
+0,57-0,63 ms. `bench/beam-climb.js` : le faisceau 4,4 ms le tour, le faisceau local 16,2, l'escalade 0,09 ms pour
+1 500 plans, 0 passage du ramasse-miettes.
+
+**Le profil du banc A*** : `expand` 17 %, `explore` 14 %, le `push` du tas 7 %, `spread` 5 %, le ramasse-miettes 4 %,
+`swaps` 3 %, `copyOf` 6 % (le reste est le banc lui-même). Ce qui coûte dans A* : un objet par voisin (`nodeOf`), le
+`Set` des nœuds vus, les échanges du tas. **Le faisceau** : `tryAction` 54 %, c'est-à-dire les rappels du problème
+inlinés ; la lib n'y pèse rien.
+
+**Ce qui ne vaut pas le coup** :
+- la boucle de `search` (`candidates`, `widened`, `step`, `backpropagate` allouent des Map et des tableaux) : 3 à 5 µs
+  l'itération contre 330 à 13 000 µs d'itération chez les projets, moins de 1,5 % ;
+- `createRng`, déjà sur `Uint32Array` ; le faisceau, l'escalade et les réserves, 0 allocation ;
+- la file d'événements : un tas, un clone en O(n) ; `next()` rend un objet par événement, mais le contrat
+  (`{ at, event }`) et les tests y tiennent ;
+- du parallélisme dans la lib : la file remplit déjà les 18 fils, rien à gagner en débit.
+
+**Ce qui reste à faire, dans l'ordre choisi par Sami** : le ramasse-miettes des jobs (`--max-semi-space-size`, mesuré
+sur un run déterministe par projet ; dans le lanceur s'il paie 5 %) ; puis A* sur tableaux typés (l'arène des nœuds en
+`Int32Array`, un tas d'indices, les nœuds vus horodatés), derrière un corpus de 4 000 appels dont l'empreinte ne doit pas
+bouger : −30 à −50 % sur A* au banc attendus, soit −10 à −15 % d'une journée d'entrepôt, −3 à −5 % d'un service de
+cuisine ; enfin, si les compteurs le disent, `clone` en copie à l'écriture et `reserve` sans tableaux intermédiaires.
+
 ## Sources
 
 - [Guba et Gemrot, *Comparison of Monte Carlo Tree Search Variants* (2025)](https://ceur-ws.org/Vol-4092/paper2.pdf)

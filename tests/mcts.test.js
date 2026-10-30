@@ -2,9 +2,29 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { diagnose, search } from "../src/mcts.js";
 import { createRng } from "../src/random.js";
+import { resetTrace, traceSnapshot } from "../src/trace.js";
 import { doors, loudLuck, nim, twoJobs } from "./fixtures/problems.js";
 
 describe("the tree search over hidden information (src/mcts.js)", () => {
+  it("counts and times the problem's sample, copy, play and rollout: where an iteration goes, read in a trace (30/10)", () => {
+    resetTrace();
+    const pile = { pile: 7, toMove: "A" };
+    const plain = search(pile, nim, { budget: 40, rng: createRng(3) });
+    let { counters } = traceSnapshot();
+    assert.equal(counters.sample.calls, 40);
+    assert.ok(counters.play.calls >= 40, "a move a ply, at least one an iteration");
+    assert.ok(counters.rollout.calls <= 40 && counters.rollout.ms >= 0);
+    assert.equal(counters.copy, undefined, "no copy, no scope");
+    resetTrace();
+    const copying = { ...nim, copy: (world) => ({ ...world }) };
+    const common = search(pile, copying, { budget: 40, rng: createRng(3), common: true });
+    ({ counters } = traceSnapshot());
+    assert.equal(counters.copy.calls, 40, "one copy an iteration on common worlds");
+    assert.equal(counters.search.iterations, 40);
+    assert.deepEqual([plain.move, common.iterations], [search(pile, nim, { budget: 40, rng: createRng(3) }).move, 40], "the same search, counted");
+    resetTrace();
+  });
+
   it("finds Nim's winning move for whoever is to play, crediting each actor with its own score", () => {
     for (const [pile, take] of [
       [4, 1],

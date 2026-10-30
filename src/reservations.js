@@ -1,5 +1,5 @@
 import { cellOf, checkCells, limitOf, moveOf, queriesOf } from "./reservations-query.js";
-import { count, trace } from "./trace.js";
+import { count, timing, trace } from "./trace.js";
 
 /**
  * The table of reservations that units plan around (src/grid.js), out of grid.js when A* learnt to stop early
@@ -41,20 +41,24 @@ function overbooked(cell, unit, other, clone) {
 
 /** The reservations' methods over their maps (createReservations, and each clone). */
 function tableOf(maps) {
-  return { ...bookingOf(maps), ...queriesOf(maps), clone: () => tableOf({ ...copyOf(maps), cloned: true }) };
+  const clone = () => {
+    count("reservations", "clones");
+    return tableOf({ ...copyOf(maps), cloned: true });
+  };
+  return { ...bookingOf(maps), ...queriesOf(maps), clone };
 }
 
-/** `reserve` and `release`: the maps written. */
+/** `reserve` and `release`: the maps written. `reserve` is timed as `reservations` (30/10/2026: what the bookings cost a job, beside A*). */
 function bookingOf(maps) {
   const { sharedKeys, byUnit } = maps;
   return {
-    reserve(unit, path, { stay = false } = {}) {
+    reserve: timing("reservations", (unit, path, { stay = false } = {}) => {
       checkCells(path);
       const kept = path.filter(({ x, y }) => !sharedKeys.has(cellOf(x, y)));
       holdCells(maps, unit, kept);
       const edges = holdMoves(maps, unit, path);
       byUnit.set(unit, { steps: kept, edges, stay: parkAt(maps, unit, path.at(-1), stay) });
-    },
+    }),
     release(unit) {
       const held = byUnit.get(unit);
       if (!held) return;

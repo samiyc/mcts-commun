@@ -89,20 +89,54 @@ export function timed(scope, run, details = () => ({})) {
   try {
     return run();
   } catch (error) {
-    counters.errors += 1;
-    trace(scope, "error", { message: error.message, stack: error.stack, ...details() });
+    failed(scope, counters, error, details());
     throw error;
   } finally {
-    const end = clock();
-    const ms = end - begin;
-    counters.ms += ms;
-    if (ms > counters.maxMs) counters.maxMs = ms;
-    if (isSlow(counters, ms)) {
-      counters.slow += 1;
-      trace(scope, "slow", { ms: Math.round(ms), ...details() });
-    } else if (state.level === "debug") trace(scope, "debug", { ms: Math.round(ms * 1000) / 1000, ...details() });
-    pulse(end);
+    finish(scope, counters, begin, details);
   }
+}
+
+/** An error in a call of `scope`: counted and traced with `details`, before the caller throws it again. */
+function failed(scope, counters, error, details) {
+  counters.errors += 1;
+  trace(scope, "error", { message: error.message, stack: error.stack, ...details });
+}
+
+/** The end of a call of `scope` begun at `begin`: its time counted, traced if slow (with `details()`), the pulses beaten. */
+function finish(scope, counters, begin, details) {
+  const end = clock();
+  const ms = end - begin;
+  counters.ms += ms;
+  if (ms > counters.maxMs) counters.maxMs = ms;
+  if (isSlow(counters, ms)) {
+    counters.slow += 1;
+    trace(scope, "slow", { ms: Math.round(ms), ...details() });
+  } else if (state.level === "debug") trace(scope, "debug", { ms: Math.round(ms * 1000) / 1000, ...details() });
+  pulse(end);
+}
+
+const NO_DETAILS = () => ({});
+
+/**
+ * `fn` as a call of `scope`, wrapped once and called many times (src/mcts.js, 30/10/2026: a problem's `sample`, `copy`,
+ * `play` and `rollout`, a million times a job, so that a job's trace says where an iteration goes): counted and timed
+ * like `timed`, nothing allocated a call, a slow call or an error traced with its `ms` alone. `self` is `fn`'s `this`;
+ * four arguments at most.
+ */
+export function timing(scope, fn, self) {
+  return (a, b, c, d) => {
+    const counters = countersOf(scope);
+    const begin = clock();
+    counters.calls += 1;
+    try {
+      return fn.call(self, a, b, c, d);
+    } catch (error) {
+      failed(scope, counters, error, {});
+      throw error;
+    } finally {
+      finish(scope, counters, begin, NO_DETAILS);
+    }
+  };
 }
 
 /**
