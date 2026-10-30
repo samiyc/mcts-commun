@@ -2,9 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createEvents } from "../src/events.js";
-import { astar, createReservations, parsePlan } from "../src/grid.js";
+import { astar, createDistances, createReservations, parsePlan } from "../src/grid.js";
 import { createRng } from "../src/random.js";
 import { nextJob, planNight } from "../src/schedule.js";
+import { resetTrace, traceSnapshot } from "../src/trace.js";
 
 /**
  * What the grid, the scheduler and the event queue do, hashed (Sami, 26/10/2026: taken before the lint's split,
@@ -33,6 +34,66 @@ function gridRuns() {
   const again = astar(PLAN, { x: 1, y: 1 }, { x: 7, y: 5 }, { passable, reservations, unit: 9, start: 2 });
   const blocked = astar(PLAN, { x: 1, y: 1 }, { x: 0, y: 0 }, { passable, reservations, unit: 10, horizon: 30 });
   return { paths, again, blocked };
+}
+
+/** A warehouse as the bench's (bench/grid-search.js): racks two cells deep in rows, aisles between them, a wall round. */
+function warehouse(width, height) {
+  const edge = (x, y) => x === 0 || y === 0 || x === width - 1 || y === height - 1;
+  const rack = (x, y) => y % 4 !== 0 && x % 6 >= 2 && x % 6 <= 3;
+  return parsePlan(Array.from({ length: height }, (_, y) => Array.from({ length: width }, (_, x) => (edge(x, y) || rack(x, y) ? "#" : ".")).join("")).join("\n"));
+}
+
+/** The kitchen's corridor with its dead end (bench/grid-search.js). */
+const CORRIDOR = parsePlan(["##############", "#..#.........#", "#..#.........#", "#.............#", "###############"].join("\n"));
+
+/**
+ * The options of a call of the corpus: a leg's horizon as the projects give (60 to 180 steps; at the plan's default, a
+ * target parked on by another unit costs millions of nodes), parking, a short horizon, capped and partial, direct,
+ * partial at a horizon.
+ */
+function corpusOptions(rng, kind, distances) {
+  const options = { passable, start: rng.int(5), horizon: 60 + rng.int(120) };
+  if (kind === 1) options.park = true;
+  if (kind === 2) options.horizon = 10 + rng.int(40);
+  if (kind === 3) Object.assign(options, { maxNodes: 20 + rng.int(60), partial: true });
+  if (kind === 4) options.direct = distances;
+  if (kind === 5) Object.assign(options, { partial: true, horizon: 25 });
+  return options;
+}
+
+/**
+ * A*'s corpus (30/10/2026, before A* moved onto typed arrays): 4 000 seeded calls on the bench's warehouse, a small one and
+ * the corridor, ten units parked for good on each, moving units booked and released along the way, every option mixed;
+ * the paths and the counters hashed. The same paths, the same nodes explored: that is what a faster A* must keep.
+ */
+function astarCorpus() {
+  const rng = createRng(2026);
+  const plans = [warehouse(40, 21), warehouse(14, 9), CORRIDOR].map((plan) => ({ plan, open: plan.find("."), distances: createDistances(plan, passable), table: createReservations() }));
+  const parked = plans.flatMap((setup) => parkTen(setup, rng));
+  resetTrace();
+  const out = Array.from({ length: 4000 }, (_, i) => corpusCall(plans[rng.int(3)], rng, i));
+  const { calls, expanded, notFound, givenUp, capped, partial, direct } = traceSnapshot().counters.astar;
+  return { out: [...parked, ...out], counters: { calls, expanded, notFound, givenUp, capped, partial, direct } };
+}
+
+/** Ten units parked for good on a plan, each planned around the others: their paths' lengths. */
+function parkTen({ plan, open, table }, rng) {
+  const lengths = [];
+  for (let unit = 0; unit < 10; unit += 1) {
+    const found = astar(plan, open[rng.int(open.length)], open[rng.int(open.length)], { passable, reservations: table, unit, park: true, horizon: 80 });
+    if (found) table.reserve(unit, found, { stay: true });
+    lengths.push(found ? found.length : null);
+  }
+  return lengths;
+}
+
+/** The i-th call of the corpus on `setup`: its path as text, or null; every ninth path booked, a unit released every fiftieth call. */
+function corpusCall({ plan, open, table, distances }, rng, i) {
+  const options = { ...corpusOptions(rng, rng.int(6), distances), reservations: table, unit: `u${i % 7}` };
+  const path = astar(plan, open[rng.int(open.length)], open[rng.int(open.length)], options);
+  if (path && i % 9 === 0) table.reserve(`u${i % 7}`, path);
+  if (i % 50 === 49) table.release(`u${rng.int(7)}`);
+  return path ? path.map(({ x, y, t }) => `${x},${y},${t}`).join(" ") : null;
 }
 
 const at = (hour) => Date.parse(`2026-10-26T${hour}:00`);
@@ -81,6 +142,12 @@ function eventRuns() {
 describe("the library's fingerprints (tests/fingerprint.test.js)", () => {
   it("keeps the grid's: the same paths, waits and parks", () => {
     assert.equal(hash(gridRuns()), "1f49a8a64427f99b");
+  });
+
+  it("keeps A*'s corpus: 4 000 calls on three plans, the same paths and nodes explored (30/10/2026)", () => {
+    const corpus = astarCorpus();
+    assert.equal(corpus.counters.calls, 4000);
+    assert.equal(hash(corpus), "a1e930789f48481e");
   });
 
   it("keeps the scheduler's: the same night, the same reasons", () => {
