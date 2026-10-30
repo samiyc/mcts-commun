@@ -51,7 +51,7 @@ const JOURNAL_TEXT = {
 };
 
 /** A journal entry in a few words. */
-export const journalText = (entry) => JOURNAL_TEXT[entry.kind]?.(entry) ?? entry.ids?.join(", ") ?? entry.id ?? entry.message ?? "";
+const journalText = (entry) => JOURNAL_TEXT[entry.kind]?.(entry) ?? entry.ids?.join(", ") ?? entry.id ?? entry.message ?? "";
 
 /** How a trace file of a process still there stands: started (no library call yet), silent, beating. */
 function liveState(trace, s) {

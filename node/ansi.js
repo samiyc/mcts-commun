@@ -18,7 +18,7 @@ function codeAt(text, i) {
 }
 
 /** `text` as its colour codes and its visible runs, in order: `[{ code, text }]`. */
-export function ansiParts(text) {
+function ansiParts(text) {
   const parts = [];
   let plain = "";
   for (let i = 0; i < text.length; ) {

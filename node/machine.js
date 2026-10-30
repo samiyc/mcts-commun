@@ -26,7 +26,7 @@ export function threadBudget(cores = os.cpus().length) {
 
 // --- The CPU's temperature (lopin's scripts/lib/cli/machine.js) ---
 
-export const SENSORS_URL = "http://127.0.0.1:8085/data.json";
+const SENSORS_URL = "http://127.0.0.1:8085/data.json";
 const CPU_SENSOR = /^\/(?:amd|intel)cpu\/\d+\/temperature\//;
 const PREFERRED = ["Core (Tctl/Tdie)", "CPU Package", "Core (Tctl)", "Core (Tdie)"];
 
@@ -47,7 +47,7 @@ function cpuSensors(node, found = []) {
   return found;
 }
 /** The CPU die's temperature in LibreHardwareMonitor's data.json: `{ celsius, sensor }`, or null. */
-export function cpuTemperatureOf(data) {
+function cpuTemperatureOf(data) {
   const sensors = cpuSensors(data).filter((sensor) => Number.isFinite(celsiusOf(sensor.Value)));
   const sensor = PREFERRED.map((name) => sensors.find((one) => one.Text === name)).find(Boolean) ?? sensors[0];
   return sensor ? { celsius: celsiusOf(sensor.Value), sensor: sensor.Text } : null;

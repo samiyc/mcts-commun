@@ -9,7 +9,7 @@ import { threadsNow } from "./wanted.js";
  */
 export const PREEMPT_MINUTES = 5;
 export const PREEMPT_MAX = 2;
-export const PREEMPTED = "laissé à un test court (mcts-backlog --slot)";
+const PREEMPTED = "laissé à un test court (mcts-backlog --slot)";
 
 /**
  * The ids of the jobs to stop, pure: `running` `[{ id, started, threads, stopping }]` (`stopping`: already being

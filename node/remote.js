@@ -25,7 +25,7 @@ const REMOTE_BACKLOG = `node mcts-commun/bin/backlog.js --home ${REMOTE_HOME}`;
 const ENDED = ["status", "startedAt", "doneAt", "minutes", "reason"];
 
 /** Machine `name` of `<home>/machines.json`, with its transport. */
-export async function machineOf(home, name) {
+async function machineOf(home, name) {
   const machines = JSON.parse(await readFile(path.join(home, "machines.json"), "utf8").catch(() => "{}"));
   if (!machines[name]) throw new Error(`machine inconnue : ${name} (${path.join(home, "machines.json")})`);
   return { ...machines[name], name, transport: transportOf(machines[name], name) };

@@ -7,11 +7,12 @@
  */
 
 /** The projects a session works in, and their folders; `sami` reads and posts too, `tous` is everyone. */
-// agenda and feux: two projects from the week of 2/11/2026 (Sami, 30/10: mcts-agenda, mcts-feux).
-export const PROJECTS = Object.freeze(["commun", "cuisine", "entrepot", "urgences", "codingame", "lopin", "agenda", "feux"]);
+// The four projects of the week of 2/11/2026 (Sami, 30/10): mcts-agenda, mcts-feux, and raquette and proteines, named
+// without mcts- since neither is sure to search with it.
+export const PROJECTS = Object.freeze(["commun", "cuisine", "entrepot", "urgences", "codingame", "lopin", "agenda", "feux", "raquette", "proteines"]);
 export const READERS = Object.freeze([...PROJECTS, "sami"]);
 // Matched without case (Windows: Lopin or lopin).
-const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", lopin: "lopin", "mcts-agenda": "agenda", "mcts-feux": "feux" };
+const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", lopin: "lopin", "mcts-agenda": "agenda", "mcts-feux": "feux", raquette: "raquette", proteines: "proteines" };
 
 /** The project folder `dir` is in (the nearest parent named like one), or null outside them. */
 export function projectOf(dir) {
@@ -47,7 +48,7 @@ export function parseMessage(text) {
 }
 
 /** A short ASCII slug of `subject`, for the file's name. */
-export const slugOf = (subject) =>
+const slugOf = (subject) =>
   oneLine(subject)
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

@@ -16,7 +16,7 @@ import { minutesOf } from "./schedule.js";
  * taken ×0.12, the pace of jobs whose estimates predated them; 108 min shown for some 45 of the whole machine).
  */
 export const RUNS = 5;
-export const PACE_RUNS = 30;
+const PACE_RUNS = 30;
 export const PACE_MIN = 3;
 
 function median(values) {

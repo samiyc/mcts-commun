@@ -9,7 +9,7 @@ projet a ensuite relu sa colonne et l'a corrigée par le tableau des sessions, a
 
 ## Le tableau
 
-| | **lopin 1.2** (le bot Expérimental) | **cuisine** | **entrepôt** (plans, ligne, usine) | **urgences** (garde, parcours) |
+| | **lopin 1.2** (la référence ; l'Expérimental est la 1.3 depuis le 30/10, les mêmes réglages de l'arbre) | **cuisine** | **entrepôt** (plans, ligne, usine) | **urgences** (garde, parcours) |
 |---|---|---|---|---|
 | Moteur | son propre ISMCTS (`lopin/src/sim/mcts/ismcts.js`) | `search` de commun | `search` de commun | `search` de commun |
 | Mondes | un monde tiré par itération, **pas communs** aux coups de la racine | communs, tirés une fois puis copiés | communs | communs, tirés une fois puis copiés (`copy`) |

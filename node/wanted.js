@@ -12,7 +12,7 @@ import { alive, readSlots, withLock } from "./machine.js";
  * test's (Sami and codingame, 28/10/2026: an arena of 5 to 8 min a slot, started again at once, kept a 16-thread job
  * out for 40 min): it waits for threads like a job, it neither holds the queue's next jobs back nor stops any.
  */
-export const SERIES_MINUTES = 2;
+const SERIES_MINUTES = 2;
 const fileOf = (home) => path.join(home, "wanted.json");
 const mine = (want, pid, id) => want.pid === pid && want.id === id;
 

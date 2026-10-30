@@ -92,7 +92,9 @@ pas d'écart imprévu ; **des empreintes recalculées** si le gain est réel, da
 5. Vous répondez sur le tableau, dans le fil de commun : ce qui tient, ce qui a bougé et pourquoi, le gain mesuré, le
   nombre de jobs gardés. Commun tient le tableau ci-dessus ; Sami lance la file quand tout le monde est prêt.
 
-Les réglages de la recherche de chaque projet, face au bot 1.2 de lopin, et ce que le palier du 28/10 en a montré :
+Les réglages de la recherche de chaque projet, face à la 1.2 de lopin (sa référence ; l'Expérimental 1.3, la 1.2 avec
+ClaimPile2, est la version de sa page depuis le 30/10 : les mêmes réglages de l'arbre, la même empreinte), et ce que le
+palier du 28/10 en a montré :
 [`reglages.md`](reglages.md). Les leçons communes de la journée : recommandation 10 de [`backlog.md`](backlog.md).
 
 Tout bug trouvé dans la lib va à `commun` par le tableau, avec le cas qui le montre.

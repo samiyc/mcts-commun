@@ -1,5 +1,5 @@
 /** A job that has ended, one way or another: it leaves the queue for the archive. */
-export const FINISHED = Object.freeze(["done", "failed", "timeout", "skipped", "cancelled"]);
+const FINISHED = Object.freeze(["done", "failed", "timeout", "skipped", "cancelled"]);
 export const isFinished = (job) => FINISHED.includes(job.status);
 
 /**
@@ -19,7 +19,7 @@ export const isFinished = (job) => FINISHED.includes(job.status);
  * With every priority at 2 and no `due`, the shortest estimate goes first.
  */
 export const WEIGHTS = Object.freeze({ 1: 4, 2: 2, 3: 1 });
-export const DEFAULT_MINUTES = 60;
+const DEFAULT_MINUTES = 60;
 const FINE_ENDS = new Set(["done", "skipped"]);
 
 /** Minutes in an estimate as the queue writes them: "40 min", "1 h 30", "≤ 2 h", "1 à 2 h" (the most), "20 s". */

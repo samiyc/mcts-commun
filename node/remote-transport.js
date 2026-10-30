@@ -16,7 +16,7 @@ import path from "node:path";
  *
  * No secret here: ssh reads the key the person made; the server is created and deleted by them (docs/distant.md).
  */
-export const LEFT_OUT = ["node_modules", ".git", "logs", "tmp", "coverage"];
+const LEFT_OUT = ["node_modules", ".git", "logs", "tmp", "coverage"];
 
 /**
  * Runs `command` with `args`, its input from `input` (a stream) if given: `{ code, stdout, stderr }`.

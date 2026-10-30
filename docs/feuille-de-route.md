@@ -19,7 +19,7 @@ Ce que chaque projet prend de la lib : [`projets.md`](projets.md).
 | mcts-entrepot | 76 | versions 0.31 à 0.40 |
 | mcts-cuisine | 72 | versions 0.36 à 0.44 |
 | mcts-codingame | 189 | créé le 27/10, 9 jeux |
-| lopin | 15 | la 1.2 reste la référence |
+| lopin | 15 | la 1.2 reste la référence ; l'Expérimental 1.3 (ClaimPile2) sur la page depuis le 30/10 |
 | **Total** | **509** | |
 
 Un piège de `git log` : `--since=2026-10-26` part du 26/10 **à l'heure qu'il est**, pas à minuit. Le premier relevé,
@@ -170,9 +170,9 @@ La recherche ne vient qu'après, mesurée contre la règle.
 
 | Projet (dépôt proposé) | Ce qu'il prend de la lib | Ce qu'il ajoute | Les règles à battre | Le premier jalon | Pour se comparer |
 |---|---|---|---|---|---|
-| **Le ping-pong** (nom à fixer, sans `mcts-` : Sami doute qu'il faille MCTS) | `climb`, la physique de Mad Pod Racing et de Fantastic Bits, le lecteur | l'effet (Magnus), la hauteur de balle, la prédiction de trajectoire, la manette | renvoyer au centre de la table | la table vue de dessus, la balle, le rebond, ses couleurs (effet, hauteur) ; un échange robot contre robot, puis la manette | – |
+| **Le ping-pong** (`raquette`, sans `mcts-` : Sami doute qu'il faille MCTS) | `climb`, la physique de Mad Pod Racing et de Fantastic Bits, le lecteur | l'effet (Magnus), la hauteur de balle, la prédiction de trajectoire, la manette | renvoyer au centre de la table | la table vue de dessus, la balle, le rebond, ses couleurs (effet, hauteur) ; un échange robot contre robot, puis la manette | – |
 | **Les emplois du temps** (`mcts-agenda`, Sami 30/10) | `schedule`, `measure` | les contraintes, la recherche locale (tabou, recuit), le replanning qui dérange le moins possible | un remplissage glouton | le modèle (professeurs, classes, salles, programmes), un établissement fictif, le glouton ; puis les remplacements | les jeux publics de l'ITC 2019 |
-| **Les protéines** (`mcts-proteines`) | `beam` et ses faisceaux locaux, `climb`, le génétique, `mcts` | NMCS et NRPA (le Monte Carlo imbriqué), un candidat pour la lib | un repliement glouton | le modèle HP 2D, les séquences de référence, trois solveurs comparés | les énergies publiées du modèle HP |
+| **Les protéines** (`proteines`, sans `mcts-`) | `beam` et ses faisceaux locaux, `climb`, le génétique, `mcts` | NMCS et NRPA (le Monte Carlo imbriqué), un candidat pour la lib | un repliement glouton | le modèle HP 2D, les séquences de référence, trois solveurs comparés | les énergies publiées du modèle HP |
 | **Les feux** (`mcts-feux`, Sami 30/10) | `grid`, `mcts`, la simulation à événements, `measure` | un automate de trafic (Nagel-Schreckenberg) | le feu à temps fixe, le max-pressure | une ville en grille, les voitures, les deux règles, la page | des scénarios SUMO |
 
 **L'ordre** : Sami a choisi de lancer les quatre en parallèle. Codingame conseille de commencer par les feux et les
@@ -211,7 +211,7 @@ façon par leur modèle et leur recherche métier.
 Sami le colle en ouvrant la session du projet, en remplaçant le nom et la ligne du tableau ci-dessus :
 
 ```text
-Nouveau projet <nom> (dépôt E:\Dev\My projects\mcts-<nom>), client de mcts-commun comme urgences, entrepot et
+Nouveau projet <nom> (dépôt E:\Dev\My projects\<dossier> : mcts-agenda, mcts-feux, raquette ou proteines), client de mcts-commun comme urgences, entrepot et
 cuisine. Lis d'abord mcts-commun : CLAUDE.md, README, docs/feuille-de-route.md (ta ligne du § 2.C), docs/backlog.md
 (la file, --slot), docs/board.md (le tableau). Reprends les règles des autres projets : docs en français, code en
 anglais, Node 24, ES modules sans build, ce qui décide est pur et testé, hasard par graine, eslint.config.js et
@@ -278,7 +278,7 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
 
 | Décision | Ce qu'on recommande | Qui le fait ensuite |
 |---|---|---|
-| Les noms des quatre dépôts | **décidé** : `mcts-agenda` et `mcts-feux`, au tableau depuis le 30/10. Le ping-pong n'a peut-être pas besoin de MCTS (Sami) : un nom sans `mcts-` ; les protéines, pareil (faisceau, génétique, NRPA) | Sami crée les dépôts ; commun ajoute les noms au tableau |
+| Les noms des quatre dépôts | **décidé le 30/10** : `mcts-agenda`, `mcts-feux`, `raquette` et `proteines` (sans `mcts-` : ni le ping-pong ni le repliement ne passent forcément par MCTS). Les quatre sont au tableau | Sami crée les dépôts, privés |
 | Hypersonic v6 : les timeouts du soir | la même v6 à un budget plus bas (codingame) | codingame |
 | Botters v9 : elle recule sur le site (72e, la v8 était 41e) | revenir à la v8 en attendant de comprendre | codingame |
 | Cuisine : A ou E | **décidé** : A reste le réglage par défaut (Sami, 30/10) | cuisine |

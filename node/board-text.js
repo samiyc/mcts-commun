@@ -21,7 +21,7 @@ function excerptOf(body) {
 }
 
 /** A message in full, or its start when `short`. */
-export function messageBlock(message, { short = false } = {}) {
+function messageBlock(message, { short = false } = {}) {
   const reply = message.replyTo ? [`en réponse à ${message.replyTo}`] : [];
   return [`[${message.id}]  ${headOf(message)}`, ...reply, "", short ? excerptOf(message.body) : message.body].join("\n");
 }

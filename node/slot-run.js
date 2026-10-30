@@ -20,7 +20,7 @@ import { dropWant, inSeries, wantSlot } from "./wanted.js";
  */
 export const SLOT_MAX_THREADS = 4;
 export const SLOT_MAX_MINUTES = 15;
-export const SLOT_STOPPED = 124;
+const SLOT_STOPPED = 124;
 
 /** The time a short test may run, in ms. */
 const limitMs = () => Math.min(SLOT_MAX_MINUTES * 60_000, Number(process.env.MCTS_SLOT_LIMIT_MS) || Infinity);
