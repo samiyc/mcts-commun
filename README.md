@@ -22,7 +22,8 @@ planificateur de cette même file, puis aux urgences.
 Les essais demandés à chacun le 27/10 au soir, après les réglages pour un temps court : [`docs/essais-projets.md`](docs/essais-projets.md).
 
 La feuille de route : [`docs/ismcts-ailleurs/feuille-de-route.md`](https://github.com/samiyc/lopin/blob/main/docs/ismcts-ailleurs/feuille-de-route.md)
-dans Lopin.
+dans Lopin ; le bilan de la semaine du 26/10 et la semaine du 2/11 (la revue qualité, les pratiques communes, quatre
+nouveaux projets) : [`docs/feuille-de-route.md`](docs/feuille-de-route.md).
 
 ## Les modules
 

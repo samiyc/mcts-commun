@@ -5,7 +5,8 @@ et valident en local qu'il n'y a pas de gros bug ». Puis, quand tout le monde e
 d'un commun accord, sur les jobs qui ont encore du sens.
 
 Cette page est la liste à suivre. Elle se tient à jour à chaque évolution de la lib ; le détail et les chiffres sont
-dans [`recherche.md`](recherche.md) (§ 6) et [`backlog.md`](backlog.md).
+dans [`recherche.md`](recherche.md) (§ 6) et [`backlog.md`](backlog.md). Les quatre projets qui démarrent le 2/11, et ce
+qu'ils prendront de la lib : [`feuille-de-route.md`](feuille-de-route.md) (§ 2.C).
 
 ## L'état des projets
 
