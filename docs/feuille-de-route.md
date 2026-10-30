@@ -50,8 +50,8 @@ Un piège de `git log` : `--since=2026-10-26` part du 26/10 **à l'heure qu'il e
   |---|---|
   | cuisine | la meilleure dans les 9 cuisines à la carte : de +0,4 plat (le couloir) à +3,6 (la grande brigade). La table part ensemble par défaut depuis le 30/10 |
   | entrepôt | meilleure sur 5 plans sur 6, par paires, en tours de 5 s : −4,4 au plan de Sami, −4,1 au flux, −2,2 aux couloirs, −50,7 tours à quai aux trois quais ; à l'assemblage −3,2 sans être sûre (de −2,6 à 9,0). La ligne cadencée : −47,6 tours d'arrêt par heure |
-  | urgences | mieux que l'arrivée dans 3 situations sur 4 : +858 un jour ordinaire, +2 544 et +2 889 pendant les accidents ; à égalité à l'hôpital moyen pendant l'accident (de −1 769 à +1 151) |
-  | lopin | la 1.2 reste la référence ; le meilleur coup en fin de partie passe de 89,9 à 96,0 % au banc |
+  | urgences | le parcours détaillé, le choix du box pendant l'accident (100 journées par hôpital, 30/10) : −40 % sur l'échéance, la meilleure règle, à l'hôpital moyen (+13 466, de +10 412 à +16 519) ; −30 % à la proximité (+16 134, de +12 269 à +20 000) ; −11 % au CHU, pas sûr (+390, de −50 à +830). La garde simple se remesure dans la nuit du 30/10 |
+  | lopin | la 1.2 reste la référence ; ClaimPile2 adoptée sur banc le 30/10 : 43,4 % des donnes gagnées contre 22,4 %, sur 203 positions (+21,0 points, de +13,2 à +28,8) |
 - **Ce qui est entré dans la lib :**
   - la recherche en faisceau (`beam`, faisceaux locaux compris) et l'escalade (`climb`) ;
   - les touches du lecteur (`replayKeys`), prises par les trois projets ;
@@ -159,7 +159,7 @@ Chaque session ajoute les siennes par le tableau, et commun les reporte ici. Le 
 
 **Décidé le 30/10** : les quatre démarrent la semaine prochaine, en parallèle de la revue. Chacun a son dépôt et sa
 session ; Sami crée les dépôts GitHub, privés tant qu'il n'a pas choisi de licence. Le tableau ne connaît que six
-noms (`PROJECTS`, `node/board.js`) : commun y ajoute les quatre dès que leurs noms sont fixés.
+noms (`PROJECTS`, `node/board.js`) : `agenda` et `feux` y sont depuis le 30/10, les deux autres suivront leur nom.
 
 Chaque projet démarre **comme la cuisine**, par une journée de cadrage sans code de recherche :
 - `docs/modele.md` : le modèle ;
@@ -170,10 +170,10 @@ La recherche ne vient qu'après, mesurée contre la règle.
 
 | Projet (dépôt proposé) | Ce qu'il prend de la lib | Ce qu'il ajoute | Les règles à battre | Le premier jalon | Pour se comparer |
 |---|---|---|---|---|---|
-| **Le ping-pong** (`mcts-raquette` ou `mcts-pingpong`) | `climb`, la physique de Mad Pod Racing et de Fantastic Bits, le lecteur | l'effet (Magnus), la hauteur de balle, la prédiction de trajectoire, la manette | renvoyer au centre de la table | la table vue de dessus, la balle, le rebond, ses couleurs (effet, hauteur) ; un échange robot contre robot, puis la manette | – |
-| **Les emplois du temps** (`mcts-agenda` ou `mcts-edt`) | `schedule`, `measure` | les contraintes, la recherche locale (tabou, recuit), le replanning qui dérange le moins possible | un remplissage glouton | le modèle (professeurs, classes, salles, programmes), un établissement fictif, le glouton ; puis les remplacements | les jeux publics de l'ITC 2019 |
+| **Le ping-pong** (nom à fixer, sans `mcts-` : Sami doute qu'il faille MCTS) | `climb`, la physique de Mad Pod Racing et de Fantastic Bits, le lecteur | l'effet (Magnus), la hauteur de balle, la prédiction de trajectoire, la manette | renvoyer au centre de la table | la table vue de dessus, la balle, le rebond, ses couleurs (effet, hauteur) ; un échange robot contre robot, puis la manette | – |
+| **Les emplois du temps** (`mcts-agenda`, Sami 30/10) | `schedule`, `measure` | les contraintes, la recherche locale (tabou, recuit), le replanning qui dérange le moins possible | un remplissage glouton | le modèle (professeurs, classes, salles, programmes), un établissement fictif, le glouton ; puis les remplacements | les jeux publics de l'ITC 2019 |
 | **Les protéines** (`mcts-proteines`) | `beam` et ses faisceaux locaux, `climb`, le génétique, `mcts` | NMCS et NRPA (le Monte Carlo imbriqué), un candidat pour la lib | un repliement glouton | le modèle HP 2D, les séquences de référence, trois solveurs comparés | les énergies publiées du modèle HP |
-| **Les feux** (`mcts-feux`) | `grid`, `mcts`, la simulation à événements, `measure` | un automate de trafic (Nagel-Schreckenberg) | le feu à temps fixe, le max-pressure | une ville en grille, les voitures, les deux règles, la page | des scénarios SUMO |
+| **Les feux** (`mcts-feux`, Sami 30/10) | `grid`, `mcts`, la simulation à événements, `measure` | un automate de trafic (Nagel-Schreckenberg) | le feu à temps fixe, le max-pressure | une ville en grille, les voitures, les deux règles, la page | des scénarios SUMO |
 
 **L'ordre** : Sami a choisi de lancer les quatre en parallèle. Codingame conseille de commencer par les feux et les
 protéines, les plus proches de l'existant et vite mesurables. Le ping-pong et les emplois du temps commencent de toute
@@ -270,18 +270,19 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
   - l'apprentissage façon AlphaZero (MCTS guidé par un réseau) ;
   - RHEA, le génétique à horizon glissant des jeux ;
   - les filtres particulaires pour prédire (la balle, l'adversaire).
-- **Les tableaux larges de la page** : `th, td { white-space: nowrap }` dans `web/theme.css` fait défiler le tableau
-  des gains d'entrepot (7 colonnes) sur 1 000 px (entrepot, 30/10). À corriger dans la lib.
+- **Les tableaux larges de la page** : réglé le 30/10. Les en-têtes passent à la ligne, les cellules non (`web/theme.css`) :
+  le tableau des gains d'entrepot tient en 1 000 px (1 021 avant), celui d'urgences en 642 (718 avant), et la page de la
+  file ne change pas à sa largeur habituelle.
 
 ## 5. Les décisions qui attendent Sami (30/10 au soir)
 
 | Décision | Ce qu'on recommande | Qui le fait ensuite |
 |---|---|---|
-| Les noms des quatre dépôts | `mcts-raquette` et `mcts-agenda`, qui couvrent déjà les suites prévues (le tennis, le badminton ; l'agenda au-delà de l'école), plutôt que `mcts-pingpong` et `mcts-edt` ; puis `mcts-proteines`, `mcts-feux` ; privés | Sami crée les dépôts ; commun ajoute les noms au tableau |
+| Les noms des quatre dépôts | **décidé** : `mcts-agenda` et `mcts-feux`, au tableau depuis le 30/10. Le ping-pong n'a peut-être pas besoin de MCTS (Sami) : un nom sans `mcts-` ; les protéines, pareil (faisceau, génétique, NRPA) | Sami crée les dépôts ; commun ajoute les noms au tableau |
 | Hypersonic v6 : les timeouts du soir | la même v6 à un budget plus bas (codingame) | codingame |
 | Botters v9 : elle recule sur le site (72e, la v8 était 41e) | revenir à la v8 en attendant de comprendre | codingame |
-| Cuisine : A ou E | garder A par défaut ; E seulement pour le banquet de la grande brigade (+2,27 pour 2,4 fois le temps) | cuisine |
+| Cuisine : A ou E | **décidé** : A reste le réglage par défaut (Sami, 30/10) | cuisine |
 | Un fil « décisions » par semaine sur le tableau | oui : Sami tranche en une fois | toutes les sessions |
 | Des règles d'autonomie écrites (le submit, par exemple) | oui, sur le modèle de Fantastic Bits | Sami les écrit, les sessions les suivent |
-| Le SPRT dans `measure` | oui, la semaine du 2/11 | commun |
+| Le SPRT dans `measure` | **fait le 30/10** : `sprt` et `eloScore` (5cbe179) | les projets qui mesurent |
 | La licence, public ou privé | à décider avant de montrer un dépôt, pas cette semaine | Sami |

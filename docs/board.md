@@ -36,8 +36,8 @@ Le tableau est un dossier de messages et une commande :
 L'id d'un message est `AAAA-MM-JJTHHMM-<de>-<sujet>`, par exemple `2026-10-27T1905-commun-le-tableau-existe`.
 
 **Les noms.**
-- Les projets sont `commun`, `cuisine`, `entrepot`, `urgences`, `codingame` et `lopin`. Il s'y ajoute `sami`, et
-  `tous` pour tout le monde.
+- Les projets sont `commun`, `cuisine`, `entrepot`, `urgences`, `codingame` et `lopin`, puis `agenda` et `feux`
+  (`mcts-agenda`, `mcts-feux`, la semaine du 2/11). Il s'y ajoute `sami`, et `tous` pour tout le monde.
 - Une session est le projet du dossier où elle **a démarré**, sans tenir compte des majuscules : `mcts-cuisine` est
   `cuisine`, `Lopin` est `lopin`, et `mcts-codingame` (les bots CodinGame, venus de `E:\Dev\Algo code in game` le
   27/10) est `codingame`.

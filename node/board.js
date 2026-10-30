@@ -7,10 +7,11 @@
  */
 
 /** The projects a session works in, and their folders; `sami` reads and posts too, `tous` is everyone. */
-export const PROJECTS = Object.freeze(["commun", "cuisine", "entrepot", "urgences", "codingame", "lopin"]);
+// agenda and feux: two projects from the week of 2/11/2026 (Sami, 30/10: mcts-agenda, mcts-feux).
+export const PROJECTS = Object.freeze(["commun", "cuisine", "entrepot", "urgences", "codingame", "lopin", "agenda", "feux"]);
 export const READERS = Object.freeze([...PROJECTS, "sami"]);
 // Matched without case (Windows: Lopin or lopin).
-const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", lopin: "lopin" };
+const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", lopin: "lopin", "mcts-agenda": "agenda", "mcts-feux": "feux" };
 
 /** The project folder `dir` is in (the nearest parent named like one), or null outside them. */
 export function projectOf(dir) {
