@@ -19,8 +19,9 @@
 function forTheReplay(event) {
   if (event.ctrlKey || event.altKey || event.metaKey) return false;
   const target = /** @type {HTMLElement} */ (event.target);
-  if (target.closest("input, textarea, select")) return false;
-  return !(event.key === " " && target.closest("button"));
+  // A key sent to the document itself has no closest (entrepot, 30/10/2026).
+  if (target.closest?.("input, textarea, select")) return false;
+  return !(event.key === " " && target.closest?.("button"));
 }
 
 /**

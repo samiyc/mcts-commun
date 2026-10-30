@@ -60,7 +60,12 @@ describe("the machine's runner (bin/backlog.js) and its slots (node/machine.js),
     await backlog(home, "--add-file", file, "--tag", "n1");
     const { jobs } = JSON.parse(await readFile(path.join(home, "queue.json"), "utf8"));
     assert.deepEqual(jobs.map((job) => [job.id, job.cwd, job.after ?? null]), [["a-n1", folder, null], ["b-n1", folder, ["a-n1"]]]);
-    await assert.rejects(backlog(home, "--add-file", file, "--tag", "n1"), /existe déjà/);
+    await assert.rejects(backlog(home, "--add-file", file, "--tag", "n1"), (error) => {
+      // One line, without node's stack (codingame, 30/10/2026: the refusal was lost in it).
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /^refusé : le job a-n1 existe déjà : --tag pour une autre série\r?\n$/);
+      return true;
+    });
     await backlog(home, "--add-file", file, "--tag", "n2");
     assert.equal(JSON.parse(await readFile(path.join(home, "queue.json"), "utf8")).jobs.length, 4);
     await rm(home, { recursive: true, force: true });

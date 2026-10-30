@@ -54,7 +54,8 @@ describe("the keys of a replay (src/replay-keys.js)", () => {
       assert.equal(event.prevented, false, event.key);
     }
     assert.equal(key(player, keydown("ArrowRight", { on: "button" })), true, "an arrow on a button is the replay's");
-    assert.deepEqual(player.asked, [["seek", 50]]);
+    assert.equal(key(player, Object.assign(keydown("ArrowLeft"), { target: {} })), true, "a key sent to the document itself");
+    assert.deepEqual(player.asked, [["seek", 50], ["seek", 30]]);
   });
 
   it("keeps the time within the replay, in minutes or to whole turns", () => {

@@ -68,12 +68,26 @@ function jobOfOptions() {
   return job;
 }
 
+/**
+ * Whether the jobs went in; a refusal (an id taken, a folder not found) says so in one line, without node's stack
+ * (codingame, 30/10/2026: the refusal was lost in the stack, the second job seemed to vanish).
+ */
+async function wentIn(adding) {
+  try {
+    await adding();
+    return true;
+  } catch (error) {
+    console.error(`refusé : ${error.message}`);
+    return false;
+  }
+}
+
 /** `--measured`: the estimates come from a measure of today's code, kept as they are (src/estimate.js). */
 const measured = () => (args.includes("--measured") ? { measured: true } : {});
 
 async function add() {
   const job = jobOfOptions();
-  await addJobs(queue, [job]);
+  if (!(await wentIn(() => addJobs(queue, [job], " : donne-lui un autre id (à la milliseconde, ou un suffixe)")))) return 1;
   journal("added", { ids: [job.id] });
   console.log(`Ajouté : ${lineOf(job)}`);
 }
@@ -82,7 +96,7 @@ async function addFile() {
   const file = path.resolve(option("--add-file"));
   const extra = { ...(option("--machine") ? { machine: option("--machine") } : {}), ...measured() };
   const added = await jobsOfFile(file, args.includes("--no-tag") ? null : option("--tag", stamp().slice(0, 10)), extra);
-  await addJobs(queue, added, " : --tag pour une autre série");
+  if (!(await wentIn(() => addJobs(queue, added, " : --tag pour une autre série")))) return 1;
   journal("added", { ids: added.map((job) => job.id), file });
   for (const job of added) console.log(`Ajouté : ${lineOf(job)}`);
 }

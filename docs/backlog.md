@@ -181,7 +181,13 @@ pendant 45 min, puis tout à la fin) :
    commande neuve se fie à l'estimation : une variante lente (une cuisine en couloir) mérite la sienne. `limit` doit
    dépasser le pire cas, sinon le job finit `timeout` ; elle vaut 120 min par défaut.
 5. **Respecter `MCTS_THREADS`** (les fils donnés au job), **sortir avec un code non nul** en cas d'échec, et des ids
-   datés, jamais réutilisés.
+   datés, jamais réutilisés : à la milliseconde s'ils sont ajoutés en rafale. Un id déjà pris est refusé (code 1, « refusé :
+   le job … existe déjà ») ; un script qui ajoute des jobs lit ce code (codingame, 30/10/2026 : deux ids à la seconde,
+   le second refusé sans qu'on le voie).
+
+   **Des jobs d'un diviseur de 18 fils** (1, 2, 3, 6 ou 9 ; Sami, 30/10/2026) : le plus proche de ce dont le job a
+   besoin. Un job de 10 fils empêchait un job de 9 de tourner à côté, et 8 fils de la machine restaient vides. Deux
+   parties à 4 joueurs tiennent dans 9 fils, l'arbitre attendant pendant que les bots réfléchissent.
 6. **Ne jamais écrire dans `~/.mcts-backlog`** : passer par `mcts-backlog` (`--add-file`, `--status --json`,
    `--wait`).
 7. **Lire sa trace après coup** : `--status ID --json` donne `incidents` et `reported` ; une erreur ou une case
