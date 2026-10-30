@@ -220,6 +220,9 @@ victoire compte.
   - vérifier que l'arbitre local mesure le temps comme le serveur.
 - **Pour les coups simultanés**, Smitsimax : un arbre par joueur, chacun choisissant sans voir l'autre.
 - **Pour les jeux à populations**, des algorithmes génétiques, avec une population par joueur.
+- **Chercher jusqu'à l'échéance**, pas à une profondeur fixe : pour `beam.run`, `depth` grand et `deadline` qui décide ;
+  la couche coupée est jetée. Hypersonic, 30/10 : remettre la profondeur 14 au lieu de 50 fait perdre (36 %). Le site
+  compte plus large que nous : 2 timeouts en 20 parties avec une échéance à 98 ms sur 100, d'où 95.
 
 ## 4. Ce qu'il vaudrait la peine de mettre en commun
 
@@ -229,7 +232,8 @@ qu'une règle simple, avec son intervalle.
 | Quoi | Pour qui | Quand | Pourquoi |
 |---|---|---|---|
 | **beam search** | CodinGame | **dans la lib depuis le 29/10** (`beam`, celui d'Hypersonic v2) | l'outil le plus cité des post-mortems pour un jeu presque déterministe ; inutile pour nos projets, où le hasard (les durées, les arrivées) appelle des scénarios |
-| **l'escalade d'un plan continu** | CodinGame | **dans la lib depuis le 29/10** (`climb`, celle de Mad Pod Racing v4) | 1152e à 64e sur 1841 en une soirée ; le génétique, cité aussi par les post-mortems, attend qu'un bot le prouve |
+| **l'escalade d'un plan continu** | CodinGame | **dans la lib depuis le 29/10** (`climb`, celle de Mad Pod Racing v4) | 1152e à 64e sur 1841 en une soirée ; le génétique ne la bat pas (codingame, 30/10 : Mad Pod Racing, même plan, de 46 % à 51 % contre elle, 51 % même à 4 fois le temps) : il lui faut beaucoup de générations, quand l'escalade décalée hérite du tour d'avant ; il reste hors de la lib |
+| **des graines pour `climb`** (quelques plans simples essayés au départ : viser le checkpoint suivant, le meneur…) | CodinGame | quand un client a du temps par tour | rien à 45 ms (51 %), 59 % à 90 ms et 68 % à 180 ms contre la v5 de Mad Pod Racing (codingame, 30/10) |
 | **PIBT** (un pas pour toutes les unités, priorité à la bloquée) | l'entrepôt d'abord, puis la cuisine et les jeux à plusieurs unités | quand l'entrepôt grandit : plus de robots, des plans plus larges | des centaines d'unités en millisecondes ; à mesurer contre l'A* coopératif sur les mêmes journées |
 | **Smitsimax / UCT découplé** | CodinGame, coups simultanés | au premier défi de ce genre | notre ISMCTS fait jouer un acteur après l'autre |
 | **la réutilisation de l'arbre** d'un tour à l'autre (`reuse` de Lopin) | CodinGame, Lopin | au premier défi | les itérations du tour d'avant sont gratuites ; à mesurer, Lopin ne l'a pas départagée |
