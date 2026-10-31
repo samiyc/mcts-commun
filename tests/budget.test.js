@@ -121,18 +121,19 @@ describe("the library's work budgets (tests/budget.test.js, 31/10/2026)", () => 
 
   // Under `npm run test:coverage`, V8 instruments every function: its allocations are not the library's.
   const covered = process.env.NODE_V8_COVERAGE ? "V8's coverage instruments the code and allocates for it" : false;
-  it("the beam, the climb and the pool allocate nothing a turn: no collection over 100 turns, where a beam of objects collects", { skip: covered }, async () => {
+  // The young generation's collections say what the turns allocate; a major one may end a marking begun before them.
+  it("the beam, the climb and the pool allocate nothing a turn: no young collection over 100 turns, where a beam of objects collects", { skip: covered }, async () => {
     const beam = createBeam({ size: SIZE, width: 120, actions: 10 });
-    assert.deepEqual(await collectionsOf(() => beam.run(root, coinGame, { depth: 14, fade: 0.95 }), 100), { minor: 0, major: 0 }, "the beam");
+    assert.equal((await collectionsOf(() => beam.run(root, coinGame, { depth: 14, fade: 0.95 }), 100)).minor, 0, "the beam");
     const climb = createClimb({ genes: GENES });
     const rng = createRng(2017);
-    assert.deepEqual(await collectionsOf(() => climb.run(climbing, { budget: 1500, rng }), 100), { minor: 0, major: 0 }, "the climb");
+    assert.equal((await collectionsOf(() => climb.run(climbing, { budget: 1500, rng }), 100)).minor, 0, "the climb");
     const pool = createStatePool(SIZE, 500);
     const refill = () => {
       pool.clear();
       for (let i = 0; i < 500; i += 1) pool.take().set(root);
     };
-    assert.deepEqual(await collectionsOf(refill, 1000), { minor: 0, major: 0 }, "the pool");
+    assert.equal((await collectionsOf(refill, 1000)).minor, 0, "the pool");
     const control = await collectionsOf(() => objectBeam(120, 14), 30);
     assert.ok(control.minor > 0, `the observer sees the object beam's collections (${control.minor})`);
   });

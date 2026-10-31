@@ -9,8 +9,8 @@ ici.
 
 | Commande | Ce qu'elle fait |
 |---|---|
-| `npm run check` | le lint, les types, puis les tests ; c'est ce que lance le hook avant chaque commit |
-| `npm run lint` (`lint:fix`) | eslint, avec le budget de complexité de lopin |
+| `npm run check` | le lint, les types et les tests, **lancés ensemble** (`bin/check.js`, 31/10/2026 : l'un après l'autre, 50 s par commit ; ensemble, et les tests lents répartis en six fichiers, 28 s) ; c'est ce que lance le hook avant chaque commit |
+| `npm run lint` (`lint:fix`) | eslint, avec le budget de complexité de lopin ; son cache dans `node_modules/.cache/eslint/` (6,5 s → 3 s quand rien n'a bougé) |
 | `npm run types` | tsc vérifie le JavaScript d'après son JSDoc, sans rien compiler |
 | `npm test` | les tests, dont les empreintes, la longueur des `.md` et les budgets de travail (`tests/budget.test.js`, 31/10/2026 : ce qu'A* explore sur les cas du banc, ce qu'une recherche fait par itération, que le faisceau, l'escalade et les réserves n'allouent rien) |
 | `npm run test:coverage` | les mêmes tests avec la couverture, qui doit rester au-dessus de 95 % des lignes, 85 % des branches et 88 % des fonctions (le 31/10 : 96,7, 88,2 et 91,0 ; les fichiers sous 90 % sont ceux de la TUI, de `stay.js` et de `remote-transport.js`) |
@@ -20,6 +20,13 @@ ici.
 test à la fois au plus** (`--test-concurrency=4`), les fils d'un `--slot` (28/10/2026) : seul, `node --test` en lance
 autant que de cœurs moins un, et il ne lit pas `TEST_CONCURRENCY` (l'entrepôt). Pendant des mesures, `TEST_CONCURRENCY=2`
 en lance moins dans le hook.
+
+**Les tests lents sont ceux de bout en bout**, qui lancent de vrais processus `node` : la file (`queue`,
+`queue-runners`, `slots`, `backlog`), le tableau (`board`, `board-hook`), la machine distante (`remote`). Un seul fichier
+de file prenait 35 s des 40 s de `npm test` (31/10/2026) ; répartis, le plus long fait 14 s et la durée totale 26 s. Un
+nouveau test de bout en bout va dans le fichier le plus court de son thème, et ses aides dans `tests/fixtures/`
+(`backlog-cli.js`, `board-cli.js`). Les tests de la lib (`src/`) prennent 3 s en tout : les budgets de travail
+(`budget`) et les empreintes (`fingerprint`) en font la moitié.
 
 ## Ce qui diffère des projets
 

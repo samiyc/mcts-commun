@@ -22,7 +22,8 @@ where the ISMCTS was built and measured). The plan and the reasons live in lopin
   scenarios, with its interval. A quick screen rejects, it never promotes (lopin's lesson).
 - **Markdown files stay under 800 lines**, this one under 300.
 - **`npm run check` passes before every commit** (the pre-commit hook runs it; `TEST_CONCURRENCY=2` while measures
-  run): lint, types, tests. Never skip the hook. The tooling: `docs/outillage.md`.
+  run): lint, types, tests, started together by `bin/check.js` (28 s). Never skip the hook. The tooling:
+  `docs/outillage.md`.
 - **The lint budget is lopin's** (`eslint.config.js`: 40 lines a function, 220 a file, complexity 8), `node/` and
   `bin/` included: a module that outgrows it is split along its seams, the limit is never raised.
 - **The fingerprints** (`tests/api.test.js` for the search, `tests/fingerprint.test.js` for the grid, the scheduler

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { isFinished } from "../src/schedule.js";
-import { traceSummary } from "./backlog-read.js";
+import { traceSummary } from "./backlog-traces.js";
 import { incidentsOf, progressOf, projectNight, projectOf } from "./backlog-view.js";
 import { stamp } from "./queue.js";
 

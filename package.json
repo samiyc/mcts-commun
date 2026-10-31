@@ -10,10 +10,10 @@
   "scripts": {
     "test": "node --test --test-concurrency=4",
     "test:coverage": "node --test --test-concurrency=4 --experimental-test-coverage --test-coverage-exclude=tests/** --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=88",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --cache --cache-location node_modules/.cache/eslint/",
+    "lint:fix": "eslint . --fix --cache --cache-location node_modules/.cache/eslint/",
     "types": "tsc -p .",
-    "check": "npm run lint && npm run types && npm test",
+    "check": "node bin/check.js",
     "prepare": "git config core.hooksPath .githooks",
     "page": "node bin/serve.js 4800",
     "backlog": "node bin/backlog.js",

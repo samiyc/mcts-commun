@@ -269,6 +269,11 @@ pendant 45 min, puis tout à la fin) :
     d'entrepôt. `--max-semi-space-size` seul ne fait rien, et `--min-semi-space-size` est refusé dans `NODE_OPTIONS` :
     le lanceur ne peut pas le donner à votre place. Le coût : 128 Mo par processus et par worker. À vérifier sur
     votre job de référence avant de l'adopter.
+12. **Les vues coûtent peu, et restent à le faire** (31/10/2026) : un tic de la TUI ou de la page (toutes les 2 s)
+    lisait tout `done/` (un mégaoctet de JSON) et passait les 957 fichiers de `traces/` en revue, 106 ms ; il en coûte 6
+    depuis que l'archive du mois et les résumés de traces ne sont relus que si leur fichier a bougé, et que seules les 60
+    traces les plus récentes et celles des jobs en cours sont consultées (`node/backlog-traces.js`). `runs/` et
+    `traces/` grossissent d'un fichier par job (1 290 et 957 au 31/10) : un rangement par mois reste à faire.
 
 ## Après une nuit : le bilan
 
