@@ -69,7 +69,7 @@ const named = (job) => ({ id: job.id, project: projectOf(job.cwd), cwd: job.cwd,
 function runningOf(job, context) {
   return {
     ...named(job),
-    threads: job.threads ?? 1,
+    threads: job.runThreads ?? job.threads ?? 1,
     priority: job.priority ?? 2,
     startedAt: job.startedAt,
     ...timeOf(job, context.now),

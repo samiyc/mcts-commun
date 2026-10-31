@@ -67,7 +67,7 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 |---|---|---|---|
 | (aucune) | lance la file jusqu'au bout : le lanceur s'arrête quand plus rien n'est prêt | ses lignes | 0 |
 | `--stay` | lance la file et reste : la file vide, il la relit toutes les 5 s et prend les jobs qui arrivent, `scheduled` compris à leur heure. Un seul à la fois : un second `--stay` s'en va (§ « Un lanceur permanent ») | ses lignes ; « Un lanceur permanent tourne déjà » | 0 |
-| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--measured`, `--threads`, `--priority`, `--after A,B`, `--due`, `--not-before`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant, dossier introuvable, heure illisible) |
+| `--add ID --cwd DOSSIER [options] -- COMMANDE` | ajoute un job. Options : `--estimate`, `--measured`, `--threads`, `--min-threads`, `--priority`, `--after A,B`, `--due`, `--not-before`, `--limit`, `--skip-if` | une ligne | 0, ou 1 si refusé (id pris, champ manquant, dossier introuvable, heure illisible) |
 | `--add-file PROJET/night.json [--tag T | --no-tag] [--measured]` | ajoute les jobs d'un fichier, chaque id suffixé de `-T` (la date du jour par défaut ; `--no-tag` garde les ids), chacun lancé dans son `cwd` (relatif au fichier, son dossier par défaut) | une ligne par job | 0 ou 1 |
 | `--status ID [--json]` | où en est un job : à venir (`plannedStart`, ou `waiting` et `blocked`), en cours, fini (`status`, `reason`, `minutes`) ; `output` et `trace` en chemins absolus ; tiré de sa trace, `incidents` (`errors`, `crashed`, `slow`, `overbooked`) et `reported` (le dernier `progress` : `done`, `of`, `unit`, `endAt`) | une ligne, ou un objet JSON (`null` si l'id est inconnu) | 0, ou 3 si l'id est inconnu |
 | `--wait ID [--timeout MIN] [--json]` | attend la fin du job, en relisant la file toutes les 2 s | comme `--status` | 0 fini, 1 échec ou trop long, 2 annulé ou sauté, 3 inconnu, 4 pas fini au bout de `--timeout` |
@@ -188,6 +188,16 @@ pendant 45 min, puis tout à la fin) :
    **Des jobs d'un diviseur de 18 fils** (1, 2, 3, 6 ou 9 ; Sami, 30/10/2026) : le plus proche de ce dont le job a
    besoin. Un job de 10 fils empêchait un job de 9 de tourner à côté, et 8 fils de la machine restaient vides. Deux
    parties à 4 joueurs tiennent dans 9 fils, l'arbitre attendant pendant que les bots réfléchissent.
+
+   **Des tailles qui s'additionnent, et `--min-threads`** (31/10/2026, `bench/scheduler-replay.js`). Le 30/10 rejoué :
+   un job de 1 fil à côté des arènes de 9 laissait 8 fils vides tant qu'il durait (9 + 9 + 1 > 18) ; dans la journée,
+   27 heures-fils sont restées vides pendant qu'un job attendait, dont 11 où un job qui aurait tenu attendait. Le
+   remplissage derrière ses propres jobs en rend 1 ; **`--min-threads N`** en rend la moitié : un job qui accepte de
+   partir avec moins de fils que `threads`, jusqu'à N, démarre sur les fils libres quand il manque les siens
+   (`MCTS_THREADS` les lui dit ; `runThreads` dans la file, `asked` au journal). Pour une arène dont les parties
+   tournent en parallèle, `--threads 9 --min-threads 6` ; pas pour un job dont les fils sont fixes. Et quand la file
+   est pleine de jobs de 9, un job de 1 fil coûte 8 fils tant qu'il dure : qu'il parte en même temps que les autres
+   jobs de 1 fil de son projet plutôt que seul.
 6. **Ne jamais écrire dans `~/.mcts-backlog`** : passer par `mcts-backlog` (`--add-file`, `--status --json`,
    `--wait`).
 7. **Lire sa trace après coup** : `--status ID --json` donne `incidents` et `reported` ; une erreur ou une case
@@ -424,11 +434,13 @@ les estimations dataient d'avant les gains de vitesse (8 à 20 fois trop longues
 Réglé par une pause de codingame (19 h 44), à la demande de Sami ; ses séries passeront à 3 fils. Les vues montrent
 maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **Corrigé dans le lanceur le soir même** (Sami,
 28/10, la file vide) :
-- **Les trous se remplissent** (`node/fill.js`). Quand le job suivant tiendrait sans les fils d'un `--slot` ou d'un
-  autre lanceur, un job prêt qui tient dans les fils libres et dure 15 min au plus (d'après ce que la file a appris)
-  démarre en attendant. Le journal le dit : `gap-filled` (« trou rempli »). Rien ne remplit quand le suivant attend
-  les propres jobs du lanceur : une suite de petits jobs le tiendrait dehors pour toujours. Le 28/10, les `diagnose`
-  de 8 fils auraient tourné pendant l'arène.
+- **Les trous se remplissent** (`node/fill.js`). Quand le job suivant attend les fils d'un `--slot` ou d'un autre
+  lanceur, un job prêt qui tient dans les fils libres et dure 15 min au plus (d'après ce que la file a appris)
+  démarre en attendant. Le journal le dit : `gap-filled` (« trou rempli »). Le 28/10, les `diagnose` de 8 fils
+  auraient tourné pendant l'arène. **Depuis le 31/10**, quand le suivant attend les propres jobs du lanceur, un job
+  prêt démarre aussi s'il lui laisse son départ : il finit avant que le suivant puisse partir, ou il lui laisse ses fils
+  à ce moment-là (le « backfilling EASY » des ordonnanceurs de grappes). Une suite de petits jobs ne peut plus le tenir
+  dehors : chacun doit tenir dans ce que le suivant n'occupera pas.
 - **Une série de `--slot` attend comme un job** (l'avis de codingame) : un `--slot` relancé moins de 2 min après la
   fin d'un autre du même id (`--id`, ou l'id par défaut : le dossier et la commande) est `series` dans
   `wanted.json`. Il ne retient plus les jobs suivants et n'en arrête aucun : il prend les fils quand ils se libèrent.

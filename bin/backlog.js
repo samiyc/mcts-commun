@@ -21,7 +21,7 @@ import { claimStay, releaseStayOnExit } from "../node/stay.js";
  *   mcts-backlog --list [--done N]  the machine, the jobs running, the night to come as the runner would play it,
  *                                what is blocked and why, the last N done (8); --json, the same as JSON
  *   mcts-backlog --tui           the same in a terminal view that follows it live (node/tui.js), read only
- *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--measured] [--threads N] [--priority 1|2|3] [--after A,B]
+ *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--measured] [--threads N] [--min-threads N] [--priority 1|2|3] [--after A,B]
  *                [--due 2026-10-24T08:00] [--not-before 2026-10-24T20:00] [--limit MIN] [--skip-if "COMMAND"] -- COMMAND…
  *                --not-before: the job waits for that time (scheduled), a long one for the night
  *                --measured: the estimate comes from a measure of today's code, the queue keeps it as it is
@@ -57,12 +57,12 @@ function jobOfOptions() {
   const id = option("--add");
   const at = args.indexOf("--");
   if (!id || at < 0 || !option("--cwd")) {
-    console.error('usage : mcts-backlog --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--priority 2] [--after A,B] [--due ISO] [--not-before ISO] [--limit MIN] [--skip-if "COMMANDE"] -- COMMANDE…');
+    console.error('usage : mcts-backlog --add ID --cwd DOSSIER [--estimate "40 min"] [--threads N] [--min-threads N] [--priority 2] [--after A,B] [--due ISO] [--not-before ISO] [--limit MIN] [--skip-if "COMMANDE"] -- COMMANDE…');
     process.exit(1);
   }
   const job = { id, cwd: path.resolve(option("--cwd")), command: commandOf(args.slice(at + 1)), estimate: option("--estimate", "1 h"), status: "todo", ...measured() };
   /** @type {Record<string, [string, (text: string) => any]>} */
-  const read = { "--threads": ["threads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--not-before": ["notBefore", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String], "--machine": ["machine", String] };
+  const read = { "--threads": ["threads", Number], "--min-threads": ["minThreads", Number], "--priority": ["priority", Number], "--limit": ["limit", Number], "--due": ["due", String], "--not-before": ["notBefore", String], "--after": ["after", (text) => text.split(",")], "--skip-if": ["skipIf", String], "--machine": ["machine", String] };
   for (const [flag, [key, parse]] of Object.entries(read)) if (option(flag) !== null) job[key] = parse(option(flag));
   if (option("--not-before") !== null) job.status = "scheduled";
   return job;
@@ -176,12 +176,12 @@ async function pull() {
 }
 
 const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry, "--set-priority": priority, "--slot": slot };
-const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout", "--id", "--measured", "--stay", "--not-before"];
+const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--min-threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout", "--id", "--measured", "--stay", "--not-before"];
 const USAGE = `mcts-backlog : la file de la machine (docs/backlog.md)
   mcts-backlog                       lance la file jusqu'au bout
   mcts-backlog --stay                la lance et reste, à attendre les jobs suivants (un seul à la fois)
   --list [--done N] [--json] | --tui la file, en texte, en JSON ou en direct
-  --add ID --cwd DOSSIER [--estimate "40 min"] [--measured] [--threads N] [--priority 1|2|3] [--after A,B] [--due ISO] [--not-before ISO] [--limit MIN] [--skip-if "COMMANDE"] [--machine M] -- COMMANDE…
+  --add ID --cwd DOSSIER [--estimate "40 min"] [--measured] [--threads N] [--min-threads N] [--priority 1|2|3] [--after A,B] [--due ISO] [--not-before ISO] [--limit MIN] [--skip-if "COMMANDE"] [--machine M] -- COMMANDE…
   --add-file FICHIER.json [--tag T | --no-tag] [--machine M] [--measured]
   --status ID [--json] · --wait ID [--timeout MIN] · --cancel ID · --retry ID [--priority N]
   --set-priority MOTIF N             les jobs à venir dont l'id correspond (* : n'importe quoi) en priorité N

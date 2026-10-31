@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { RUNNER, archiveOf, backlog, codeOf, quiet, scratch, sleeper, statusOf } from "./fixtures/backlog-cli.js";
+import { RUNNER, archiveOf, backlog, codeOf, journalOf, quiet, scratch, sleeper, statusOf } from "./fixtures/backlog-cli.js";
 
 /**
  * The runners on one queue (bin/backlog.js, docs/backlog.md): two of them never run a job twice, a job is cancelled
@@ -51,6 +51,26 @@ describe("the runners on one queue (bin/backlog.js, docs/backlog.md)", () => {
       await assert.rejects(backlog(home, "--set-priority", "long-r1", "5"), /1, 2 ou 3/);
       await backlog(home, "--retry", "long", "--priority", "1");
       assert.equal((await statusOf(home, "long-r2")).priority, 1);
+    }));
+
+  it("starts a job on the free threads when it can do with fewer (--min-threads, 31/10): 3 of the 4 it asks, said in the journal", () =>
+    scratch(async (home, folder) => {
+      const says = 'node -e "console.log(\'fils\', process.env.MCTS_THREADS)"';
+      await assert.rejects(backlog(home, "--add", "zero", "--cwd", folder, "--threads", "4", "--min-threads", "0", "--", says), /minThreads vaut de 1 à threads \(4\)/);
+      await assert.rejects(backlog(home, "--add", "trop", "--cwd", folder, "--threads", "4", "--min-threads", "5", "--", says), /minThreads/);
+      // A job of 2 holds 2 of 5: the supple one takes the 3 free, the rigid one waits for its 4.
+      await backlog(home, "--add", "occupe", "--cwd", folder, "--threads", "2", "--", sleeper(3000));
+      await backlog(home, "--add", "souple", "--cwd", folder, "--threads", "4", "--min-threads", "2", "--", says);
+      await backlog(home, "--add", "rigide", "--cwd", folder, "--threads", "4", "--", says);
+      await backlog(home, "--budget", "5");
+      const started = (await journalOf(home)).filter((entry) => entry.kind === "job-started");
+      assert.deepEqual(started.map(({ id, threads, asked }) => [id, threads, asked ?? null]), [["occupe", 2, null], ["souple", 3, 4], ["rigide", 4, null]]);
+      const output = await readFile((await statusOf(home, "souple")).output, "utf8");
+      assert.match(output, /fils 3/);
+      assert.equal((await statusOf(home, "souple")).runThreads, 3);
+      // A retry keeps the minimum.
+      await backlog(home, "--retry", "souple");
+      assert.equal((await statusOf(home, "souple-r1")).minThreads, 2);
     }));
 
   it("stays with --stay: waits on an empty queue, runs a job added later, lets no second one start (Sami, 29/10)", () =>

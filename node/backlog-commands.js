@@ -18,6 +18,14 @@ function checkJob(job) {
   const missing = REQUIRED.filter((key) => typeof job[key] !== "string" || job[key].trim() === "");
   if (missing.length) throw new Error(`job ${job.id ?? "?"} incomplet : ${missing.join(", ")}`);
   if (job.notBefore !== undefined && Number.isNaN(Date.parse(job.notBefore))) throw new Error(`job ${job.id} : notBefore illisible, « ${job.notBefore} » (2026-10-30T20:00)`);
+  checkMinThreads(job);
+}
+
+/** `--min-threads` (31/10/2026): a whole number from 1 to the threads asked. */
+function checkMinThreads(job) {
+  const least = job.minThreads;
+  if (least === undefined) return;
+  if (!Number.isInteger(least) || least < 1 || least > (job.threads ?? 1)) throw new Error(`job ${job.id} : minThreads vaut de 1 à threads (${job.threads ?? 1}), pas ${least}`);
 }
 
 /**
@@ -133,7 +141,7 @@ export async function cancelJob(queue, id) {
 }
 
 /** What a retry keeps of a job: what it runs and how; not its end, nor prerequisites long over, nor a due passed. */
-const KEPT = ["cwd", "command", "estimate", "threads", "priority", "limit", "skipIf", "machine", "returns"];
+const KEPT = ["cwd", "command", "estimate", "threads", "minThreads", "priority", "limit", "skipIf", "machine", "returns"];
 
 /** A pattern of ids, `*` any run of characters: `cuis-*-palierE-*`. */
 const idPattern = (pattern) => new RegExp(`^${pattern.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);

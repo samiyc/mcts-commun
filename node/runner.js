@@ -2,13 +2,13 @@ import { appendFile, mkdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { withLearned } from "../src/estimate.js";
-import { nextJob } from "../src/schedule.js";
+import { nextJob, threadsFor } from "../src/schedule.js";
 import { alive, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, waitUntilCool, watchHeat, watchMemory } from "./machine.js";
 import { fillGap } from "./fill.js";
 import { preemptFor } from "./preempt.js";
 import { stamp } from "./queue.js";
 import { runJob, skipCheck } from "./run-job.js";
-import { roomFor } from "./wanted.js";
+import { threadsNow } from "./wanted.js";
 
 /**
  * The runner of `mcts-backlog` (bin/backlog.js): the queue played to its end, jobs side by side as long as their
@@ -133,14 +133,23 @@ async function pickNext({ queue, running }, current) {
   return nextJob(withLearned(waiting, archive), [...archive, ...current.jobs.filter((one) => one.status === "running")], Date.now());
 }
 
+/**
+ * The threads `job` starts on now, or null: what it asks, or the free ones when it can do with fewer (`minThreads`,
+ * src/schedule.js). The threads a short test waits for (--slot) are not free: it is served before the queue's next job
+ * (Sami, 27/10/2026).
+ */
+async function threadsToStart(home, budget, job) {
+  const { used, wanted } = await threadsNow(home);
+  return threadsFor(job, budget - used - wanted, budget);
+}
+
 /** Starts `job` if its threads are free, or skips it on its `skipIf`: true if it did either. */
 async function tryStart(runner, job) {
   const { home, budget, journal } = runner;
-  const threads = Math.max(1, Math.min(job.threads ?? 1, budget));
-  // A short test waiting for threads (--slot) is served before the queue's next job (Sami, 27/10/2026).
-  const slot = (await roomFor(home, budget, threads)) ? await takeSlot({ home, id: job.id, threads, budget }) : null;
+  const threads = await threadsToStart(home, budget, job);
+  const slot = threads ? await takeSlot({ home, id: job.id, threads, budget }) : null;
   if (!slot) {
-    if (!runner.waitingForSlot.has(job.id)) journal("slot-waiting", { id: job.id, threads, slots: (await readSlots(home)).map(({ runner: who, id, threads: taken }) => ({ runner: who, id, threads: taken })) });
+    if (!runner.waitingForSlot.has(job.id)) journal("slot-waiting", { id: job.id, threads: job.threads ?? 1, slots: (await readSlots(home)).map(({ runner: who, id, threads: taken }) => ({ runner: who, id, threads: taken })) });
     runner.waitingForSlot.add(job.id);
     return false;
   }
@@ -194,8 +203,10 @@ async function start(runner, run) {
   console.log(`▶ ${job.id} (${job.estimate ?? "?"}, ${threads} fil${threads > 1 ? "s" : ""}) : ${job.cwd} : ${job.command}`);
   const child = runJob(job, files, { signal: guard.signal, threads, home });
   const output = path.relative(home, files.out);
-  await queue.update(job.id, { childPid: child.pid, output, trace: path.relative(home, files.trace) });
-  journal("job-started", { id: job.id, cwd: job.cwd, command: job.command, threads, childPid: child.pid, output });
+  // `runThreads`: the threads it got, fewer than asked when it could do with fewer (31/10/2026), for the views.
+  await queue.update(job.id, { childPid: child.pid, output, trace: path.relative(home, files.trace), runThreads: threads });
+  const asked = Math.max(1, Math.min(job.threads ?? 1, runner.budget));
+  journal("job-started", { id: job.id, cwd: job.cwd, command: job.command, threads, ...(threads < asked ? { asked } : {}), childPid: child.pid, output });
   const done = child.done.then((code) => ended(runner, run, code));
   runner.running.set(job.id, { guard, stops, done, started: run.started, threads });
   done.finally(() => runner.running.delete(job.id));

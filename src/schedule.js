@@ -33,6 +33,19 @@ export function minutesOf(estimate) {
 }
 
 export const weightOf = (job) => WEIGHTS[job.priority ?? 2] ?? WEIGHTS[2];
+
+/**
+ * The threads a job starts on, `free` being free of `budget`: what it asks (`threads`, 1 by default, the budget at
+ * most); or, when fewer are free and the job can do with fewer (`minThreads`, `--min-threads`), all the free ones
+ * (31/10/2026: a job of 9 beside a job of 1 left 8 of 18 idle as long as the 1 lasted, the next job of 9 waiting for
+ * them; replayed, the day loses half its idle threads). Null when it cannot start now.
+ */
+export function threadsFor(job, free, budget) {
+  const asked = Math.max(1, Math.min(job.threads ?? 1, budget));
+  if (asked <= free) return asked;
+  const least = Math.max(1, Math.min(job.minThreads ?? asked, asked));
+  return least <= free ? free : null;
+}
 const lengthOf = (job) => Math.max(minutesOf(job.estimate), 1 / 60);
 
 /** Every job by id: the archive first (the latest entry of an id wins), then the queue over it. */

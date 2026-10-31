@@ -14,16 +14,31 @@ import { dropWant, inSeries, threadsNow, wantSlot } from "../node/wanted.js";
 const job = (id, threads, estimate = "7 min") => ({ id, threads, estimate });
 
 describe("the gaps a waiting job leaves, and a series of tests (node/fill.js, node/wanted.js), Sami 28/10", () => {
-  it("fills the gap with a short job that fits while the next waits for threads others hold, never for its own", () => {
+  it("fills the gap with a short job that fits while the next waits for threads others hold", () => {
     const next = job("mondes-32", 16);
     const ready = [next, job("long", 8, "40 min"), job("diagnose-1", 8), job("diagnose-2", 8)];
-    // The arena holds 6 of 18: 12 free, the next job would fit without it.
-    assert.equal(fillerOf({ ready, next, ours: 0, others: 6, free: 12, budget: 18 })?.id, "diagnose-1", "a short one that fits, the long one left");
-    assert.equal(fillerOf({ ready, next, ours: 0, others: 14, free: 4, budget: 18 }), null, "nothing fits in 4");
-    // The next job waits for the runner's own jobs: no filler, or a stream of small ones would keep it out for ever.
-    assert.equal(fillerOf({ ready, next, ours: 8, others: 0, free: 10, budget: 18 }), null);
-    assert.equal(fillerOf({ ready, next, ours: 8, others: 6, free: 4, budget: 18 }), null, "it would not fit even without the others");
-    assert.equal(fillerOf({ ready: [next, job("court", 1, `${FILL_MINUTES + 1} min`)], next, ours: 0, others: 6, free: 12, budget: 18 }), null, "too long to fill");
+    // The arena holds 6 of 18: 12 free, nothing of the runner's own running, the arena's end unknown.
+    assert.equal(fillerOf({ ready, next, free: 12, budget: 18 })?.id, "diagnose-1", "a short one that fits, the long one left");
+    assert.equal(fillerOf({ ready, next, free: 4, budget: 18 }), null, "nothing fits in 4");
+    assert.equal(fillerOf({ ready: [next, job("court", 1, `${FILL_MINUTES + 1} min`)], next, free: 12, budget: 18 }), null, "too long to fill");
+  });
+
+  it("fills the gap behind its own jobs only with a filler that leaves the next job its start (EASY, 31/10/2026)", () => {
+    const now = Date.parse("2026-10-31T01:00:00");
+    const minutes = (n) => now + n * 60_000;
+    // A job of 9 and a job of 1 run: 8 free of 18, the next job of 10 starts when the 9 ends, in 5 min, on 17 free.
+    const next = job("mondes-10", 10);
+    const running = [
+      { threads: 9, end: minutes(5) },
+      { threads: 1, end: minutes(19) },
+    ];
+    const settings = { next, free: 8, budget: 18, running, now };
+    assert.equal(fillerOf({ ...settings, ready: [next, job("service", 1, "19 min")] })?.id, "service", "a 1 thread for 19 min: the 10 still fits beside it when its turn comes");
+    assert.equal(fillerOf({ ...settings, ready: [next, job("diagnose", 8, "7 min")] }), null, "8 threads for 7 min: at its turn, 17 − 8 is short of 10");
+    assert.equal(fillerOf({ ...settings, ready: [next, job("eclair", 8, "4 min")] })?.id, "eclair", "8 threads for 4 min: over before the next job's turn");
+    assert.equal(fillerOf({ ...settings, ready: [next, job("huit", 8, "7 min"), job("un", 1, "7 min")] })?.id, "un", "the first that leaves it its start");
+    assert.equal(fillerOf({ ...settings, next: job("mondes-9", 9), ready: [job("mondes-9", 9), job("diagnose", 8, "7 min")] })?.id, "diagnose", "a next job of 9: 17 − 8 is enough, no delay");
+    assert.equal(fillerOf({ next: null, ready: [], free: 18, budget: 18 }), null);
   });
 
   it("knows a test in a series, and its want holds nothing back (codingame's arena, 28/10)", async () => {

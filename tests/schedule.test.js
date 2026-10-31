@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { holdOf, indexJobs, minutesOf, nextJob, planNight, smithOrder } from "../src/schedule.js";
+import { holdOf, indexJobs, minutesOf, nextJob, planNight, smithOrder, threadsFor } from "../src/schedule.js";
 
 const NOW = Date.parse("2026-10-22T22:00");
 const job = (id, estimate, extra = {}) => ({ id, command: `echo ${id}`, estimate, status: "todo", ...extra });
@@ -8,6 +8,17 @@ const ids = (jobs) => jobs.map((one) => one.id);
 const next = (jobs, archive = [], now = NOW, options) => nextJob(jobs, archive, now, options)?.id;
 
 describe("the backlog's order: prerequisites, priorities, due times (src/schedule.js, from lopin, Sami 22/10)", () => {
+  it("starts a job on what it asks, or on the free threads when it can do with fewer (minThreads, 31/10/2026)", () => {
+    assert.equal(threadsFor({ threads: 9 }, 9, 18), 9);
+    assert.equal(threadsFor({ threads: 9 }, 8, 18), null, "no minThreads: it waits for its 9");
+    assert.equal(threadsFor({ threads: 9, minThreads: 6 }, 8, 18), 8, "8 free of 18 beside a job of 1: it takes them");
+    assert.equal(threadsFor({ threads: 9, minThreads: 6 }, 5, 18), null, "under its minimum: it waits");
+    assert.equal(threadsFor({ threads: 9, minThreads: 6 }, 12, 18), 9, "never more than asked");
+    assert.equal(threadsFor({ threads: 24, minThreads: 20 }, 18, 18), 18, "the budget caps both");
+    assert.equal(threadsFor({}, 0, 18), null);
+    assert.equal(threadsFor({}, 1, 18), 1);
+  });
+
   it("reads the estimates the queue writes", () => {
     assert.equal(minutesOf("40 min"), 40);
     assert.equal(minutesOf("~25 min"), 25);
