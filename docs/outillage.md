@@ -12,7 +12,9 @@ ici.
 | `npm run check` | le lint, les types, puis les tests ; c'est ce que lance le hook avant chaque commit |
 | `npm run lint` (`lint:fix`) | eslint, avec le budget de complexité de lopin |
 | `npm run types` | tsc vérifie le JavaScript d'après son JSDoc, sans rien compiler |
-| `npm test` (`test:coverage`) | les tests, dont les empreintes et la longueur des `.md` |
+| `npm test` | les tests, dont les empreintes, la longueur des `.md` et les budgets de travail (`tests/budget.test.js`, 31/10/2026 : ce qu'A* explore sur les cas du banc, ce qu'une recherche fait par itération, que le faisceau, l'escalade et les réserves n'allouent rien) |
+| `npm run test:coverage` | les mêmes tests avec la couverture, qui doit rester au-dessus de 95 % des lignes, 85 % des branches et 88 % des fonctions (le 31/10 : 96,7, 88,2 et 91,0 ; les fichiers sous 90 % sont ceux de la TUI, de `stay.js` et de `remote-transport.js`) |
+| `npm run bench` | ce que coûtent A*, les réservations et la recherche commune, en µs par appel (`bench/grid-search.js [SRC]`, l'ancien code depuis un worktree pour comparer) ; `node bench/beam-climb.js` pour le faisceau et l'escalade, avec les passages du ramasse-miettes ; `node bench/profile.js -- node script.js …` pour les fonctions au plus de temps propre. Sous `mcts-backlog --slot 1`, et toujours en alternance, ancien contre nouveau : le bruit est de ±5 % |
 
 `npm install` active le hook (`git config core.hooksPath .githooks`). `npm test` et le hook lancent **4 fichiers de
 test à la fois au plus** (`--test-concurrency=4`), les fils d'un `--slot` (28/10/2026) : seul, `node --test` en lance

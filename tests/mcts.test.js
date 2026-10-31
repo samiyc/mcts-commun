@@ -6,6 +6,16 @@ import { resetTrace, traceSnapshot } from "../src/trace.js";
 import { doors, loudLuck, nim, twoJobs } from "./fixtures/problems.js";
 
 describe("the tree search over hidden information (src/mcts.js)", () => {
+  it("refuses common worlds when a root move of the first world is missing in another, and traces it", () => {
+    resetTrace();
+    const onlyThePrize = { ...nim, sample: (state, rng) => ({ prize: rng.next() < 0.7 ? "A" : "B", opened: null }), actor: () => "me", moves: (world) => [world.prize], key: (door) => door, play: (world, door) => ({ ...world, opened: door }), over: (world) => world.opened !== null, rollout: (world) => world, score: (world) => (world.opened === world.prize ? 1 : 0) };
+    assert.throws(() => search({}, onlyThePrize, { budget: 40, rng: createRng(2), common: true }), /common: le coup [AB] manque/);
+    const { counters, recent } = traceSnapshot();
+    assert.equal(counters.search.errors, 1);
+    assert.deepEqual(recent.map((event) => [event.scope, event.kind]), [["search", "error"], ["search", "error"]], "the common error, then the search's");
+    resetTrace();
+  });
+
   it("counts and times the problem's sample, copy, play and rollout: where an iteration goes, read in a trace (30/10)", () => {
     resetTrace();
     const pile = { pile: 7, toMove: "A" };

@@ -15,7 +15,9 @@ export const filesOf = (home) => ({ queue: path.join(home, "queue.json"), done: 
 /** A local stamp, "2026-10-26T18:57". */
 export const stamp = (date = new Date()) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 
-const RENAME_TRIES = 20;
+// 100 tries of 50 ms: under a loaded machine two runners on one queue saw the 20th try refused (31/10/2026, the tests
+// under coverage), and a reader (the TUI, the page, a --list) holds the file a moment on Windows.
+const RENAME_TRIES = 100;
 let saves = 0;
 
 const readQueue = (files) => readJson(files.queue, { jobs: [] });

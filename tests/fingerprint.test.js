@@ -6,6 +6,7 @@ import { astar, createDistances, createReservations, parsePlan } from "../src/gr
 import { createRng } from "../src/random.js";
 import { nextJob, planNight } from "../src/schedule.js";
 import { resetTrace, traceSnapshot } from "../src/trace.js";
+import { CORRIDOR, warehouse } from "./fixtures/plans.js";
 
 /**
  * What the grid, the scheduler and the event queue do, hashed (Sami, 26/10/2026: taken before the lint's split,
@@ -35,16 +36,6 @@ function gridRuns() {
   const blocked = astar(PLAN, { x: 1, y: 1 }, { x: 0, y: 0 }, { passable, reservations, unit: 10, horizon: 30 });
   return { paths, again, blocked };
 }
-
-/** A warehouse as the bench's (bench/grid-search.js): racks two cells deep in rows, aisles between them, a wall round. */
-function warehouse(width, height) {
-  const edge = (x, y) => x === 0 || y === 0 || x === width - 1 || y === height - 1;
-  const rack = (x, y) => y % 4 !== 0 && x % 6 >= 2 && x % 6 <= 3;
-  return parsePlan(Array.from({ length: height }, (_, y) => Array.from({ length: width }, (_, x) => (edge(x, y) || rack(x, y) ? "#" : ".")).join("")).join("\n"));
-}
-
-/** The kitchen's corridor with its dead end (bench/grid-search.js). */
-const CORRIDOR = parsePlan(["##############", "#..#.........#", "#..#.........#", "#.............#", "###############"].join("\n"));
 
 /**
  * The options of a call of the corpus: a leg's horizon as the projects give (60 to 180 steps; at the plan's default, a

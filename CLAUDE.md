@@ -27,6 +27,11 @@ where the ISMCTS was built and measured). The plan and the reasons live in lopin
   `bin/` included: a module that outgrows it is split along its seams, the limit is never raised.
 - **The fingerprints** (`tests/api.test.js` for the search, `tests/fingerprint.test.js` for the grid, the scheduler
   and the events) hold what the library does for every project: a refactor changes none.
+- **The work budgets** (`tests/budget.test.js`, 31/10/2026): what A* explores on the bench's cases, what a search does an
+  iteration, that the beam, the climb and the pool allocate nothing. A change in a hot path (`grid*`, `reservations*`,
+  `mcts`, `beam*`, `climb`, `pool`, `events`, `random`, `trace`) also runs `npm run bench` old against new, in
+  alternation, and writes the numbers in its commit: the typed-array A* of 31/10 looked faster and was not.
+  `npm run test:coverage` holds the coverage above 95 % of lines, 85 % of branches and 88 % of functions.
 - **One CPU budget**: while the queue runs, a short test beside it goes through `mcts-backlog --slot N -- cmd` (waits
   for N free threads of the 18; `TEST_CONCURRENCY` as the board's hook advises): 4 threads and 15 min at most, refused
   above, stopped at the limit; a longer measure is a job.
