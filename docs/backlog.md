@@ -275,8 +275,8 @@ pendant 45 min, puis tout à la fin) :
 11. **Le ramasse-miettes des jobs qui allouent** (31/10/2026, [`recherche.md`](recherche.md) § 6) : la jeune
     génération de V8 fixée à 64 Mo, sur la ligne `node` de la commande du job,
     `node --min-semi-space-size=64 --max-semi-space-size=64 scripts/…` (les workers du processus en héritent) :
-    −10 % sur les journées du parcours d'urgences, −5 % sur les services de cuisine, rien sur les journées
-    d'entrepôt. `--max-semi-space-size` seul ne fait rien, et `--min-semi-space-size` est refusé dans `NODE_OPTIONS` :
+    −4,2 % sur les journées du parcours d'urgences (adopté là), rien de sûr sur la garde d'urgences, les services de
+    la grande brigade de cuisine (−1,4 %) ni les journées d'entrepôt ; le banc court promettait −10 et −5 %. `--max-semi-space-size` seul ne fait rien, et `--min-semi-space-size` est refusé dans `NODE_OPTIONS` :
     le lanceur ne peut pas le donner à votre place. Le coût : 128 Mo par processus et par worker. À vérifier sur
     votre job de référence avant de l'adopter.
 12. **Les vues coûtent peu, et restent à le faire** (31/10/2026) : un tic de la TUI ou de la page (toutes les 2 s)

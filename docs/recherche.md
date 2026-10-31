@@ -386,6 +386,24 @@ lanceur ne peut donc pas le donner aux jobs. Sa place est sur la ligne `node` de
 urgences et cuisine d'abord, chacun après l'avoir vu sur son job de référence. Le coût : 128 Mo de jeune génération
 par processus et par worker (8 fils : 1 Go). Entrepôt n'y gagne rien, ses journées allouent moins.
 
+**Sur les jobs de référence des projets, le 31/10 au soir**, le gain fond : mesuré par chacun, avec et sans, en
+alternance, sous `--slot` :
+- **urgences, le parcours** (24 journées, cinq paires) : 16,7 s contre 16,0 s, **−4,2 %**, quatre paires sur cinq plus
+  rapides, les mêmes sorties ; **adopté** sur les 35 jobs du parcours de `night.json` et `npm run pathway:search` (moitié
+  moins que les −10 % du banc : les journées tournent dans des workers, et la machine était chargée). **La garde**
+  (10 gardes, un fil) : +1 %, dans le bruit, inchangée ;
+- **cuisine, la grande brigade** (10 services) : 16,7 s contre 16,5 s, **−1,4 %**, dans le bruit : le −4,9 % venait de
+  la petite cuisine, où la recherche pèse moins. Ses commandes ne changent pas.
+
+La leçon : un banc court mesure le ramasse-miettes d'un run qui alloue plus qu'un job réel ; seul le job de référence
+décide.
+
+**`astar.parkedTarget` chez entrepôt, le 31/10** : **0** sur huit séries (63 000 à 385 000 appels A* chacune).
+Avant chaque appel, `worthSearching` écarte une cible où un autre est garé pour de bon (`freeFrom` jusqu'à
+l'horizon), et chaque trajet est demandé avec `park: true`. Ce qui pèse chez lui, ce sont les chemins non trouvés
+(65 % des appels aux couloirs, 39 % aux quais, neuf sur dix abandonnés tôt par `givenUp`) : une question de ce qu'il
+demande, pas de la lib. La borne ne dépend plus que des compteurs de cuisine (semaine du 2/11).
+
 ## Sources
 
 - [Guba et Gemrot, *Comparison of Monte Carlo Tree Search Variants* (2025)](https://ceur-ws.org/Vol-4092/paper2.pdf)
