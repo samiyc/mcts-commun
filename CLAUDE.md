@@ -26,9 +26,9 @@ where the ISMCTS was built and measured). The plan and the reasons live in lopin
   `docs/outillage.md`.
 - **The lint budget is lopin's** (`eslint.config.js`: 40 lines a function, 220 a file, complexity 8), `node/` and
   `bin/` included: a module that outgrows it is split along its seams, the limit is never raised.
-- **The fingerprints** (`tests/api.test.js` for the search, `tests/fingerprint.test.js` for the grid, the scheduler
+- **The fingerprints** (`tests/lib/api.test.js` for the search, `tests/lib/fingerprint.test.js` for the grid, the scheduler
   and the events) hold what the library does for every project: a refactor changes none.
-- **The work budgets** (`tests/budget.test.js`, 31/10/2026): what A* explores on the bench's cases, what a search does an
+- **The work budgets** (`tests/lib/budget.test.js`, 31/10/2026): what A* explores on the bench's cases, what a search does an
   iteration, that the beam, the climb and the pool allocate nothing. A change in a hot path (`grid*`, `reservations*`,
   `mcts`, `beam*`, `climb`, `pool`, `events`, `random`, `trace`) also runs `npm run bench` old against new, in
   alternation, and writes the numbers in its commit: the typed-array A* of 31/10 looked faster and was not.

@@ -2,11 +2,11 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { READERS, isFor, projectOf, threadOf, threadsOf, unreadOf } from "../node/board.js";
-import { boardHome, createBoard } from "../node/board-store.js";
-import { boardText, hookText, inboxText, threadText } from "../node/board-text.js";
+import { READERS, isFor, projectOf, threadOf, threadsOf, unreadOf } from "../node/board/board.js";
+import { boardHome, createBoard } from "../node/board/store.js";
+import { boardText, hookText, inboxText, threadText } from "../node/board/text.js";
 import { backlogHome } from "../node/machine.js";
-import { SLOT_MAX_MINUTES, SLOT_MAX_THREADS, machineLoad } from "../node/slot-run.js";
+import { SLOT_MAX_MINUTES, SLOT_MAX_THREADS, machineLoad } from "../node/queue/slot-run.js";
 
 /**
  * `mcts-board`: the board the Claude sessions of the mcts-* projects post to and read (Sami, 27/10/2026: five sessions,

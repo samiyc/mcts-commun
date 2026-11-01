@@ -1,7 +1,7 @@
 import path from "node:path";
 
 /**
- * Loaded first in every Node process of a backlog job (`--import`, node/run-job.js; 27/10/2026: the night's jobs,
+ * Loaded first in every Node process of a backlog job (`--import`, node/queue/run-job.js; 27/10/2026: the night's jobs,
  * whose computation never yields, opened their trace only when they ended). The trace file is opened before the job's
  * own modules, so its start is written at once and the library's calls beat from the first. npm and npx, which only
  * start the job's script, are left out: they would beat while the job is stuck.

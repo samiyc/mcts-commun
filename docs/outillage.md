@@ -12,7 +12,7 @@ ici.
 | `npm run check` | le lint, les types et les tests, **lancés ensemble** (`bin/check.js`, 31/10/2026 : l'un après l'autre, 50 s par commit ; ensemble, et les tests lents répartis en six fichiers, 28 s) ; c'est ce que lance le hook avant chaque commit |
 | `npm run lint` (`lint:fix`) | eslint, avec le budget de complexité de lopin ; son cache dans `node_modules/.cache/eslint/` (6,5 s → 3 s quand rien n'a bougé) |
 | `npm run types` | tsc vérifie le JavaScript d'après son JSDoc, sans rien compiler |
-| `npm test` | les tests, dont les empreintes, la longueur des `.md` et les budgets de travail (`tests/budget.test.js`, 31/10/2026 : ce qu'A* explore sur les cas du banc, ce qu'une recherche fait par itération, que le faisceau, l'escalade et les réserves n'allouent rien) |
+| `npm test` | les tests, dont les empreintes, la longueur des `.md` et les budgets de travail (`tests/lib/budget.test.js`, 31/10/2026 : ce qu'A* explore sur les cas du banc, ce qu'une recherche fait par itération, que le faisceau, l'escalade et les réserves n'allouent rien) |
 | `npm run test:coverage` | les mêmes tests avec la couverture, qui doit rester au-dessus de 95 % des lignes, 85 % des branches et 88 % des fonctions (le 31/10 : 96,7, 88,2 et 91,0 ; les fichiers sous 90 % sont ceux de la TUI, de `stay.js` et de `remote-transport.js`) |
 | `npm run bench` | ce que coûtent A*, les réservations et la recherche commune, en µs par appel (`bench/grid-search.js [SRC]`, l'ancien code depuis un worktree pour comparer) ; `node bench/beam-climb.js` pour le faisceau et l'escalade, avec les passages du ramasse-miettes ; `node bench/profile.js -- node script.js …` pour les fonctions au plus de temps propre ; `node bench/scheduler-replay.js AAAA-MM-JJ` rejoue une journée de la file sous plusieurs politiques (les fils vides pendant qu'un job attendait, les attentes des jobs de priorité 1). Sous `mcts-backlog --slot 1`, et toujours en alternance, ancien contre nouveau : le bruit est de ±5 % |
 
@@ -28,12 +28,30 @@ nouveau test de bout en bout va dans le fichier le plus court de son thème, et 
 (`backlog-cli.js`, `board-cli.js`). Les tests de la lib (`src/`) prennent 3 s en tout : les budgets de travail
 (`budget`) et les empreintes (`fingerprint`) en font la moitié.
 
+## L'arborescence
+
+Réorganisée le 1/11/2026 (Sami : des dossiers de 20 à 30 fichiers à plat). La règle : **ce que les projets importent
+ou appellent par son chemin reste où il est**, le reste va dans un sous-dossier par outil.
+
+| Dossier | Ce qu'il contient |
+|---|---|
+| `src/` | les modules de la lib, un fichier chacun (`mcts.js`, `grid.js`, `beam.js`…) : les pages des projets les chargent par `mcts-commun/X.js` → `src/X.js` (leur carte d'imports), ils ne bougent pas |
+| `src/grid/`, `src/beam/`, `src/mcts/`, `src/schedule/` | les morceaux d'un module, au nom de son dossier : A* (`open`, `reach`, `distances`, `danger`) et les réservations ; le faisceau local ; le rapport de `diagnose` ; les estimations de durée |
+| `node/` | ce que Node seul fait et que d'autres chargent par son chemin : `machine.js` (exporté), `trace-preload.js` (le lanceur le passe à chaque job en `--import`), `trace-file.js`, `tail.js` |
+| `node/queue/` | le lanceur de la file : la file, le lanceur, un job, les créneaux, le remplissage, la préemption, le journal |
+| `node/backlog/` | les vues de la file : la lecture, le texte, les commandes de `mcts-backlog` |
+| `node/tui/`, `node/board/`, `node/remote/` | le TUI, le tableau des sessions, la machine distante |
+| `bin/` | les commandes (`mcts-backlog`, `mcts-board`, `mcts-serve`, `check`) : les projets, le raccourci de démarrage et les hooks les appellent par leur chemin |
+| `web/` | la page de la file (`index.html`, `backlog.js`, ses sections dans `web/backlog/`) et `theme.css`, que les pages des projets chargent |
+| `tests/lib/`, `tests/backlog/`, `tests/board/` | les tests de la lib, de la file et du tableau ; leurs aides dans `tests/fixtures/` |
+| `bench/`, `docs/` | les bancs, la documentation ; quel algorithme pour quel problème : [`algorithmes.md`](algorithmes.md) |
+
 ## Ce qui diffère des projets
 
 - **`node/` et `bin/` passent aussi sous le budget.** Ce sont les outils de la backlog : le lanceur, le TUI, le
   serveur de la page. `src/` et `web/` n'importent aucun module `node:*`, parce que la page les charge.
-- **Les empreintes couvrent ce dont dépendent les projets.** `tests/api.test.js` garde celle de la recherche.
-  `tests/fingerprint.test.js` garde celles de la grille (sept unités planifiées les unes autour des autres), de
+- **Les empreintes couvrent ce dont dépendent les projets.** `tests/lib/api.test.js` garde celle de la recherche.
+  `tests/lib/fingerprint.test.js` garde celles de la grille (sept unités planifiées les unes autour des autres), de
   l'ordonnanceur (une nuit de douze jobs) et de la file d'événements. Une refonte ne doit en changer aucune.
 - **Les types** : `tsconfig.json` couvre `src/`, `node/`, `bin/` et `web/`. Les formes échangées sont dans
   `src/types.js` : le monde et le coup (ceux du projet), et le job de la file.
@@ -41,8 +59,8 @@ nouveau test de bout en bout va dans le fichier le plus court de son thème, et 
 ## Le premier passage, le 26/10
 
 Le lint a trouvé 118 erreurs, les types 20. On a découpé, sans relever une seule limite :
-- `node/tui.js` en cinq modules : `ansi`, `tui-tabs`, `tui-detail`, `tui-screen`, et la boucle des touches ;
-- `bin/backlog.js` en `node/queue.js`, `node/run-job.js`, `node/runner.js` et `node/backlog-commands.js` ;
+- `node/tui/tui.js` en cinq modules : `ansi`, `tui-tabs`, `tui-detail`, `tui-screen`, et la boucle des touches ;
+- `bin/backlog.js` en `node/queue/queue.js`, `node/queue/run-job.js`, `node/queue/runner.js` et `node/backlog/commands.js` ;
 - la page en un module par section (`web/backlog-*.js`) ;
 - dans la bibliothèque, `grid.js`, `events.js` et `mcts.js` en fonctions plus petites.
 

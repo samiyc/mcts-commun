@@ -159,7 +159,7 @@ Chaque session ajoute les siennes par le tableau, et commun les reporte ici. Le 
 
 **Décidé le 30/10** : les quatre démarrent la semaine prochaine, en parallèle de la revue. Chacun a son dépôt et sa
 session ; Sami crée les dépôts GitHub, privés tant qu'il n'a pas choisi de licence. Le tableau ne connaît que six
-noms (`PROJECTS`, `node/board.js`) : `agenda` et `feux` y sont depuis le 30/10, les deux autres suivront leur nom.
+noms (`PROJECTS`, `node/board/board.js`) : `agenda` et `feux` y sont depuis le 30/10, les deux autres suivront leur nom.
 
 Chaque projet démarre **comme la cuisine**, par une journée de cadrage sans code de recherche :
 - `docs/modele.md` : le modèle ;

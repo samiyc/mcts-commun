@@ -192,7 +192,7 @@ const SLOT_RENAME_TRIES = 40;
 /**
  * Writes the slots whole, then renames them into place, a few tries: on Windows a file another process is reading (the
  * TUI, the page, a --wait) may refuse to be replaced a moment, EPERM. The runner died of it on 27/10/2026 at 20:56,
- * ten jobs started; queue.json already retried (node/queue.js).
+ * ten jobs started; queue.json already retried (node/queue/queue.js).
  */
 async function writeSlots(home, slots) {
   const file = slotsFile(home);

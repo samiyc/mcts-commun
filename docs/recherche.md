@@ -16,7 +16,7 @@ Ce document répond dans cet ordre :
 ## 1. Les réglages
 
 Tous sont facultatifs. Sans eux, les coups, les visites et les chemins ne changent pas : les empreintes
-(`tests/api.test.js`, `tests/fingerprint.test.js`) le gardent.
+(`tests/lib/api.test.js`, `tests/lib/fingerprint.test.js`) le gardent.
 
 ### La recherche, `search(state, problem, options)`
 
@@ -354,7 +354,7 @@ inlinés ; la lib n'y pèse rien.
 - du parallélisme dans la lib : la file remplit déjà les 18 fils, rien à gagner en débit.
 
 **A* sur tableaux typés : essayé le 31/10, sans gain, abandonné.** L'arène des nœuds en `Int32Array`, un tas d'indices,
-les nœuds vus horodatés au lieu d'un `Set` : les mêmes chemins (le corpus de 4 000 appels de `tests/fingerprint.test.js`,
+les nœuds vus horodatés au lieu d'un `Set` : les mêmes chemins (le corpus de 4 000 appels de `tests/lib/fingerprint.test.js`,
 ajouté pour l'occasion et gardé), mais au banc, cinq passages en alternance, l'entrepôt 131 → 137 µs l'appel, les
 appels courts 3 → 4 µs. Le profil le dit : le ramasse-miettes passe de 4 à 2 % et le tas disparaît du haut, mais
 `explore` et `expand` ne baissent pas, et `isFree`, `swaps`, `canStep` sortent de l'inlining. V8 alloue ces petits

@@ -1,12 +1,12 @@
 // The backlog's page (Sami, 26/10/2026: the backlog was a black box): GET /api/backlog every 2 s (bin/serve.js), drawn,
-// a module a section. The words are the terminal's (node/backlog-text.js imports nothing of Node: the page loads it).
-import { board } from "./backlog-board.js";
-import { $ } from "./backlog-html.js";
-import { finished, held, running } from "./backlog-jobs.js";
-import { journal, traces } from "./backlog-log.js";
-import { alerts, machine } from "./backlog-machine.js";
-import { night, nights } from "./backlog-night.js";
-import { slots } from "./backlog-slots.js";
+// a module a section. The words are the terminal's (node/backlog/text.js imports nothing of Node: the page loads it).
+import { board } from "./backlog/board.js";
+import { $ } from "./backlog/html.js";
+import { finished, held, running } from "./backlog/jobs.js";
+import { journal, traces } from "./backlog/log.js";
+import { alerts, machine } from "./backlog/machine.js";
+import { night, nights } from "./backlog/night.js";
+import { slots } from "./backlog/slots.js";
 
 const REFRESH_MS = 2_000;
 const dialog = () => /** @type {HTMLDialogElement} */ ($("tail"));

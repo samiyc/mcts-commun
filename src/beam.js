@@ -1,4 +1,4 @@
-import { sortBest } from "./beam-local.js";
+import { sortBest } from "./beam/local.js";
 import { createStatePool } from "./pool.js";
 
 /**

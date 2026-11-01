@@ -33,7 +33,7 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 
 - **`id`, `cwd`, `command`** sont obligatoires, et l'id doit être neuf (ni dans la file, ni dans l'archive).
 - **`estimate`** (« 40 min », « 1 h 30 ») est la durée annoncée. Depuis le 27/10, l'ordre et la frise prennent
-  plutôt celle qu'apprend l'archive (`src/estimate.js`) : la médiane des 5 derniers passages de la même commande
+  plutôt celle qu'apprend l'archive (`src/schedule/estimate.js`) : la médiane des 5 derniers passages de la même commande
   dans le même dossier, sinon l'estimation corrigée du rythme du projet (ses 30 derniers jobs finis, 3 au moins).
   Sur les 292 jobs finis au 27/10, l'écart médian à la durée réelle passe de ×2,9 à ×1,5. `priority` vaut 1
   (urgent), 2 (normal) ou 3 (peut attendre) ; `--set-priority` la change en place.
@@ -86,7 +86,7 @@ que personne ait à le relancer.
 - **`mcts-backlog --stay`** : la file vide, le lanceur écrit une fois `runner-idle` à son journal, puis relit la
   file toutes les 5 s (`MCTS_BACKLOG_POLL_MS`). C'est la relecture qu'il fait déjà en attendant des fils, et elle ne
   coûte presque rien. Les créneaux `--slot` sont servis comme avant.
-- **Un seul à la fois** : il s'inscrit dans `stay.json` (`{ pid, since }`, `node/stay.js`). Un second `--stay` y
+- **Un seul à la fois** : il s'inscrit dans `stay.json` (`{ pid, since }`, `node/queue/stay.js`). Un second `--stay` y
   trouve un pid vivant et s'en va, avec le code 0 : le lancer à chaque ouverture de session ne risque rien. Les vues le
   montrent « permanent » même quand son démarrage est sorti des lignes du journal qu'elles lisent.
 - **Le démarrage avec le PC**, que Sami installe lui-même, puisque c'est un réglage permanent de sa machine. Un
@@ -229,10 +229,10 @@ pendant 45 min, puis tout à la fin) :
 
    **Le test court passe devant** (Sami, 27/10/2026 : un `--slot 1` d'urgences avait attendu 12 min 43 derrière la
    file) :
-   - pendant qu'il attend, sa demande est inscrite dans `wanted.json` (`node/wanted.js`). Le lanceur ne démarre plus de
+   - pendant qu'il attend, sa demande est inscrite dans `wanted.json` (`node/queue/wanted.js`). Le lanceur ne démarre plus de
      job sur ces fils : le prochain qui se libère va au test ;
    - s'il manque encore des fils, le lanceur arrête ses jobs **commencés il y a moins de 5 min**, les plus récents
-     d'abord (`node/preempt.js`). Ils retournent en file (`job-preempted` au journal, leur trace finie « laissé à un
+     d'abord (`node/queue/preempt.js`). Ils retournent en file (`job-preempted` au journal, leur trace finie « laissé à un
      test court ») et repartent plus tard, depuis le début ;
    - un job n'est arrêté ainsi que 2 fois au plus, ensuite il est protégé ;
    - le lanceur n'arrête que ses propres jobs, jamais ceux d'un autre lanceur (Lopin).
@@ -244,12 +244,12 @@ pendant 45 min, puis tout à la fin) :
    `code`) quand il les rend ; une écriture ratée ne fait jamais échouer le test. L'onglet **8 Tests** de la TUI et la
    carte « Tests courts (créneaux) » de la page montrent ceux qui attendent (`wanted.json`), ceux qui tournent (les
    créneaux `session` de `slots.json`), les 30 derniers finis avec leur code et leur attente, et les jobs de la file
-   libérés pour eux (`node/backlog-slots.js`). Un `--slot` d'avant ce jour-là se lit par son id,
+   libérés pour eux (`node/backlog/slots.js`). Un `--slot` d'avant ce jour-là se lit par son id,
    `session:<projet>:<commande>`.
 
    **Un lanceur qui attend se voit aussi** (28/10/2026, 19 h 40 : la TUI ne montrait que l'essai d'une session, à 6
    fils sur 18). Un lanceur en vie qui ne tient aucun fil reste dans la ligne de la machine, reconnu à ses lignes de
-   journal, avec ce qu'il attend : « attend 16 fils pour mondes-32 (12 libres) » (`node/backlog-runners.js`). Il ne
+   journal, avec ce qu'il attend : « attend 16 fils pour mondes-32 (12 libres) » (`node/backlog/runners.js`). Il ne
    le dit que quand les créneaux des autres (un `--slot`, un autre lanceur) lui barrent la route : attendre la fin de
    ses propres jobs, c'est une file au travail (29/10/2026 : « attend 1 fils (0 libres) » s'affichait toute la nuit).
 
@@ -282,7 +282,7 @@ pendant 45 min, puis tout à la fin) :
 12. **Les vues coûtent peu, et restent à le faire** (31/10/2026) : un tic de la TUI ou de la page (toutes les 2 s)
     lisait tout `done/` (un mégaoctet de JSON) et passait les 957 fichiers de `traces/` en revue, 106 ms ; il en coûte 6
     depuis que l'archive du mois et les résumés de traces ne sont relus que si leur fichier a bougé, et que seules les 60
-    traces les plus récentes et celles des jobs en cours sont consultées (`node/backlog-traces.js`). `runs/` et
+    traces les plus récentes et celles des jobs en cours sont consultées (`node/backlog/traces.js`). `runs/` et
     `traces/` grossissent d'un fichier par job (1 290 et 957 au 31/10) : un rangement par mois reste à faire.
 
 ## Après une nuit : le bilan
@@ -346,7 +346,7 @@ Le bilan du matin a trouvé trois défauts, corrigés le 27/10 :
 - **`--add … -- node -e "…"` perdait ses guillemets** : le shell coupait le code. Les mots après `--` gardent les
   leurs.
 
-Et une demande de Sami : **des estimations tirées de ce qui a déjà tourné** (§ « Un job », `src/estimate.js`).
+Et une demande de Sami : **des estimations tirées de ce qui a déjà tourné** (§ « Un job », `src/schedule/estimate.js`).
 Rejouées sur les 292 jobs finis, chacun estimé avec ce qui était fini avant son départ :
 
 | | Écart médian à la durée réelle | 1 job sur 5 au-delà de |
@@ -434,7 +434,7 @@ les estimations dataient d'avant les gains de vitesse (8 à 20 fois trop longues
 Réglé par une pause de codingame (19 h 44), à la demande de Sami ; ses séries passeront à 3 fils. Les vues montrent
 maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **Corrigé dans le lanceur le soir même** (Sami,
 28/10, la file vide) :
-- **Les trous se remplissent** (`node/fill.js`). Quand le job suivant attend les fils d'un `--slot` ou d'un autre
+- **Les trous se remplissent** (`node/queue/fill.js`). Quand le job suivant attend les fils d'un `--slot` ou d'un autre
   lanceur, un job prêt qui tient dans les fils libres et dure 15 min au plus (d'après ce que la file a appris)
   démarre en attendant. Le journal le dit : `gap-filled` (« trou rempli »). Le 28/10, les `diagnose` de 8 fils
   auraient tourné pendant l'arène. **Depuis le 31/10**, quand le suivant attend les propres jobs du lanceur, un job

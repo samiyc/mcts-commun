@@ -1,5 +1,5 @@
 import { createRng, streamOf } from "./random.js";
-import { hintsOf, meanOf, resultOf } from "./search-report.js";
+import { hintsOf, meanOf, resultOf } from "./mcts/report.js";
 import { count, timed, timing, trace } from "./trace.js";
 
 /**
@@ -33,7 +33,7 @@ import { count, timed, timing, trace } from "./trace.js";
 // Typed as numbers: frozen, the literals 5 and 0.7 would type `depth` and `explore` of `search` (codingame, 31/10/2026).
 export const SEARCH = Object.freeze(/** @type {{ depth: number, explore: number }} */ ({ depth: 5, explore: 0.7 }));
 
-/** What a `Problem` must and may hold: the contract the README states and `tests/api.test.js` pins. */
+/** What a `Problem` must and may hold: the contract the README states and `tests/lib/api.test.js` pins. */
 export const PROBLEM = Object.freeze({
   required: Object.freeze(["sample", "actor", "moves", "key", "play", "over", "rollout", "score"]),
   optional: Object.freeze(["shortlist", "copy"]),
@@ -245,7 +245,7 @@ export function search(state, problem, { budget, deadline, now = clock, rng = cr
   return timed("search", () => searchTree(state, problem, { limit, rng, ...shape }), () => ({ budget, deadline, earlyStop, ...shape }));
 }
 
-/** What `search`'s result says of the problem searched, asked at `depth`: `[{ code, message }]` (src/search-report.js). */
+/** What `search`'s result says of the problem searched, asked at `depth`: `[{ code, message }]` (src/mcts/report.js). */
 export function diagnose(result, { depth = SEARCH.depth } = {}) {
   return hintsOf(result, depth);
 }

@@ -1,26 +1,26 @@
 #!/usr/bin/env node
 import path from "node:path";
-import { addJobs, cancelJob, commandOf, jobStatus, jobsOfFile, retryJob, setPriority, waitCode, waitFor } from "../node/backlog-commands.js";
-import { colorsOn, listText, paren } from "../node/backlog-text.js";
-import { readBacklog, viewOf } from "../node/backlog-view.js";
-import { createJournal } from "../node/journal.js";
+import { addJobs, cancelJob, commandOf, jobStatus, jobsOfFile, retryJob, setPriority, waitCode, waitFor } from "../node/backlog/commands.js";
+import { colorsOn, listText, paren } from "../node/backlog/text.js";
+import { readBacklog, viewOf } from "../node/backlog/view.js";
+import { createJournal } from "../node/queue/journal.js";
 import { backlogHome, threadBudget } from "../node/machine.js";
-import { createQueue, stamp } from "../node/queue.js";
-import { pullJobs, pushJobs, remoteView } from "../node/remote.js";
-import { runQueue } from "../node/runner.js";
-import { claimStay, releaseStayOnExit } from "../node/stay.js";
+import { createQueue, stamp } from "../node/queue/queue.js";
+import { pullJobs, pushJobs, remoteView } from "../node/remote/remote.js";
+import { runQueue } from "../node/queue/runner.js";
+import { claimStay, releaseStayOnExit } from "../node/queue/stay.js";
 
 /**
  * `mcts-backlog`: the machine's long jobs, every project's (Sami, 23/10/2026: the scheduler in common, so that the
  * hospital, the warehouse and the kitchen run their night measures too). One queue for the machine,
  * `~/.mcts-backlog/queue.json` (`MCTS_BACKLOG_HOME` or `--home` elsewhere); each job says the folder it runs in.
  *
- *   mcts-backlog                 run the queue to its end (node/runner.js)
+ *   mcts-backlog                 run the queue to its end (node/queue/runner.js)
  *   mcts-backlog --stay          run it and stay, waiting for the next jobs (Sami, 29/10/2026: a runner started with
- *                                the PC); one at a time, a second --stay goes (node/stay.js)
+ *                                the PC); one at a time, a second --stay goes (node/queue/stay.js)
  *   mcts-backlog --list [--done N]  the machine, the jobs running, the night to come as the runner would play it,
  *                                what is blocked and why, the last N done (8); --json, the same as JSON
- *   mcts-backlog --tui           the same in a terminal view that follows it live (node/tui.js), read only
+ *   mcts-backlog --tui           the same in a terminal view that follows it live (node/tui/tui.js), read only
  *   mcts-backlog --add ID --cwd DIR [--estimate "40 min"] [--measured] [--threads N] [--min-threads N] [--priority 1|2|3] [--after A,B]
  *                [--due 2026-10-24T08:00] [--not-before 2026-10-24T20:00] [--limit MIN] [--skip-if "COMMAND"] -- COMMAND…
  *                --not-before: the job waits for that time (scheduled), a long one for the night
@@ -36,11 +36,11 @@ import { claimStay, releaseStayOnExit } from "../node/stay.js";
  *   mcts-backlog --retry ID [--priority N]   a finished job queued again, as ID-r1 (at priority N)
  *   mcts-backlog --set-priority PATTERN N    the jobs to come whose id matches (`*` any characters) at priority N
  *   mcts-backlog --push MACHINE              the jobs for another machine (`--machine MACHINE` on --add or --add-file)
- *                                            sent there with their folders, its runner started (node/remote.js)
+ *                                            sent there with their folders, its runner started (node/remote/remote.js)
  *   mcts-backlog --list --machine MACHINE    its queue (--json too); --pull MACHINE brings back what it did
  *
  * For other tools (Sami, 26/10/2026), the contract is docs/backlog.md: these commands, their JSON and exit codes;
- * every change holds the queue's lock (node/queue.js), so a tool never loses the runner's writes nor the runner its.
+ * every change holds the queue's lock (node/queue/queue.js), so a tool never loses the runner's writes nor the runner its.
  */
 const args = process.argv.slice(2);
 const option = (name, fallback = null) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
@@ -82,7 +82,7 @@ async function wentIn(adding) {
   }
 }
 
-/** `--measured`: the estimates come from a measure of today's code, kept as they are (src/estimate.js). */
+/** `--measured`: the estimates come from a measure of today's code, kept as they are (src/schedule/estimate.js). */
 const measured = () => (args.includes("--measured") ? { measured: true } : {});
 
 async function add() {
@@ -148,11 +148,11 @@ async function priority() {
 }
 
 async function tui() {
-  const { runTui } = await import("../node/tui.js");
+  const { runTui } = await import("../node/tui/tui.js");
   await runTui({ home, budget });
 }
 
-/** `--slot N [--id NOM] -- COMMANDE`: the command run in N of the machine's threads, once free (node/slot-run.js). */
+/** `--slot N [--id NOM] -- COMMANDE`: the command run in N of the machine's threads, once free (node/queue/slot-run.js). */
 async function slot() {
   const at = args.indexOf("--");
   const threads = Number(option("--slot"));
@@ -161,7 +161,7 @@ async function slot() {
     return 1;
   }
   const command = commandOf(args.slice(at + 1));
-  const { runInSlot } = await import("../node/slot-run.js");
+  const { runInSlot } = await import("../node/queue/slot-run.js");
   return runInSlot({ home, budget, threads, id: option("--id", `session:${path.basename(process.cwd())}:${command.slice(0, 40)}`), command });
 }
 

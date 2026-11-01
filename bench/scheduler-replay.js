@@ -10,7 +10,7 @@ import path from "node:path";
  * waited, and the waits of the priority-1 jobs. Reads `~/.mcts-backlog` (MCTS_BACKLOG_HOME), writes nothing.
  *
  * Policies: `current` (the next job by order starts if it fits; a gap is filled only when others' tests hold threads,
- * by a job of 15 min at most, node/fill.js), `easy` (a gap is filled whenever the next job does not fit, by a ready job
+ * by a job of 15 min at most, node/queue/fill.js), `easy` (a gap is filled whenever the next job does not fit, by a ready job
  * that fits and that either ends before the next job could start anyway or leaves it its threads then: EASY backfill),
  * `easy15` (the same, fillers of 15 min at most), `trim` (easy15, and the next job starts on the free threads when they
  * are at least two thirds of what it asks, as a job with `minThreads` would).
@@ -128,7 +128,7 @@ function easyFiller(ready, head, { running, slotsNow, now, free, limit }) {
   return ready.find((job) => job.id !== head.id && job.threads <= free && job.minutes <= limit && harmless(job)) ?? null;
 }
 
-/** node/fill.js before 31/10: a gap filled only when the next job would fit without the tests' threads, by a short job. */
+/** node/queue/fill.js before 31/10: a gap filled only when the next job would fit without the tests' threads, by a short job. */
 function currentFiller(ready, head, { slotsNow, ours, free }) {
   if (slotsNow === 0 || ours + head.threads > budget) return null;
   return ready.find((job) => job.id !== head.id && job.threads <= free && job.minutes <= 15) ?? null;

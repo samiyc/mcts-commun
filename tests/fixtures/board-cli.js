@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 /**
- * The board's command run end to end on a temporary board, shared by tests/board.test.js and tests/board-hook.test.js
+ * The board's command run end to end on a temporary board, shared by tests/board/board.test.js and tests/board/board-hook.test.js
  * (split on 31/10/2026: one file took 18 s of `npm test`).
  */
 export const run = promisify(execFile);

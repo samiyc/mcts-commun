@@ -34,13 +34,18 @@ nouveaux projets) : [`docs/feuille-de-route.md`](docs/feuille-de-route.md).
 | `schedule` | l'ordre d'une file de jobs : les prérequis, les échéances, les priorités, la règle de Smith (celui de Lopin, validé le 23/10) | fait |
 | `machine` (`node/`, Node seulement) | les fils que la machine prête, la garde thermique, la garde mémoire, les créneaux partagés entre lanceurs | fait |
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
-| `grid` | les plans en texte, A* dans l'espace et le temps (qui renonce tôt à une cible hors d'atteinte), la table de réservations (`src/reservations.js`, réexportée) | fait |
+| `grid` | les plans en texte, A* dans l'espace et le temps (qui renonce tôt à une cible hors d'atteinte), la table de réservations (`src/grid/reservations.js`, réexportée) | fait |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
 | `beam` | le faisceau des tours courts, sans allocation (celui d'Hypersonic, 29/10) | fait |
 | `climb` | l'escalade d'un plan de nombres, sans allocation (celle de Mad Pod Racing, 29/10) | fait |
 | `pool` | des états réservés une fois, vues d'un seul tampon typé | fait |
 | `replay-keys` | les touches d'un lecteur de replay dans une page, comme sur une vidéo, dans l'unité du projet (29/10) | fait |
 | `trace` | ce qui passe par la bibliothèque : compteurs, erreurs, appels lents (voir « Les traces ») | fait |
+
+Chaque module est un fichier de `src/` (`src/grid.js`), que les projets importent par `mcts-commun/grid.js` ; ses
+morceaux sont dans le dossier du même nom (`src/grid/`), qu'aucun projet n'importe. Ce qu'il y a dans chaque dossier :
+[`docs/outillage.md`](docs/outillage.md), « L'arborescence ». Quel algorithme pour quel problème, ceux de la lib et
+les autres (DFS, BFS, A*, minimax, MCTS, ISMCTS, faisceau, escalade…) : [`docs/algorithmes.md`](docs/algorithmes.md).
 
 ## Les signatures de `mcts`
 
@@ -371,7 +376,7 @@ NODE_OPTIONS=--import=mcts-commun/trace-preload.js MCTS_TRACE=1 npm run compare 
 - Node 24 LTS (depuis le 28/10/2026 ; le code tourne encore sous 20.9), des modules ES, pas de build : le même code tourne sous Node et dans le navigateur.
 - Tout est pur et testé (`npm test`) ; aucun module de `src/` n'importe `node:*` (le lanceur et `node/`, qui ne servent que sous Node, sont à part ; `src/trace.js` ne charge `node/trace-file.js` que sous Node, par un import dynamique).
 - Tout tirage passe par `random` : un scénario et une recherche se rejouent depuis leur graine.
-- **Le contrat est testé** (`tests/api.test.js`) : ce que chaque module exporte, la forme du résultat de
+- **Le contrat est testé** (`tests/lib/api.test.js`) : ce que chaque module exporte, la forme du résultat de
   `search`, les signatures de ce README (le `Problem` et `search` doivent y être les mêmes que dans le code),
   et **l'empreinte** de la recherche : un hash de ses visites sur des problèmes jouets à graine fixe
   (`tests/fixtures/problems.js`). Une optimisation doit la garder ; un changement voulu la change, avec le

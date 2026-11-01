@@ -1,7 +1,7 @@
 import { createRng } from "../../src/random.js";
 
 /**
- * The bench's problems (bench/beam-climb.js), shared with tests/budget.test.js: the coin game of the beam, the plan of
+ * The bench's problems (bench/beam-climb.js), shared with tests/lib/budget.test.js: the coin game of the beam, the plan of
  * numbers of the climb, and the beam written with objects, which allocates as a bot's first version would.
  */
 

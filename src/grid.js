@@ -1,11 +1,11 @@
-import { directPath } from "./grid-distances.js";
-import { createOpen } from "./grid-open.js";
-import { outOfReach } from "./grid-reach.js";
+import { directPath } from "./grid/distances.js";
+import { createOpen } from "./grid/open.js";
+import { outOfReach } from "./grid/reach.js";
 import { count, timed } from "./trace.js";
 
-export { dangerTimeline, escapeRoutes } from "./grid-danger.js";
-export { createDistances } from "./grid-distances.js";
-export { createReservations } from "./reservations.js";
+export { dangerTimeline, escapeRoutes } from "./grid/danger.js";
+export { createDistances } from "./grid/distances.js";
+export { createReservations } from "./grid/reservations.js";
 
 /**
  * Plans drawn as text and paths found on them (Sami, 22/10/2026: change the warehouse, the kitchen or the
@@ -144,7 +144,7 @@ const arrived = ({ to, park, reservations, unit }, node) => node.x === to.x && n
 /** Why the search stops once `seen` holds its latest node: "capped", "givenUp", or null to go on. */
 function stopAfter(settings, seen, from) {
   if (seen.size > settings.maxNodes) return "capped";
-  // A target out of reach is asked once (src/grid-reach.js): the same null A* would give, sooner.
+  // A target out of reach is asked once (src/grid/reach.js): the same null A* would give, sooner.
   return seen.size === settings.checkAt && outOfReach(settings, from) ? "givenUp" : null;
 }
 

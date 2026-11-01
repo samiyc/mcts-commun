@@ -2,9 +2,9 @@
 import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
-import { readBacklog, viewOf } from "../node/backlog-view.js";
-import { boardView, createBoard, markReadFor } from "../node/board-store.js";
-import { threadText } from "../node/board-text.js";
+import { readBacklog, viewOf } from "../node/backlog/view.js";
+import { boardView, createBoard, markReadFor } from "../node/board/store.js";
+import { threadText } from "../node/board/text.js";
 import { backlogHome, threadBudget } from "../node/machine.js";
 import { tailOf } from "../node/tail.js";
 
@@ -23,7 +23,7 @@ import { tailOf } from "../node/tail.js";
  * `format`, its `savedAt` and a few of its own fields; `GET /api/replays` lists the files there.
  *
  * The machine's backlog (Sami, 26/10/2026: a black box; mcts-commun's own page shows it): `GET /api/backlog` gives
- * node/backlog-view.js's view of `MCTS_BACKLOG_HOME` (~/.mcts-backlog), `GET /api/backlog/tail?id=…&kind=output|trace`
+ * node/backlog/view.js's view of `MCTS_BACKLOG_HOME` (~/.mcts-backlog), `GET /api/backlog/tail?id=…&kind=output|trace`
  * the end of a job's output or trace. Read only: the runner may be at work. A request that fails is written to the
  * folder's `logs/serve-YYYY-MM.jsonl` (out of git).
  */
