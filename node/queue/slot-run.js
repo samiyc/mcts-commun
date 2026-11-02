@@ -12,7 +12,8 @@ import { dropWant, inSeries, wantSlot } from "./wanted.js";
  * sessions keep to the budget by passing through here. While it waits, its want is known to the runner
  * (node/queue/wanted.js), which serves it before the queue's next job and frees young jobs if need be (node/queue/preempt.js).
  * Its start and end go to the journal (slot-started, slot-ended), for the views' Tests tab (Sami, 28/10/2026). One
- * started again less than 2 min after the same id ended is in a series, and waits like a job (node/queue/wanted.js).
+ * started again less than 2 min after the same id ended a run of 3 min or more is in a series, and waits like a job
+ * (node/queue/wanted.js).
  *
  * A short test is short (Sami, 28/10/2026: "never again a job of an hour on 12 threads in the Tests tab"): `SLOT_MAX_THREADS`
  * threads at most, else refused (a job, `--add`); stopped at `SLOT_MAX_MINUTES`, its process tree killed, exit code

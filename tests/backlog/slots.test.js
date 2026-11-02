@@ -28,10 +28,10 @@ describe("the machine's slots (bin/backlog.js --slot, docs/backlog.md)", () => {
       assert.deepEqual(ends.map((entry) => entry.code).sort(), [0, 0, 3]);
       assert.equal(lines.filter((entry) => entry.kind === "slot-started").length, 3);
       assert.ok(lines.find((entry) => entry.kind === "slot-started" && entry.id === b).waitedMin > 0, "le second a attendu");
-      // The same id again right after its end: a series, which waits like a job (codingame's arena, 28/10/2026).
+      // The same id again right after a short run: still a short test, not a series (2/11/2026, tests/backlog/fill.test.js).
       await backlog(home, "--budget", "2", "--slot", "1", "--id", "un", "--", 'node -e "0"');
       const again = await journalOf(home);
-      assert.deepEqual(again.filter((entry) => entry.kind === "slot-started" && entry.id === "un").map((entry) => entry.series), [false, true]);
+      assert.deepEqual(again.filter((entry) => entry.kind === "slot-started" && entry.id === "un").map((entry) => entry.series), [false, false]);
     }));
 
   it("serves a short test before the queue: a job just started gives its threads back and starts again later (Sami, 27/10)", () =>

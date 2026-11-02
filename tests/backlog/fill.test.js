@@ -45,10 +45,14 @@ describe("the gaps a waiting job leaves, and a series of tests (node/queue/fill.
     const home = await mkdtemp(path.join(os.tmpdir(), "series-"));
     try {
       const now = Date.parse("2026-10-28T19:30:00Z");
-      const ended = (minutesAgo, id = "arena") => ({ at: new Date(now - minutesAgo * 60_000).toISOString(), kind: "slot-ended", id });
-      assert.equal(inSeries([ended(1)], "arena", now), true, "the same id ended a minute ago");
+      const ended = (minutesAgo, id = "arena", minutes = 6) => ({ at: new Date(now - minutesAgo * 60_000).toISOString(), kind: "slot-ended", id, minutes });
+      assert.equal(inSeries([ended(1)], "arena", now), true, "the same id, a long run, ended a minute ago");
+      assert.equal(inSeries([ended(1, "arena", 3)], "arena", now), true, "3 min is a long run");
       assert.equal(inSeries([ended(5)], "arena", now), false, "five minutes ago: a new test");
       assert.equal(inSeries([ended(1, "other")], "arena", now), false);
+      // A short test run again after a fix stays a short test (2/11/2026: a probe of 25 s waited 76 min behind a full queue).
+      assert.equal(inSeries([ended(1, "arena", 0.4)], "arena", now), false, "a short run again: no series");
+      assert.equal(inSeries([ended(10), ended(1, "arena", 0.4)], "arena", now), false, "only the last run counts");
       await wantSlot(home, { pid: process.pid, id: "arena", threads: 6, series: true });
       await wantSlot(home, { pid: process.pid, id: "test", threads: 2 });
       assert.equal((await threadsNow(home)).wanted, 2, "only the short test's threads are kept for it");

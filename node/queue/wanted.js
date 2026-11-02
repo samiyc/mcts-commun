@@ -8,11 +8,15 @@ import { alive, readSlots, withLock } from "../machine.js";
  * under the slots' lock; the runner gives it the threads that come free, and if need be frees some (node/queue/preempt.js).
  * The wants of dead processes are left out, as the slots are.
  *
- * A want in a series (`series`: the same id ended a slot less than `SERIES_MINUTES` ago) is a job's, not a short
- * test's (Sami and codingame, 28/10/2026: an arena of 5 to 8 min a slot, started again at once, kept a 16-thread job
- * out for 40 min): it waits for threads like a job, it neither holds the queue's next jobs back nor stops any.
+ * A want in a series (`series`: the same id ended a slot of `SERIES_RUN_MINUTES` or more, less than `SERIES_MINUTES`
+ * ago) is a job's, not a short test's (Sami and codingame, 28/10/2026: an arena of 5 to 8 min a slot, started again at
+ * once, kept a 16-thread job out for 40 min): it waits for threads like a job, it neither holds the queue's next jobs
+ * back nor stops any. A short test run again after a fix is no series (Sami, 2/11/2026: the journal of 29/10 to 1/11, a
+ * full queue takes the threads it frees within 30 ms, a want polling each second never sees them: a probe of 25 s
+ * waited 76 min, 218 min in all, and none of it on a series of long runs).
  */
 const SERIES_MINUTES = 2;
+const SERIES_RUN_MINUTES = 3;
 const fileOf = (home) => path.join(home, "wanted.json");
 const mine = (want, pid, id) => want.pid === pid && want.id === id;
 
@@ -43,10 +47,10 @@ export async function threadsNow(home) {
   return { used: sum(await readSlots(home)), wanted: sum((await readWanted(home)).filter((want) => !want.series)) };
 }
 
-/** Whether test `id` comes in a series: the journal's last `slot-ended` of the same id, less than SERIES_MINUTES before `now`. */
+/** Whether test `id` comes in a series: the journal's last `slot-ended` of the same id, a long run, less than SERIES_MINUTES before `now`. */
 export function inSeries(journal, id, now = Date.now()) {
   const last = journal.findLast((entry) => entry.kind === "slot-ended" && entry.id === id);
-  return Boolean(last) && now - Date.parse(last.at) < SERIES_MINUTES * 60_000;
+  return Boolean(last) && last.minutes >= SERIES_RUN_MINUTES && now - Date.parse(last.at) < SERIES_MINUTES * 60_000;
 }
 
 /** Whether a job of `threads` may start now: the threads sessions wait for come first. */

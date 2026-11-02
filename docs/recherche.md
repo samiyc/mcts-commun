@@ -400,9 +400,26 @@ décide.
 
 **`astar.parkedTarget` chez entrepôt, le 31/10** : **0** sur huit séries (63 000 à 385 000 appels A* chacune).
 Avant chaque appel, `worthSearching` écarte une cible où un autre est garé pour de bon (`freeFrom` jusqu'à
-l'horizon), et chaque trajet est demandé avec `park: true`. Ce qui pèse chez lui, ce sont les chemins non trouvés
-(65 % des appels aux couloirs, 39 % aux quais, neuf sur dix abandonnés tôt par `givenUp`) : une question de ce qu'il
-demande, pas de la lib. La borne ne dépend plus que des compteurs de cuisine (semaine du 2/11).
+l'horizon), et chaque trajet est demandé avec `park: true`. La borne ne dépend plus que des compteurs de cuisine
+(semaine du 2/11).
+
+**Les chemins non trouvés chez entrepôt, mesurés en temps le 1/11** (sa correction : le nombre d'appels trompait) :
+ils ne pèsent vraiment qu'aux couloirs, l'abandon tôt de la lib fait son travail ailleurs (20 à 35 nœuds contre un
+robot garé dès maintenant).
+
+| Série | Échecs parmi les appels | Leur temps dans A* | Leur temps dans le total |
+|---|---|---|---|
+| couloirs | 64 % | 93 % | 27 % |
+| assemblage | 6 % | 29 % | 7 % |
+| quais | 23 % | 17 % | 6 % |
+| petit | 26 % | 22 % | 5 % |
+| ligne retours | 2 % | 4 % | 2 % |
+
+Le cas le plus cher qui reste : une cible que seul un robot garé *plus tard* coupe, le robot pouvant passer avant. 100
+à 320 nœuds par échec, 61 à 85 % du temps des échecs aux couloirs, à l'assemblage et aux quais, soit 4 à 17 % du temps
+total selon le plan. Entrepôt le donne pour information, sans rien demander à la lib. Il utilise `createDistances`
+depuis le 1/11 pour ses lectures de distances (−4,3 % de CPU, les mêmes journées), pas encore l'option `direct`, qui
+changerait des trajets.
 
 ## Sources
 

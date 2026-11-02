@@ -442,9 +442,14 @@ maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **Corrigé dan
   à ce moment-là (le « backfilling EASY » des ordonnanceurs de grappes). Une suite de petits jobs ne peut plus le tenir
   dehors : chacun doit tenir dans ce que le suivant n'occupera pas.
 - **Une série de `--slot` attend comme un job** (l'avis de codingame) : un `--slot` relancé moins de 2 min après la
-  fin d'un autre du même id (`--id`, ou l'id par défaut : le dossier et la commande) est `series` dans
-  `wanted.json`. Il ne retient plus les jobs suivants et n'en arrête aucun : il prend les fils quand ils se libèrent.
-  L'onglet Tests dit « en série ».
+  fin d'un autre du même id (`--id`, ou l'id par défaut : le dossier et la commande) **qui a duré au moins 3 min** est
+  `series` dans `wanted.json`. Il ne retient plus les jobs suivants et n'en arrête aucun : il prend les fils quand ils
+  se libèrent. L'onglet Tests dit « en série ». **Le seuil de 3 min date du 2/11/2026** : sans lui, relancer un test
+  court après une retouche en faisait une série, et une file pleine le bloquait. Le lanceur reprend les fils libérés
+  en 30 ms, le test ne regarde qu'une fois par seconde : il ne les voyait jamais. Le journal du 29/10 au 1/11 : un test
+  de 25 s a attendu 76 min, 218 min d'attente en tout, toutes sur des tests courts ; les 43 vraies séries n'ont jamais
+  attendu. Une vraie série peut encore attendre longtemps derrière une file pleine : c'est voulu, sa place est dans la
+  file.
 - `slot-waiting` est réécrit chaque fois qu'un job se remet à attendre, après un arrêt par exemple.
 - Les vues trouvent le vrai démarrage d'un lanceur dans tout le journal, une fois par lanceur.
 
