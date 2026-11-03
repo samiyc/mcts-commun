@@ -32,7 +32,8 @@ export const claimStay = (home, pid = process.pid) =>
 
 /**
  * Gives the place back when this process ends, if it is still its own: at its exit, at Ctrl+C, when its window is
- * closed (SIGHUP on Windows). Left behind, the file of a dead pid counts for nothing, but a pid comes back one day.
+ * closed (SIGHUP on Windows). Left behind, by a PC turned off, the file counts for nothing once its pid is dead or
+ * another program's (node/processes.js).
  */
 export function releaseStayOnExit(home, pid = process.pid) {
   process.once("exit", () => {

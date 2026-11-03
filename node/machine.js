@@ -1,6 +1,9 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { alive } from "./processes.js";
+
+export { alive };
 
 /**
  * The machine, for the runner that plays every project's long jobs (bin/backlog.js, Sami 23/10/2026: the scheduler
@@ -131,16 +134,6 @@ export function watchMemory({ everyMs = 5_000, floorGb = 0, holds = 2, onLow = /
 }
 
 // --- The slots: who runs what on the machine ---
-
-/** Is process `pid` still alive? */
-export function alive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
 
 /** The slots file of `home` (slots.json). */
 const slotsFile = (home) => path.join(home, "slots.json");
