@@ -89,6 +89,10 @@ que personne ait à le relancer.
 - **Un seul à la fois** : il s'inscrit dans `stay.json` (`{ pid, since }`, `node/queue/stay.js`). Un second `--stay` y
   trouve un pid vivant et s'en va, avec le code 0 : le lancer à chaque ouverture de session ne risque rien. Les vues le
   montrent « permanent » même quand son démarrage est sorti des lignes du journal qu'elles lisent.
+- **Un lanceur fantôme, corrigé le 3/11/2026** : un lanceur arrêté avec le PC n'écrit pas sa fin, et Windows redonne son
+  numéro à un autre processus. Les vues prenaient alors un `svchost` pour un second lanceur, en attente de fils. Elles
+  vérifient maintenant une fois, pour chaque numéro, qu'il s'agit bien d'un processus node (`node/backlog/processes.js`).
+  Si un autre node reprend le numéro, le fantôme reste visible tant que ce node vit.
 - **Le démarrage avec le PC**, que Sami installe lui-même, puisque c'est un réglage permanent de sa machine. Un
   raccourci dans le dossier de démarrage (`Win+R`, `shell:startup`), dont la cible est :
   ```
