@@ -27,6 +27,21 @@ viennent d'un sol plus permissif, une allée fermée ou les cases camion changea
 interdit passe la main à A*. Les mêmes trajets que l'ancien `directPath` de cuisine (4 800 trajets), empreintes
 inchangées.
 
+## Les quatre projets du 2/11
+
+Ce qu'ils importent de la lib au 6/11 (lu dans leurs dépôts), et ce qu'ils disent prendre ensuite (leurs messages au
+tableau du 6/11). Ils sont nés sous Node 24, sur la lib d'aujourd'hui ; la lib n'a rien changé pour eux.
+
+| Projet | Importe aujourd'hui | Prendra ensuite | Ne prend pas | Dans la file |
+|---|---|---|---|---|
+| raquette | `random`, `climb`, `measure`, `trace`, `replay-keys`, `web/theme.css` | – | `mcts` : Sami doute qu'il en faille | oui : ses parties contre lui-même (`raq-sp-*`) |
+| agenda (`mcts-agenda`) | `random`, `measure` | peut-être `beam` au J3, l'ISMCTS au J6 (la durée inconnue d'une absence) | `schedule`, qui ordonne des jobs sur des fils et ne place pas des cours dans une semaine (agenda n'en prend que la forme : une fonction pure qui dit pourquoi un élément attend) ; `climb`, fait pour des gènes continus | oui, depuis le J2 |
+| feux (`mcts-feux`) | `random`, `measure` | `grid` (`parsePlan`, `createDistances`), `events`, `mcts`, `trace`, `replay-keys`, `theme.css` | l'automate de trafic reste chez lui, tant qu'un second projet n'en veut pas | pas encore |
+| economie | `random` | `climb`, `beam`, `measure`, `trace`, `replay-keys`, `theme.css` ; `mcts` pour une guerre commerciale entre deux États | – | à partir du J4, des jobs d'un fil |
+
+**Une question pourra venir d'economie au J6** : noter un plan de `createClimb` sur K futurs communs, comme les mondes
+communs de `search`. On en reparlera si un second projet en veut autant.
+
 ## 1. Prendre la lib
 
 - Le lien `file:../mcts-commun` prend la lib telle qu'elle est sur le disque : rien à installer. Un `npm install` crée

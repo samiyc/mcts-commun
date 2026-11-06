@@ -171,7 +171,7 @@ La recherche ne vient qu'après, mesurée contre la règle.
 | Projet (dépôt proposé) | Ce qu'il prend de la lib | Ce qu'il ajoute | Les règles à battre | Le premier jalon | Pour se comparer |
 |---|---|---|---|---|---|
 | **Le ping-pong** (`raquette`, sans `mcts-` : Sami doute qu'il faille MCTS) | `climb`, `random`, `measure`, `replayKeys` (les touches du lecteur), `web/theme.css` | la physique (hors de la lib : à reprendre de Mad Pod Racing et de Fantastic Bits, dans `mcts-codingame`), l'effet (Magnus), la hauteur de balle, la prédiction de trajectoire, le lecteur (chaque projet a le sien), la manette | renvoyer au centre de la table | la table vue de dessus, la balle, le rebond, ses couleurs (effet, hauteur) ; un échange robot contre robot, puis la manette | – |
-| **Les emplois du temps** (`mcts-agenda`, Sami 30/10) | `schedule`, `measure` | les contraintes, la recherche locale (tabou, recuit), le replanning qui dérange le moins possible | un remplissage glouton | le modèle (professeurs, classes, salles, programmes), un établissement fictif, le glouton ; puis les remplacements | les jeux publics de l'ITC 2019 |
+| **Les emplois du temps** (`mcts-agenda`, Sami 30/10) | `random`, `measure` ; peut-être `beam`, puis l'ISMCTS pour l'absence de durée inconnue (pas `schedule` : il ordonne des jobs, il ne place pas des cours ; agenda, 6/11) | les contraintes, la recherche locale (tabou, recuit), le replanning qui dérange le moins possible | un remplissage glouton | le modèle (professeurs, classes, salles, programmes), un établissement fictif, le glouton ; puis les remplacements | XHSTT-2014, les instances des établissements scolaires de l'ITC 2011 (25 instances, 12 pays, l'évaluateur et les meilleures solutions publiés) ; l'ITC 2019, universitaire, ne s'y prête pas (agenda, 6/11) |
 | **L'économie d'un État** (`economie`, sans `mcts-` : Sami, 6/11, à la place des protéines) | `climb`, `beam`, `measure`, `random` | un modèle stock-flux cohérent (ménages, entreprises, banques, État, banque centrale, reste du monde), les leviers (impôts, dépense, taux, obligations), les crises tirées par graine, le pilotage à horizon glissant | les stabilisateurs automatiques et une règle de Taylor | le modèle SIM de Godley et Lavoie, ses flux en diagramme de Sankey trimestre par trimestre ; puis les crises | les modèles publiés de Godley et Lavoie (*Monetary Economics*, 2007) |
 | **Les feux** (`mcts-feux`, Sami 30/10) | `grid`, `mcts`, la simulation à événements, `measure` | un automate de trafic (Nagel-Schreckenberg) | le feu à temps fixe, le max-pressure | une ville en grille, les voitures, les deux règles, la page | des scénarios SUMO |
 
@@ -251,7 +251,7 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
 - **Les talks** : un meetup local d'abord, puis Devoxx France, les DevFest, MiXiT, BreizhCamp, Sunny Tech, Touraine
   Tech, et ROADEF (la conférence française de recherche opérationnelle, pour les emplois du temps). Un sujet :
   « un seul moteur de recherche, de CodinGame aux urgences ».
-- **Les papiers** : seulement sur un banc public, comme ITC 2019, le modèle HP ou SUMO, où le résultat se compare à
+- **Les papiers** : seulement sur un banc public, comme XHSTT-2014, les modèles de Godley et Lavoie ou SUMO, où le résultat se compare à
   la littérature. Il faut alors :
   - un dépôt public avec une licence ;
   - une archive Zenodo pour qu'on puisse refaire les mesures ;
