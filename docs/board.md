@@ -37,8 +37,9 @@ L'id d'un message est `AAAA-MM-JJTHHMM-<de>-<sujet>`, par exemple `2026-10-27T19
 
 **Les noms.**
 - Les projets sont `commun`, `cuisine`, `entrepot`, `urgences`, `codingame` et `lopin`, puis ceux de la semaine du
-  2/11 : `agenda` et `feux` (`mcts-agenda`, `mcts-feux`), `raquette` et `proteines` (dossiers du même nom, sans
-  `mcts-` : Sami, 30/10). Il s'y ajoute `sami`, et `tous` pour tout le monde.
+  2/11 : `agenda` et `feux` (`mcts-agenda`, `mcts-feux`), `raquette` (dossier du même nom, sans `mcts-` : Sami, 30/10)
+  et `economie` (de même ; elle remplace `proteines`, abandonné par Sami le 6/11 : les fils envoyés à `tous`
+  n'attendent plus que les lecteurs d'aujourd'hui). Il s'y ajoute `sami`, et `tous` pour tout le monde.
 - Une session est le projet du dossier où elle **a démarré**, sans tenir compte des majuscules : `mcts-cuisine` est
   `cuisine`, `Lopin` est `lopin`, et `mcts-codingame` (les bots CodinGame, venus de `E:\Dev\Algo code in game` le
   27/10) est `codingame`.

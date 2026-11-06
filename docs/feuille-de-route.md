@@ -172,11 +172,11 @@ La recherche ne vient qu'après, mesurée contre la règle.
 |---|---|---|---|---|---|
 | **Le ping-pong** (`raquette`, sans `mcts-` : Sami doute qu'il faille MCTS) | `climb`, `random`, `measure`, `replayKeys` (les touches du lecteur), `web/theme.css` | la physique (hors de la lib : à reprendre de Mad Pod Racing et de Fantastic Bits, dans `mcts-codingame`), l'effet (Magnus), la hauteur de balle, la prédiction de trajectoire, le lecteur (chaque projet a le sien), la manette | renvoyer au centre de la table | la table vue de dessus, la balle, le rebond, ses couleurs (effet, hauteur) ; un échange robot contre robot, puis la manette | – |
 | **Les emplois du temps** (`mcts-agenda`, Sami 30/10) | `schedule`, `measure` | les contraintes, la recherche locale (tabou, recuit), le replanning qui dérange le moins possible | un remplissage glouton | le modèle (professeurs, classes, salles, programmes), un établissement fictif, le glouton ; puis les remplacements | les jeux publics de l'ITC 2019 |
-| **Les protéines** (`proteines`, sans `mcts-`) | `beam` et ses faisceaux locaux, `climb`, le génétique, `mcts` | NMCS et NRPA (le Monte Carlo imbriqué), un candidat pour la lib | un repliement glouton | le modèle HP 2D, les séquences de référence, trois solveurs comparés | les énergies publiées du modèle HP |
+| **L'économie d'un État** (`economie`, sans `mcts-` : Sami, 6/11, à la place des protéines) | `climb`, `beam`, `measure`, `random` | un modèle stock-flux cohérent (ménages, entreprises, banques, État, banque centrale, reste du monde), les leviers (impôts, dépense, taux, obligations), les crises tirées par graine, le pilotage à horizon glissant | les stabilisateurs automatiques et une règle de Taylor | le modèle SIM de Godley et Lavoie, ses flux en diagramme de Sankey trimestre par trimestre ; puis les crises | les modèles publiés de Godley et Lavoie (*Monetary Economics*, 2007) |
 | **Les feux** (`mcts-feux`, Sami 30/10) | `grid`, `mcts`, la simulation à événements, `measure` | un automate de trafic (Nagel-Schreckenberg) | le feu à temps fixe, le max-pressure | une ville en grille, les voitures, les deux règles, la page | des scénarios SUMO |
 
-**L'ordre** : Sami a choisi de lancer les quatre en parallèle. Codingame conseille de commencer par les feux et les
-protéines, les plus proches de l'existant et vite mesurables. Le ping-pong et les emplois du temps commencent de toute
+**L'ordre** : Sami a choisi de lancer les quatre en parallèle. Codingame conseillait de commencer par les feux et les
+protéines, les plus proches de l'existant et vite mesurables. Les protéines ont laissé la place à l'économie le 6/11. Le ping-pong et les emplois du temps commencent de toute
 façon par leur modèle et leur recherche métier.
 
 **Le ping-pong** :
@@ -191,9 +191,17 @@ façon par leur modèle et leur recherche métier.
 - **Les contraintes** : les horaires des professeurs, les salles, et le programme de chaque classe.
 - **Les imprévus** : une absence connue la veille ou le matin même.
 
-**Les protéines** :
-- C'est le plus petit et le plus vite comparable à la littérature.
-- **Le génétique** y retrouve une chance, contre le faisceau et le Monte Carlo imbriqué.
+**L'économie** (Sami, 6/11 : « comprendre ces mécaniques », et les optimiser face aux crises) :
+- **Les crises** : un chômage fort, un conflit sur des matières premières, le rachat ou le départ d'entreprises,
+  l'inflation, une pandémie, le papy-boom.
+- **Le modèle** est stock-flux cohérent : chaque flux sort d'un secteur et entre dans un autre, rien ne se perd. C'est
+  ce qui le rend dessinable.
+- **L'écran** : un diagramme de Sankey des flux entre secteurs, les bilans, et les courbes (chômage, inflation, dette,
+  production).
+- **La recherche** : un plan des leviers sur 8 à 12 trimestres, revu chaque trimestre (la commande prédictive), par
+  escalade sur des crises tirées par graine ; puis le réglage de règles sur tout un jeu de crises. MCTS ne revient que
+  pour un jeu entre deux États, une guerre commerciale par exemple.
+- **La limite** : un modèle pour comprendre, pas pour prévoir. Ses coefficients sont sourcés ou marqués hypothèses.
 
 **Les feux** :
 - La ville est une grille, avec des arrivées tirées par graine, comme les patients d'urgences.
@@ -204,14 +212,14 @@ façon par leur modèle et leur recherche métier.
   le même geste que les mondes de l'ISMCTS) : de la simulation et des données massives, loin de la recherche de la lib ;
 - la gestion d'agenda au-delà de l'école ;
 - un banc commun « un problème, plusieurs solveurs » (MCTS, faisceau, génétique, NRPA, recuit), que les protéines
-  amorcent : la matière d'un article.
+  devaient amorcer (abandonnées le 6/11) : la matière d'un article.
 
 ### Le prompt de démarrage d'un nouveau projet
 
 Sami le colle en ouvrant la session du projet, en remplaçant le nom et la ligne du tableau ci-dessus :
 
 ```text
-Nouveau projet <nom> (dépôt E:\Dev\My projects\<dossier> : mcts-agenda, mcts-feux, raquette ou proteines), client de mcts-commun comme urgences, entrepot et
+Nouveau projet <nom> (dépôt E:\Dev\My projects\<dossier> : mcts-agenda, mcts-feux, raquette ou economie), client de mcts-commun comme urgences, entrepot et
 cuisine. Lis d'abord mcts-commun : CLAUDE.md, README, docs/feuille-de-route.md (ta ligne du § 2.C), docs/backlog.md
 (la file, --slot), docs/board.md (le tableau). Reprends les règles des autres projets : docs en français, code en
 anglais, Node 24, ES modules sans build, ce qui décide est pur et testé, hasard par graine, eslint.config.js et
@@ -251,7 +259,7 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
 
   Les conférences, à vérifier : IEEE CoG pour les bots, PATAT pour les emplois du temps, SoCS et ICAPS pour la
   recherche et la planification. Le Monte Carlo imbriqué (NMCS, NRPA) est le terrain de Tristan Cazenave
-  (LAMSADE, Paris-Dauphine) : un contact naturel pour les protéines.
+  (LAMSADE, Paris-Dauphine) : un contact naturel si le Monte Carlo imbriqué revient.
 - **Les professionnels du métier** (un infirmier d'accueil et d'orientation, un chef de quai, un chef de brigade, un
   CPE ou un proviseur adjoint, un service voirie) :
   - un court questionnaire par projet, sur les valeurs à valider ;
@@ -278,7 +286,7 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
 
 | Décision | Ce qu'on recommande | Qui le fait ensuite |
 |---|---|---|
-| Les noms des quatre dépôts | **décidé le 30/10** : `mcts-agenda`, `mcts-feux`, `raquette` et `proteines` (sans `mcts-` : ni le ping-pong ni le repliement ne passent forcément par MCTS). Les quatre sont au tableau | Sami crée les dépôts, privés |
+| Les noms des quatre dépôts | **décidé le 30/10** : `mcts-agenda`, `mcts-feux`, `raquette` et `proteines` (sans `mcts-` : ni le ping-pong ni le repliement ne passent forcément par MCTS). Les quatre sont au tableau. **Le 6/11**, `proteines` laisse la place à `economie`, sans `mcts-` lui non plus | Sami crée les dépôts, privés |
 | Hypersonic v6 : les timeouts du soir | la même v6 à un budget plus bas (codingame) | codingame |
 | Botters v9 : elle recule sur le site (72e, la v8 était 41e) | revenir à la v8 en attendant de comprendre | codingame |
 | Cuisine : A ou E | **décidé** : A reste le réglage par défaut (Sami, 30/10) | cuisine |
