@@ -224,6 +224,10 @@ victoire compte.
   la couche coupée est jetée. Hypersonic, 30/10 : remettre la profondeur 14 au lieu de 50 fait perdre (36 %). Le site
   compte plus large que nous : 2 timeouts en 20 parties avec une échéance à 98 ms sur 100, d'où 95.
 
+**Notre propre post-mortem (Fall Challenge 2026, 144e / 1 047, 10/11)** : [`post-mortem-fall-2026.md`](post-mortem-fall-2026.md) — pourquoi
+un pli sur 7 scénarios bat deux plis sur un (c'est la note, pas l'adversaire, qui ferme la profondeur), mesurer au budget de la cible, et
+plusieurs sources de vérité assemblées (main + imitation + auto-jeu) plutôt qu'une seule.
+
 ## 4. Ce qu'il vaudrait la peine de mettre en commun
 
 La règle de la lib : **un projet le prouve d'abord, la lib le reprend ensuite**, mesuré sur les mêmes scénarios

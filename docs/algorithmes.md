@@ -73,6 +73,10 @@ viennent des mesures des projets ([`recherche.md`](recherche.md) § 6) ; les ré
 - **Un alpha-bêta générique** : seulement si un projet à information complète avec une évaluation arrive.
 - **CBS** : seulement si l'ordre fixe des unités de l'A* coopératif coûte des plats ou des colis (aucun signe à ce
   jour : `astar.parkedTarget` vaut 0 chez entrepôt, le 31/10).
+- **`climb` sur K scénarios, avec une coupe et un scénario ajouté en cours de tour** (codingame, 10/11) : fall-challenge-2026 l'a prouvé
+  dans son propre `score` (7 réponses adverses en moyenne ; la coupe après la première, +72 % de plans ; la meilleure réponse de l'autre
+  ajoutée à mi-tour, 52,6 % sur 1 500) ; economie posait la même question le 6/11. Une option de `createClimb`, à décider (Sami) :
+  [`post-mortem-fall-2026.md`](post-mortem-fall-2026.md) § 6.
 - **Déjà essayés, négatifs** : chez lopin, RAVE, PUCT et le minimax implicite dans le MCTS
   ([`lopin/docs/1.3-to-oracle-shift.md`](../../lopin/docs/1.3-to-oracle-shift.md)) ; l'A* sur tableaux typés dans la
   lib, pas plus rapide (30/10, [`recherche.md`](recherche.md) § 6).
