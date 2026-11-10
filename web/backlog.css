@@ -10,6 +10,11 @@
   --entrepot: #4b6584;
   --urgences: #c62828;
   --lopin: #2e7d32;
+  --codingame: #8d6e63;
+  --agenda: #d81b60;
+  --feux: #c79100;
+  --raquette: #7e57c2;
+  --economie: #1e88e5;
   --other: #7a7f87;
 }
 @media (prefers-color-scheme: dark) {
@@ -24,6 +29,11 @@
     --entrepot: #8aa4c4;
     --lopin: #66bb6a;
     --urgences: #ef5350;
+    --codingame: #bcaaa4;
+    --agenda: #f48fb1;
+    --feux: #ffca28;
+    --raquette: #b39ddb;
+    --economie: #64b5f6;
   }
 }
 

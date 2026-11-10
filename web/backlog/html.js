@@ -5,7 +5,8 @@ const ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "
 export const escape = (text) => String(text ?? "").replace(/[&<>"']/g, (char) => ENTITIES[char]);
 export const decimal = (value) => String(value).replace(".", ",");
 
-const PROJECTS = new Set(["cuisine", "entrepot", "urgences", "lopin"]);
+// Every reader of the board but commun, which runs no job (Sami, 10/11/2026: three projects were grey on the night).
+const PROJECTS = new Set(["cuisine", "entrepot", "urgences", "lopin", "codingame", "agenda", "feux", "raquette", "economie"]);
 /** The colour of a project's jobs, a CSS variable of backlog.css. */
 export const projectColor = (name) => `var(--${PROJECTS.has(name) ? name : "other"})`;
 export const project = (name) => `<span class="project" style="--project: ${projectColor(name)}">${escape(name)}</span>`;
