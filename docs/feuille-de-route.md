@@ -37,7 +37,7 @@ Un piège de `git log` : `--since=2026-10-26` part du 26/10 **à l'heure qu'il e
   | Code a la Mode | Silver | **1er sur 16** | devant le boss, en route vers Gold |
   | Fantastic Bits | Légende | 57e sur 430 | de Wood à Légende en deux jours, avec une simulation |
   | Mad Pod Racing | Légende | 53e sur 1 921 | le bot Lua de Sami (2017) était 1152e |
-  | Hypersonic | Légende | 264e sur 773 | la v4 était 22e ; la v6 tombe sur des timeouts le soir |
+  | Hypersonic | Légende | 264e sur 773 (le 30/10 ; **10e sur 783 le 10/11**, la v10) | la v4 était 22e ; la v6 tombe sur des timeouts le soir ; le budget par l'heure du serveur, puis les rampes de la v10 ([`post-mortem-hypersonic.md`](post-mortem-hypersonic.md)) |
   | Crystal Rush | Gold | 96e sur 766 | |
   | Botters of the Galaxy | Silver | 72e sur 273 | la v8 était 41e : la v9 recule sur le site |
   | Soak Overflow | Gold | 280e sur 375 | |

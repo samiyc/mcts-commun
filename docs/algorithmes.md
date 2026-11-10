@@ -77,6 +77,10 @@ viennent des mesures des projets ([`recherche.md`](recherche.md) § 6) ; les ré
   dans son propre `score` (7 réponses adverses en moyenne ; la coupe après la première, +72 % de plans ; la meilleure réponse de l'autre
   ajoutée à mi-tour, 52,6 % sur 1 500) ; economie posait la même question le 6/11. Une option de `createClimb`, à décider (Sami) :
   [`post-mortem-fall-2026.md`](post-mortem-fall-2026.md) § 6.
+- **Le faisceau, rien à ajouter** (codingame, 10/11) : le post-mortem d'Hypersonic (10e / 783) confirme en chiffres ce que la lib a déjà :
+  la profondeur jusqu'à l'échéance (remettre une profondeur fixe perd 36 %) et le faisceau local (241e → 22e) ; rien d'autre dans le faisceau
+  n'a payé (largeur, plafond par case, quotas de racine). Ce qui reste est du côté du problème : une prudence intermédiaire pour l'adversaire
+  en hypothèse. [`post-mortem-hypersonic.md`](post-mortem-hypersonic.md).
 - **Déjà essayés, négatifs** : chez lopin, RAVE, PUCT et le minimax implicite dans le MCTS
   ([`lopin/docs/1.3-to-oracle-shift.md`](../../lopin/docs/1.3-to-oracle-shift.md)) ; l'A* sur tableaux typés dans la
   lib, pas plus rapide (30/10, [`recherche.md`](recherche.md) § 6).

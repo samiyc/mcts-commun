@@ -228,6 +228,11 @@ victoire compte.
 un pli sur 7 scénarios bat deux plis sur un (c'est la note, pas l'adversaire, qui ferme la profondeur), mesurer au budget de la cible, et
 plusieurs sources de vérité assemblées (main + imitation + auto-jeu) plutôt qu'une seule.
 
+**Hypersonic (10e / 783 de Légende, la v10 du 1/11, post-mortem du 10/11)** : [`post-mortem-hypersonic.md`](post-mortem-hypersonic.md) — le
+faisceau en profondeur jusqu'à l'échéance et la diversité par case (241e → 22e), le temps mesuré sur la cible à l'heure chargée (98 ms tenait
+l'après-midi, 21 timeouts le soir ; un budget par l'heure du serveur), l'auto-jeu qui ne mesure que contre notre lignée (le juge : un panel du
+haut de la ligue sur les mêmes seeds), deux séries avant de croire.
+
 ## 4. Ce qu'il vaudrait la peine de mettre en commun
 
 La règle de la lib : **un projet le prouve d'abord, la lib le reprend ensuite**, mesuré sur les mêmes scénarios
