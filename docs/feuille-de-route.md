@@ -173,6 +173,7 @@ La recherche ne vient qu'après, mesurée contre la règle.
 | **Le ping-pong** (`raquette`, sans `mcts-` : Sami doute qu'il faille MCTS) | `climb`, `random`, `measure`, `replayKeys` (les touches du lecteur), `web/theme.css` | la physique (hors de la lib : à reprendre de Mad Pod Racing et de Fantastic Bits, dans `mcts-codingame`), l'effet (Magnus), la hauteur de balle, la prédiction de trajectoire, le lecteur (chaque projet a le sien), la manette | renvoyer au centre de la table | la table vue de dessus, la balle, le rebond, ses couleurs (effet, hauteur) ; un échange robot contre robot, puis la manette | – |
 | **Les emplois du temps** (`mcts-agenda`, Sami 30/10) | `random`, `measure` ; peut-être `beam`, puis l'ISMCTS pour l'absence de durée inconnue (pas `schedule` : il ordonne des jobs, il ne place pas des cours ; agenda, 6/11) | les contraintes, la recherche locale (tabou, recuit), le replanning qui dérange le moins possible | un remplissage glouton | le modèle (professeurs, classes, salles, programmes), un établissement fictif, le glouton ; puis les remplacements | XHSTT-2014, les instances des établissements scolaires de l'ITC 2011 (25 instances, 12 pays, l'évaluateur et les meilleures solutions publiés) ; l'ITC 2019, universitaire, ne s'y prête pas (agenda, 6/11) |
 | **L'économie d'un État** (`economie`, sans `mcts-` : Sami, 6/11, à la place des protéines) | `climb`, `beam`, `measure`, `random` | un modèle stock-flux cohérent (ménages, entreprises, banques, État, banque centrale, reste du monde), les leviers (impôts, dépense, taux, obligations), les crises tirées par graine, le pilotage à horizon glissant | les stabilisateurs automatiques et une règle de Taylor | le modèle SIM de Godley et Lavoie, ses flux en diagramme de Sankey trimestre par trimestre ; puis les crises | les modèles publiés de Godley et Lavoie (*Monetary Economics*, 2007) |
+| **Le réseau électrique** (`reseau`, sans `mcts-` : Sami, 12/11) | `climb` (la répartition), `beam` (le démarrage des centrales, la topologie), `search` (des mondes météo), `events`, `measure`, `random` | le calcul des flux (DC power flow : le courant suit les lois de Kirchhoff, il ne prend pas un chemin choisi), l'équilibre à chaque pas, les pannes en cascade ; plus tard SDDP pour les barrages | l'ordre de préséance économique avec une marge de réserve, la règle N-1 | un petit réseau IEEE (14 nœuds), ses flux, une ligne qui tombe ; la page : une carte, les lignes colorées par leur charge | les réseaux de test IEEE, PGLib-OPF, RTS-GMLC ; Grid2Op, la plateforme des concours L2RPN de RTE (à vérifier au cadrage) |
 | **Les feux** (`mcts-feux`, Sami 30/10) | `grid`, `mcts`, la simulation à événements, `measure` | un automate de trafic (Nagel-Schreckenberg) | le feu à temps fixe, le max-pressure | une ville en grille, les voitures, les deux règles, la page | des scénarios SUMO |
 
 **L'ordre** : Sami a choisi de lancer les quatre en parallèle. Codingame conseillait de commencer par les feux et les
@@ -207,6 +208,15 @@ façon par leur modèle et leur recherche métier.
 - La ville est une grille, avec des arrivées tirées par graine, comme les patients d'urgences.
 - **La mesure** : le temps d'attente moyen et le pire.
 
+**Le réseau électrique** (Sami, 12/11 : « la gestion d'un parc, d'un réseau électrique ») :
+- **Ce qu'il partage** : des flux et des leviers (economie), un ordonnancement (agenda, pour le démarrage des
+  centrales), l'incertitude par graine (urgences), un réseau piloté en temps réel (feux).
+- **Ce qui est neuf** : les lois de Kirchhoff (couper une ligne reporte son flux sur toutes les autres, jusqu'à la
+  cascade), l'équilibre production-consommation à chaque instant, et une décision à la fois discrète (quelles
+  centrales tournent, quelles lignes sont ouvertes) et continue (combien chacune produit).
+- **L'écran** : une carte du réseau, les lignes colorées par leur charge, les cascades qui se propagent.
+- **La limite** : un modèle pour comprendre, pas pour exploiter un vrai réseau.
+
 **Plus tard** :
 - les fluides (turbulences : Stable Fluids de Stam, Boltzmann sur réseau) et la météo (des ensembles de prévisions,
   le même geste que les mondes de l'ISMCTS) : de la simulation et des données massives, loin de la recherche de la lib ;
@@ -219,7 +229,7 @@ façon par leur modèle et leur recherche métier.
 Sami le colle en ouvrant la session du projet, en remplaçant le nom et la ligne du tableau ci-dessus :
 
 ```text
-Nouveau projet <nom> (dépôt E:\Dev\My projects\<dossier> : mcts-agenda, mcts-feux, raquette ou economie), client de mcts-commun comme urgences, entrepot et
+Nouveau projet <nom> (dépôt E:\Dev\My projects\<dossier> : mcts-agenda, mcts-feux, raquette, economie ou reseau), client de mcts-commun comme urgences, entrepot et
 cuisine. Lis d'abord mcts-commun : CLAUDE.md, README, docs/feuille-de-route.md (ta ligne du § 2.C), docs/backlog.md
 (la file, --slot), docs/board.md (le tableau). Reprends les règles des autres projets : docs en français, code en
 anglais, Node 24, ES modules sans build, ce qui décide est pur et testé, hasard par graine, eslint.config.js et
@@ -286,7 +296,7 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
 
 | Décision | Ce qu'on recommande | Qui le fait ensuite |
 |---|---|---|
-| Les noms des quatre dépôts | **décidé le 30/10** : `mcts-agenda`, `mcts-feux`, `raquette` et `proteines` (sans `mcts-` : ni le ping-pong ni le repliement ne passent forcément par MCTS). Les quatre sont au tableau. **Le 6/11**, `proteines` laisse la place à `economie`, sans `mcts-` lui non plus | Sami crée les dépôts, privés |
+| Les noms des quatre dépôts | **décidé le 30/10** : `mcts-agenda`, `mcts-feux`, `raquette` et `proteines` (sans `mcts-` : ni le ping-pong ni le repliement ne passent forcément par MCTS). Les quatre sont au tableau. **Le 6/11**, `proteines` laisse la place à `economie`, sans `mcts-` lui non plus. **Le 12/11**, `reseau` s'y ajoute, de même | Sami crée les dépôts, privés |
 | Hypersonic v6 : les timeouts du soir | la même v6 à un budget plus bas (codingame) | codingame |
 | Botters v9 : elle recule sur le site (72e, la v8 était 41e) | revenir à la v8 en attendant de comprendre | codingame |
 | Cuisine : A ou E | **décidé** : A reste le réglage par défaut (Sami, 30/10) | cuisine |

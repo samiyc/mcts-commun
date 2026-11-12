@@ -21,6 +21,7 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
     assert.equal(projectOf("E:/Dev/My projects/mcts-agenda"), "agenda");
     assert.equal(projectOf("E:/Dev/My projects/raquette/web"), "raquette");
     assert.equal(projectOf("E:/Dev/My projects/Economie"), "economie");
+    assert.equal(projectOf("E:/Dev/My projects/reseau/src"), "reseau");
     assert.equal(projectOf("E:/Dev/My projects/proteines"), null, "given up on 6/11/2026");
     assert.equal(projectOf("E:/Dev/My projects/ARC-AGI"), null);
     const message = { id: "x", at: "2026-10-27T18:30:00", from: "commun", to: ["cuisine", "tous"], subject: "un: deux\ntrois", replyTo: null, body: "Corps\n\n---\nfin" };

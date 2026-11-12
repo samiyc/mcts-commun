@@ -10,10 +10,11 @@
 // The four projects of the week of 2/11/2026 (Sami, 30/10): mcts-agenda, mcts-feux, and raquette, named without mcts-
 // since it is not sure to search with it. The fourth, proteines, gave way on 6/11 to economie (Sami: a state's economy
 // and its levers), without mcts- for the same reason. A thread sent to tous waits on the readers of today only.
-export const PROJECTS = Object.freeze(["commun", "cuisine", "entrepot", "urgences", "codingame", "lopin", "agenda", "feux", "raquette", "economie"]);
+// On 12/11, reseau (Sami: a power grid), without mcts- as well.
+export const PROJECTS = Object.freeze(["commun", "cuisine", "entrepot", "urgences", "codingame", "lopin", "agenda", "feux", "raquette", "economie", "reseau"]);
 export const READERS = Object.freeze([...PROJECTS, "sami"]);
 // Matched without case (Windows: Lopin or lopin).
-const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", lopin: "lopin", "mcts-agenda": "agenda", "mcts-feux": "feux", raquette: "raquette", economie: "economie" };
+const FOLDERS = { "mcts-commun": "commun", "mcts-cuisine": "cuisine", "mcts-entrepot": "entrepot", "mcts-urgences": "urgences", "mcts-codingame": "codingame", lopin: "lopin", "mcts-agenda": "agenda", "mcts-feux": "feux", raquette: "raquette", economie: "economie", reseau: "reseau" };
 
 /** The project folder `dir` is in (the nearest parent named like one), or null outside them. */
 export function projectOf(dir) {
