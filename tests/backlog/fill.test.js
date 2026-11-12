@@ -41,6 +41,24 @@ describe("the gaps a waiting job leaves, and a series of tests (node/queue/fill.
     assert.equal(fillerOf({ next: null, ready: [], free: 18, budget: 18 }), null);
   });
 
+  it("counts a job past its estimate as holding its threads, not as freeing them (codingame, 10/11/2026)", () => {
+    const now = Date.parse("2026-11-10T17:30:00");
+    const minutes = (n) => now + n * 60_000;
+    // raquette's 6 and 5 threads were due 30 min ago; 4 free of 18; the arena of 9 waits.
+    const next = job("arena", 9);
+    const late = [
+      { threads: 6, end: minutes(-30) },
+      { threads: 5, end: minutes(-30) },
+    ];
+    const settings = { next, free: 4, budget: 18, now };
+    assert.equal(fillerOf({ ...settings, running: late, ready: [next, job("eco", 1, "15 min")] })?.id, "eco", "their end unknown: a short filler, as behind others' threads");
+    assert.equal(fillerOf({ ...settings, running: late, ready: [next, job("long", 1, "40 min")] }), null, "a long one no more: the late jobs could end any minute");
+    // Once the 6 has ended: 10 free, the arena starts at once, and no filler may take what it needs.
+    const after = { ...settings, free: 10, running: [late[1]] };
+    assert.equal(fillerOf({ ...after, ready: [next, job("eco", 1, "15 min")] })?.id, "eco", "10 − 9 leaves one");
+    assert.equal(fillerOf({ ...after, free: 9, ready: [next, job("eco", 1, "15 min")] }), null, "9 free for a job of 9: nothing goes in front");
+  });
+
   it("knows a test in a series, and its want holds nothing back (codingame's arena, 28/10)", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "series-"));
     try {

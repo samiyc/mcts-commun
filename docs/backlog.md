@@ -446,7 +446,11 @@ maintenant un lanceur qui attend, et ce qu'il attend (`074119c`). **Corrigé dan
   auraient tourné pendant l'arène. **Depuis le 31/10**, quand le suivant attend les propres jobs du lanceur, un job
   prêt démarre aussi s'il lui laisse son départ : il finit avant que le suivant puisse partir, ou il lui laisse ses fils
   à ce moment-là (le « backfilling EASY » des ordonnanceurs de grappes). Une suite de petits jobs ne peut plus le tenir
-  dehors : chacun doit tenir dans ce que le suivant n'occupera pas.
+  dehors : chacun doit tenir dans ce que le suivant n'occupera pas. **Corrigé le 12/11** (codingame, 10/11 : un job
+  d'arène de 9 fils a attendu 75 min) : un job qui dépasse son estimation comptait comme ayant déjà rendu ses fils, si
+  bien que tout petit job passait pour inoffensif. Ceux de raquette, appris à 18 min, ont duré 93 et 150 min. Leur
+  fin est maintenant inconnue : on ne remplit qu'avec des jobs de 15 min au plus, et dès qu'ils finissent, le suivant
+  passe avant tout remplissage.
 - **Une série de `--slot` attend comme un job** (l'avis de codingame) : un `--slot` relancé moins de 2 min après la
   fin d'un autre du même id (`--id`, ou l'id par défaut : le dossier et la commande) **qui a duré au moins 3 min** est
   `series` dans `wanted.json`. Il ne retient plus les jobs suivants et n'en arrête aucun : il prend les fils quand ils

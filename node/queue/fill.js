@@ -12,6 +12,9 @@ import { threadsNow } from "./wanted.js";
  * - or, since 31/10/2026, the next job waits for the runner's own jobs and the filler leaves it its start: it ends
  *   before the next job could start anyway, or still leaves it its threads then (EASY backfilling). A stream of small
  *   jobs cannot keep it out: each one must fit in what the next job will not need.
+ * A running job past its estimate ends at an unknown time (12/11/2026): its threads were counted free from the moment
+ * it should have ended, so every filler looked harmless. On 10/11, raquette's jobs of 6 and 5 threads, learned at
+ * 18 min, ran 93 and 150; a 9-thread arena job waited 75 min while 1-thread jobs of economie went in one after another.
  */
 export const FILL_MINUTES = 15;
 const MS = 60_000;
@@ -44,7 +47,8 @@ function harmless(job, next, at, { free, running, now, budget }) {
  */
 export function fillerOf({ ready, next, free, budget, running = [], now = Date.now() }) {
   if (!next) return null;
-  const settings = { free, running, now, budget };
+  const known = running.map((run) => (run.end > now ? run : { threads: run.threads, end: Infinity }));
+  const settings = { free, running: known, now, budget };
   const at = startOf(next, settings);
   const fits = (job) => job.id !== next.id && threadsOf(job, budget) <= free;
   const allowed = (job) => (at === Infinity ? minutesOf(job.estimate) <= FILL_MINUTES : harmless(job, next, at, settings));
