@@ -84,3 +84,27 @@ viennent des mesures des projets ([`recherche.md`](recherche.md) § 6) ; les ré
 - **Déjà essayés, négatifs** : chez lopin, RAVE, PUCT et le minimax implicite dans le MCTS
   ([`lopin/docs/1.3-to-oracle-shift.md`](../../lopin/docs/1.3-to-oracle-shift.md)) ; l'A* sur tableaux typés dans la
   lib, pas plus rapide (30/10, [`recherche.md`](recherche.md) § 6).
+
+## 5. Côté recherche opérationnelle et industrie : les pistes de niche
+
+Sami (12/11/2026) : des algorithmes moins tournés vers les jeux, plus vers la recherche et l'industrie. La lib couvre
+le jeu et le contrôle en temps réel (MCTS, faisceau, escalade) ; il lui manque des familles bien établies en recherche
+opérationnelle, presque absentes de CodinGame. Aucun n'entre dans la lib avant qu'un projet en ait besoin et que la
+mesure le justifie (la règle du § 4).
+
+| Algorithme | Ce qu'il fait | Là où il gagne | Pour qui |
+|---|---|---|---|
+| **La course aux configurations** (*racing* : F-race, irace, Birattari et López-Ibáñez) | compare N variantes graine après graine, par un test apparié, et élimine une variante dès qu'elle est battue | le réglage de paramètres ; c'est ce que la file fait à la main, rendu automatique | tous : les réglages de feux, les règles d'economie, raquette. **Le premier à écrire** : il économise des heures de file, en pur JS sur `measure` (`paired`, `sprt`) |
+| **L'optimisation bayésienne** (un modèle de substitution : processus gaussien, TPE) | choisit le prochain réglage à essayer d'après les essais passés | quand une évaluation coûte des minutes, pas des microsecondes | le réglage des règles d'economie et de feux, où chaque essai est un job |
+| **CMA-ES** (Hansen) | l'escalade qui apprend la forme du terrain : quels gènes bouger ensemble, et de combien | les plans continus de 5 à 100 dimensions, sans gradient | economie (déjà conseillé le 6/11), raquette, les durées de feux. **Le second** : deux projets le demandent |
+| **ALNS** (grand voisinage adaptatif, Ropke et Pisinger 2006) | détruit 20 % d'une solution et la reconstruit, en apprenant quelles destructions et quelles reconstructions paient | la référence des tournées et de l'ordonnancement | agenda (le replanning d'une absence), entrepôt |
+| **NMCS et NRPA** (le Monte Carlo imbriqué, Cazenave ; Rosin 2011) | un MCTS à un seul joueur, qui apprend une politique de tirage | des records sur des puzzles (Morpion solitaire) et les tournées avec fenêtres horaires | le cousin direct de `search` ; la piste des protéines, orpheline depuis le 6/11 |
+| **MAP-Elites** (qualité-diversité, Mouret et Clune 2015) | garde la meilleure solution de chaque case d'une carte de comportements, plutôt qu'une seule meilleure | montrer des solutions *différentes* et toutes bonnes | economie (une carte chômage × dette, très visuelle), raquette (des styles de jeu) |
+| **NSGA-II** (front de Pareto, Deb 2002) | optimise plusieurs objectifs sans les fondre en un score | les compromis | economie, qui refuse déjà un score unique |
+| **SDDP** (programmation dynamique duale stochastique, Pereira et Pinto 1991) | gère un stock dans le temps sous incertitude, par des coupes de Benders | l'eau des barrages : l'outil des gestionnaires de réseaux électriques | le réseau électrique (`reseau`, 12/11) |
+
+**L'escalade et le faisceau, la différence** (Sami, 12/11) : l'escalade tient **un plan complet** et le **retouche**
+(un gène bougé, le plan entier simulé, gardé s'il fait mieux) ; le faisceau tient **W débuts de plan** et les
+**prolonge** d'un tour, puis garde les W meilleurs. L'une pour des nombres continus, piégée par les optima locaux ;
+l'autre pour des actions qu'on énumère, piégée par la myopie (un chemin qui paie tard est jeté tôt). La première est
+une recherche locale, la seconde une recherche constructive.
