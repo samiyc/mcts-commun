@@ -39,6 +39,7 @@ nouveaux projets) : [`docs/feuille-de-route.md`](docs/feuille-de-route.md).
 | `race` | la course aux configurations : N variantes sur les mêmes graines, la battue écartée dès qu'elle l'est (13/11) ; son pilote `mcts-race` envoie les lots à la file ([`docs/course.md`](docs/course.md)) | fait |
 | `beam` | le faisceau des tours courts, sans allocation (celui d'Hypersonic, 29/10) | fait |
 | `climb` | l'escalade d'un plan de nombres, sans allocation (celle de Mad Pod Racing, 29/10) | fait |
+| `cmaes` | CMA-ES, l'escalade qui apprend quels gènes bouger ensemble ; `run` ou `ask`/`tell`, et un état en JSON pour régler par la file (13/11) | fait |
 | `pool` | des états réservés une fois, vues d'un seul tampon typé | fait |
 | `replay-keys` | les touches d'un lecteur de replay dans une page, comme sur une vidéo, dans l'unité du projet (29/10) | fait |
 | `trace` | ce qui passe par la bibliothèque : compteurs, erreurs, appels lents (voir « Les traces ») | fait |
@@ -265,6 +266,34 @@ createClimb({ genes, Type = Float64Array })
 | l'escalade (24 gènes), budget de 1 500 plans | 0,13 ms | 1 |
 
 Quand les prendre plutôt que MCTS : [`docs/recherche.md`](docs/recherche.md), « Faisceau et escalade ».
+
+## CMA-ES, pour régler des nombres (`cmaes`)
+
+Sami (12/11/2026) : « tout ce qui peut aider » raquette et tryangle-catch. CMA-ES (Hansen) tire à chaque génération une
+population de plans autour d'une moyenne, garde la meilleure moitié, et en apprend **dans quelle direction aller, de
+combien, et quels gènes bouger ensemble**. Là où `climb` bouge un gène au hasard, elle suit une vallée en biais.
+
+```js
+import { createCmaes } from "mcts-commun/cmaes.js";
+
+const es = createCmaes({ genes: 12, mean: weights, sigma: 0.3, seed: 1 });
+const best = es.run((plan) => scoreOf(plan), { budget: 2000 }); // { plan, score }, le plus grand le meilleur
+
+// Ou un essai par lot de parties dans la file : ask, les scores ailleurs, tell, et l'état gardé en JSON entre deux.
+const plans = es.ask();                 // population plans, des tampons de la stratégie : copiez ce que vous gardez
+es.tell(scores);                        // un score par plan, dans l'ordre ; NaN compte pour le pire
+writeFileSync("cmaes.json", JSON.stringify(es.snapshot()));
+const again = createCmaes({ genes: 12, from: JSON.parse(readFileSync("cmaes.json", "utf8")) });
+```
+
+- **Ses réglages sont ceux de Hansen** : rien à régler sauf `sigma` (le premier pas, environ un tiers de l'étendue de
+  chaque gène : ramenez les gènes à une même échelle) et, sur un paysage plein de bosses, une `population` plus grande.
+- **Ce qu'elle apporte** (`tests/lib/cmaes.test.js`) : sur une vallée en biais à 10 gènes, un million de fois plus
+  longue que large, elle descend à 10⁻²⁵ en 8 260 plans ; l'escalade, un gène à la fois, reste à 675 en 20 000.
+- **Ce qu'elle coûte** en plus du score : 1 µs par plan à 6 gènes, 6 µs à 20, 25 µs à 50 (la matrice de covariance
+  est en n²). Dans un tour de 50 ms, c'est le score qui décide du nombre de plans, comme pour l'escalade.
+- **Son meilleur usage** : régler hors du jeu, dans la file, les poids d'une note ou les paramètres d'une règle, où
+  chaque essai coûte une série. Dans le tour, l'escalade suffit souvent quand les gènes sont peu liés.
 
 ## Comment les projets s'en servent
 

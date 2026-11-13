@@ -1,8 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { createCmaes } from "../../src/cmaes.js";
 import { createEvents } from "../../src/events.js";
 import { astar, createDistances, createReservations, parsePlan } from "../../src/grid.js";
+import { raceStep } from "../../src/race.js";
 import { createRng } from "../../src/random.js";
 import { nextJob, planNight } from "../../src/schedule.js";
 import { resetTrace, traceSnapshot } from "../../src/trace.js";
@@ -130,6 +132,19 @@ function eventRuns() {
   return { out, rest: drain(queue), evens: drain(evens) };
 }
 
+/** CMA-ES on a slanted valley, and a race on seeded games (13/11/2026): the numbers to 12 digits, not the last bits of a float. */
+function tuningRuns() {
+  const digits = (x) => Number(x.toPrecision(12));
+  const valley = (x) => -x.reduce((sum, v, i) => sum + 10 ** i * (v + x[(i + 1) % x.length]) ** 2, 0);
+  const es = createCmaes({ genes: 5, mean: [1, 2, 3, 4, 5], sigma: 0.5, seed: 11 });
+  const best = es.run(valley, { budget: 400 });
+  const rng = createRng(12);
+  const results = { a: {}, b: {}, c: {} };
+  for (let seed = 1; seed <= 80; seed += 1) for (const [variant, rate] of [["a", 0.6], ["b", 0.55], ["c", 0.3]]) results[variant][seed] = rng.next() < rate ? 1 : 0;
+  const look = raceStep(results, ["a", "b", "c"], { looks: 4 });
+  return { plan: [...best.plan].map(digits), score: digits(best.score), sigma: digits(es.sigma), look: { ...look, standings: look.standings.map((one) => ({ ...one, mean: digits(one.mean) })), dropped: look.dropped.map((one) => one.variant) } };
+}
+
 describe("the library's fingerprints (tests/lib/fingerprint.test.js)", () => {
   it("keeps the grid's: the same paths, waits and parks", () => {
     assert.equal(hash(gridRuns()), "1f49a8a64427f99b");
@@ -147,5 +162,9 @@ describe("the library's fingerprints (tests/lib/fingerprint.test.js)", () => {
 
   it("keeps the event queue's: the same order, ties and clones", () => {
     assert.equal(hash(eventRuns()), "6323925d91d9b490");
+  });
+
+  it("keeps CMA-ES's and the race's: the same plans, the same variants dropped (13/11/2026)", () => {
+    assert.equal(hash(tuningRuns()), "729caa6b7a6303f9");
   });
 });

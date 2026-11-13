@@ -36,7 +36,8 @@
     "./replay-keys.js": "./src/replay-keys.js",
     "./machine.js": "./node/machine.js",
     "./trace-preload.js": "./node/trace-preload.js",
-    "./race.js": "./src/race.js"
+    "./race.js": "./src/race.js",
+    "./cmaes.js": "./src/cmaes.js"
   },
   "bin": {
     "mcts-serve": "bin/serve.js",

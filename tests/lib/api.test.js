@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import * as beam from "../../src/beam.js";
 import * as climb from "../../src/climb.js";
+import * as cmaes from "../../src/cmaes.js";
 import * as events from "../../src/events.js";
 import * as grid from "../../src/grid.js";
 import * as mcts from "../../src/mcts.js";
@@ -45,6 +46,8 @@ describe("the library's contract (tests/lib/api.test.js)", () => {
     assert.deepEqual(Object.keys(climb.createClimb({ genes: 1 })).sort(), ["forget", "genes", "run"]);
     assert.deepEqual(Object.keys(replayKeys).sort(), ["nextSpeed", "replayHint", "replayKeys", "within"]);
     assert.deepEqual(Object.keys(pool.createStatePool(1, 1)).sort(), ["buffer", "capacity", "clear", "count", "size", "states", "take"]);
+    assert.deepEqual(Object.keys(cmaes), ["createCmaes"]);
+    assert.deepEqual(Object.keys(cmaes.createCmaes({ genes: 2 })).sort(), ["ask", "best", "evaluations", "genes", "mean", "population", "run", "sigma", "snapshot", "tell"]);
     assert.deepEqual(Object.keys(race).sort(), ["commonSeeds", "nextBatch", "raceStep"]);
     assert.deepEqual(Object.keys(race.raceStep({ a: { 1: 1 }, b: { 1: 0 } }, ["a", "b"])), ["seeds", "standings", "best", "dropped", "alive"]);
     assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "progress", "resetTrace", "setTraceLevel", "timed", "timing", "trace", "traceLevel", "traceSnapshot", "traceTo"]);
