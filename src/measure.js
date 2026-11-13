@@ -77,3 +77,27 @@ function verdictOf(llr, lower, upper) {
   if (llr >= upper) return "h1";
   return llr <= lower ? "h0" : "continue";
 }
+
+// Acklam's rational approximation of the normal quantile, |error| < 1.2e-9 (Wichura's AS241 is finer; not needed).
+const A = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
+const B = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+const C = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+const D = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+const LOW = 0.02425;
+const poly = (coefficients, x) => coefficients.reduce((sum, c) => sum * x + c, 0);
+
+/**
+ * The z such that a standard normal falls below it with probability `p` (0 < p < 1): 1.96 for 0.975, 2.326 for 0.99.
+ * The races' threshold (src/race.js), when several variants are compared at once and alpha is shared among them.
+ */
+export function normalQuantile(p) {
+  if (!(p > 0 && p < 1)) throw new Error(`normalQuantile : p vaut entre 0 et 1, pas ${p}`);
+  if (p < LOW) {
+    const q = Math.sqrt(-2 * Math.log(p));
+    return poly(C, q) / (poly(D, q) * q + 1);
+  }
+  if (p > 1 - LOW) return -normalQuantile(1 - p);
+  const q = p - 0.5;
+  const r = q * q;
+  return (poly(A, r) * q) / (poly(B, r) * r + 1);
+}

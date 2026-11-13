@@ -40,10 +40,10 @@ ou appellent par son chemin reste où il est**, le reste va dans un sous-dossier
 | `node/` | ce que Node seul fait et que d'autres chargent par son chemin : `machine.js` (exporté), `trace-preload.js` (le lanceur le passe à chaque job en `--import`), `trace-file.js`, `tail.js` |
 | `node/queue/` | le lanceur de la file : la file, le lanceur, un job, les créneaux, le remplissage, la préemption, le journal |
 | `node/backlog/` | les vues de la file : la lecture, le texte, les commandes de `mcts-backlog` |
-| `node/tui/`, `node/board/`, `node/remote/` | le TUI, le tableau des sessions, la machine distante |
+| `node/tui/`, `node/board/`, `node/remote/`, `node/race/` | le TUI, le tableau des sessions, la machine distante, le pilote des courses (`mcts-race`) |
 | `bin/` | les commandes (`mcts-backlog`, `mcts-board`, `mcts-serve`, `check`) : les projets, le raccourci de démarrage et les hooks les appellent par leur chemin |
 | `web/` | la page de la file (`index.html`, `backlog.js`, ses sections dans `web/backlog/`) et `theme.css`, que les pages des projets chargent |
-| `tests/lib/`, `tests/backlog/`, `tests/board/` | les tests de la lib, de la file et du tableau ; leurs aides dans `tests/fixtures/` |
+| `tests/lib/`, `tests/backlog/`, `tests/board/`, `tests/race/` | les tests de la lib, de la file, du tableau et des courses ; leurs aides dans `tests/fixtures/` |
 | `bench/`, `docs/` | les bancs, la documentation ; quel algorithme pour quel problème : [`algorithmes.md`](algorithmes.md) |
 
 ## Ce qui diffère des projets

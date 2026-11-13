@@ -36,6 +36,7 @@ nouveaux projets) : [`docs/feuille-de-route.md`](docs/feuille-de-route.md).
 | `mcts` | la recherche : le tirage d'un scénario, la liste courte, la descente, la simulation, le coup le plus visité | premier jet |
 | `grid` | les plans en texte, A* dans l'espace et le temps (qui renonce tôt à une cible hors d'atteinte), la table de réservations (`src/grid/reservations.js`, réexportée) | fait |
 | `measure` | les intervalles de Wilson, la comparaison par paires sur les mêmes scénarios | fait |
+| `race` | la course aux configurations : N variantes sur les mêmes graines, la battue écartée dès qu'elle l'est (13/11) ; son pilote `mcts-race` envoie les lots à la file ([`docs/course.md`](docs/course.md)) | fait |
 | `beam` | le faisceau des tours courts, sans allocation (celui d'Hypersonic, 29/10) | fait |
 | `climb` | l'escalade d'un plan de nombres, sans allocation (celle de Mad Pod Racing, 29/10) | fait |
 | `pool` | des états réservés une fois, vues d'un seul tampon typé | fait |
@@ -314,6 +315,7 @@ npx mcts-backlog --add ent-sami --cwd ../mcts-entrepot --estimate "40 min" -- np
 npx mcts-backlog --list      # la machine, les jobs en cours, la nuit à venir, les bloqués, les derniers finis
 npx mcts-backlog --tui       # la même chose en direct, façon k9s
 npx mcts-backlog             # joue la file jusqu'au bout
+npx mcts-race races/x.json   # une course aux configurations, lot après lot dans la file (docs/course.md)
 npx mcts-backlog --stay      # la joue et reste, à attendre les jobs suivants (un lanceur permanent, démarré avec le PC)
 npx mcts-backlog --add-file ../mcts-entrepot/night.json   # les mesures de nuit d'un projet
 npx mcts-backlog --status ent-sami --json   # où en est un job ; --wait l'attend, --cancel l'annule, --retry le relance, --set-priority "motif-*" N change sa priorité

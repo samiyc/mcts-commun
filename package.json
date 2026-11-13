@@ -35,12 +35,14 @@
     "./pool.js": "./src/pool.js",
     "./replay-keys.js": "./src/replay-keys.js",
     "./machine.js": "./node/machine.js",
-    "./trace-preload.js": "./node/trace-preload.js"
+    "./trace-preload.js": "./node/trace-preload.js",
+    "./race.js": "./src/race.js"
   },
   "bin": {
     "mcts-serve": "bin/serve.js",
     "mcts-backlog": "bin/backlog.js",
-    "mcts-board": "bin/board.js"
+    "mcts-board": "bin/board.js",
+    "mcts-race": "bin/race.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
