@@ -16,6 +16,7 @@
   --raquette: #7e57c2;
   --economie: #1e88e5;
   --reseau: #00838f;
+  --circuit: #9e9d24;
   --other: #7a7f87;
 }
 @media (prefers-color-scheme: dark) {
@@ -36,6 +37,7 @@
     --raquette: #b39ddb;
     --economie: #64b5f6;
     --reseau: #4dd0e1;
+    --circuit: #d4e157;
   }
 }
 

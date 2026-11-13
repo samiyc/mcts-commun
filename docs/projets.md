@@ -39,6 +39,7 @@ tableau du 6/11). Ils sont nés sous Node 24, sur la lib d'aujourd'hui ; la lib 
 | feux (`mcts-feux`) | `random`, `measure` | `grid` (`parsePlan`, `createDistances`), `events`, `mcts`, `trace`, `replay-keys`, `theme.css` | l'automate de trafic reste chez lui, tant qu'un second projet n'en veut pas | pas encore |
 | economie | `random` | `climb`, `beam`, `measure`, `trace`, `replay-keys`, `theme.css` ; `mcts` pour une guerre commerciale entre deux États | – | à partir du J4, des jobs d'un fil |
 | reseau (12/11) | rien encore : le socle seul | `climb`, `beam`, `search` (des mondes météo), `events`, `measure`, `random` | – | pas encore |
+| circuit (13/11) | rien encore : le socle et la recherche du cadrage | `cmaes`, `climb`, `beam`, `race`, `measure`, `random` ; un solveur QP s'il entre dans la lib | `mcts` : une course contre la montre n'a qu'un joueur | pas encore |
 
 **Une question pourra venir d'economie au J6** : noter un plan de `createClimb` sur K futurs communs, comme les mondes
 communs de `search`. On en reparlera si un second projet en veut autant.
