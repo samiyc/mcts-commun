@@ -294,6 +294,11 @@ const again = createCmaes({ genes: 12, from: JSON.parse(readFileSync("cmaes.json
   est en n²). Dans un tour de 50 ms, c'est le score qui décide du nombre de plans, comme pour l'escalade.
 - **Son meilleur usage** : régler hors du jeu, dans la file, les poids d'une note ou les paramètres d'une règle, où
   chaque essai coûte une série. Dans le tour, l'escalade suffit souvent quand les gènes sont peu liés.
+- **Pas de relance automatique (IPOP), pour le moment.** codingame l'a proposée le 13/11 : quand CMA-ES cale, `run`
+  repartirait avec une population doublée. Sur Mars Lander, elle a perdu contre leur recuit, mais les gènes y sont
+  entiers et la note en marches d'escalier, le cas où CMA-ES est faible. Décidé avec Sami le 13/11 : on attend qu'un
+  second projet en ait besoin, `circuit` (P2) d'abord. D'ici là, un projet relance lui-même avec une `population`
+  plus grande et une autre graine.
 
 ## Comment les projets s'en servent
 

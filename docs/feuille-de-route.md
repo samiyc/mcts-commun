@@ -314,3 +314,4 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
 | Le SPRT dans `measure` | **fait le 30/10** : `sprt` et `eloScore` (5cbe179) | les projets qui mesurent |
 | La licence, public ou privé | à décider avant de montrer un dépôt, pas cette semaine | Sami |
 | Un solveur QP à bornes dans la lib | **décidé le 13/11** (Sami : « ok pour le solveur dans la lib ») : un seul solveur, écrit par commun quand `circuit` (la courbure minimale, P4) ou `reseau` (le DC-OPF) en aura besoin | commun, à la demande du premier des deux |
+| La relance automatique de CMA-ES (IPOP), proposée par codingame | **attendre, décidé le 13/11** : qu'un second projet en ait besoin ; `circuit` (P2) le dira (README, « CMA-ES ») | commun, à la demande |
