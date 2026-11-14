@@ -346,6 +346,12 @@ const next = qp.solve(voisin, { warm: r.active });      // un problème voisin r
   singuliers, linéaires), les conditions de Karush-Kuhn-Tucker tiennent : elles prouvent l'optimum d'un problème
   convexe. Un essai à part en a vérifié 900, dont des dégénérés (lignes doublées, contraintes au bord, coûts entiers) :
   900 optimaux, au pire à 2·10⁻⁷ près.
+- **Contre HiGHS** (`tests/lib/qp-highs.test.js`) : le solveur de référence (Huangfu et Hall), dans sa version
+  WebAssembly (`highs`, MIT), en dépendance de développement seulement (Sami, 14/11). Les mêmes problèmes, écrits
+  au format LP, donnent la même valeur optimale, le même x quand il est unique, les mêmes duaux (au signe près) et le
+  même verdict d'infaisabilité. Un essai à part en a comparé 600, dont 100 répartitions à la forme du banc : 599
+  identiques à 1,5·10⁻¹⁰ près. Sur le dernier, un QP singulier aux lignes doublées, HiGHS renonce (erreur −1) ; le
+  nôtre est optimal, à 5·10⁻¹¹ près des conditions de Karush-Kuhn-Tucker.
 - **Ce qu'il coûte** (`node bench/qp.js`, sous `--slot 1`, machine pleine, 14/11) :
 
   | Cas | Variables, lignes | À froid | À chaud |
