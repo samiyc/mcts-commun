@@ -40,6 +40,7 @@ nouveaux projets) : [`docs/feuille-de-route.md`](docs/feuille-de-route.md).
 | `beam` | le faisceau des tours courts, sans allocation (celui d'Hypersonic, 29/10) | fait |
 | `climb` | l'escalade d'un plan de nombres, sans allocation (celle de Mad Pod Racing, 29/10) | fait |
 | `cmaes` | CMA-ES, l'escalade qui apprend quels gènes bouger ensemble ; `run` ou `ask`/`tell`, et un état en JSON pour régler par la file (13/11) | fait |
+| `qp` | un programme quadratique convexe (et les LP) : égalités, inégalités, bornes ; la méthode duale de Goldfarb et Idnani, les multiplicateurs, le départ à chaud (14/11) | fait |
 | `pool` | des états réservés une fois, vues d'un seul tampon typé | fait |
 | `replay-keys` | les touches d'un lecteur de replay dans une page, comme sur une vidéo, dans l'unité du projet (29/10) | fait |
 | `trace` | ce qui passe par la bibliothèque : compteurs, erreurs, appels lents (voir « Les traces ») | fait |
@@ -299,6 +300,63 @@ const again = createCmaes({ genes: 12, from: JSON.parse(readFileSync("cmaes.json
   entiers et la note en marches d'escalier, le cas où CMA-ES est faible. Décidé avec Sami le 13/11 : on attend qu'un
   second projet en ait besoin, `circuit` (P2) d'abord. D'ici là, un projet relance lui-même avec une `population`
   plus grande et une autre graine.
+
+## Un programme quadratique, ou linéaire (`qp`)
+
+Sami (13/11/2026) : « ok pour le solveur dans la lib ». reseau en a besoin pour la répartition (le DC-OPF : son coût,
+le bilan, les limites des lignes, et leurs prix), circuit pour la ligne à courbure minimale (P4). Le même solveur sert
+aux deux :
+
+```js
+import { createQp } from "mcts-commun/qp.js";
+
+const qp = createQp(n);                                 // les tampons, gardés d'un appel à l'autre
+const r = qp.solve({
+  Q, c,                                                 // ½ xᵀQx + cᵀx ; Q (n × n, en ligne) omise : un LP
+  eq: { A: Aeq, b: beq },                               // Aeq x = beq (A en ligne, b.length × n)
+  le: { A: Ale, b: ble },                               // Ale x ≤ ble
+  lower, upper,                                         // les bornes (±Infinity : aucune)
+});
+// r.status : "optimal", "infeasible" (r.culprit : la contrainte qui ne peut tenir), "unbounded", "unconverged"
+// r.x, r.value, r.multipliers.{eq, le, lower, upper}, r.active.{le, lower, upper}, r.iterations, r.rounds
+const next = qp.solve(voisin, { warm: r.active });      // un problème voisin repart des contraintes actives
+```
+
+- **La méthode** : l'ensemble actif dual de Goldfarb et Idnani (1983), dense, comme QuadProg++. Elle part du minimum
+  sans contraintes et ajoute la contrainte la plus violée, une à la fois. Elle est exacte et rend les multiplicateurs.
+  Elle va vite quand peu de contraintes lient parmi beaucoup, comme les limites N-1 d'un réseau.
+- **Les multiplicateurs** sont ceux de Karush-Kuhn-Tucker : Qx + c + Aeqᵀ·eq + Aleᵀ·le − lower + upper = 0, avec le,
+  lower et upper positifs. La valeur optimale bouge de −eq[i] par unité de beq[i] : **le prix nodal**, pour la ligne
+  du bilan d'un nœud.
+- **Q seulement semi-définie (un LP)** : des rounds proximaux, x ← argmin f(x) + ½ε|x − x_k|², chacun repartant à chaud
+  du précédent, jusqu'à ce que x ne bouge plus. La limite est l'optimum exact, pas un optimum perturbé par ε. Quand
+  deux rounds finissent sur les mêmes contraintes, le suivant saute au bout de l'arête suivie, comme un pas de simplexe
+  (`src/qp/proximal.js`) : sans ce saut, un LP de 160 variables rampait 200 rounds sur une arête presque plate.
+  ε vaut par défaut 10⁻⁴ fois l'échelle de Q et de c. À 10⁻⁵ ou moins, le pas sans contraintes devient si grand que
+  la méthode duale croit à tort le problème infaisable (3 à 272 cas sur 900).
+- **Le départ à chaud** pose d'abord les contraintes de `warm` comme des égalités, puis retire, par l'inverse exact
+  de son ajout, celle dont le multiplicateur est le plus négatif, jusqu'à ce qu'il n'en reste aucune.
+- **Ce qui est vérifié** (`tests/lib/qp.test.js`) : des cas d'école avec leurs multiplicateurs, un LP au sommet
+  connu, une arête presque plate, un LP non borné, des problèmes infaisables. Sur des QP tirés par graine (stricts,
+  singuliers, linéaires), les conditions de Karush-Kuhn-Tucker tiennent : elles prouvent l'optimum d'un problème
+  convexe. Un essai à part en a vérifié 900, dont des dégénérés (lignes doublées, contraintes au bord, coûts entiers) :
+  900 optimaux, au pire à 2·10⁻⁷ près.
+- **Ce qu'il coûte** (`node bench/qp.js`, sous `--slot 1`, machine pleine, 14/11) :
+
+  | Cas | Variables, lignes | À froid | À chaud |
+  |---|---|---|---|
+  | une répartition à la forme de l'IEEE 118 (LP) | 54, 372 | 31 ms | **2,4 ms** |
+  | à la forme de RTS-GMLC (LP) | 160, 240 | 133 ms | 63 ms |
+  | l'IEEE 118 avec le N-1 préventif (LP) | 54, 68 820 | 1,75 s | **34 ms** |
+  | une ligne de circuit, 175 gènes en boîte | 175, 0 | 83 ms | 82 ms |
+  | la même, 486 gènes | 486, 0 | 1,7 s | 2,7 s |
+
+  Il n'alloue rien dans sa boucle, et aucun passage du ramasse-miettes n'a eu lieu pendant les solves à chaud. Une
+  borne qui lie coûte O(n²) comme une autre contrainte : au-delà de quelques centaines de variables presque toutes en
+  butée, une descente projetée (celle de circuit) va plus vite. Pour circuit, le QP vise les gènes de la spline de P2
+  (58 à 175).
+- **Ce qui manque** : une méthode propre aux LP, si les rounds proximaux pèsent trop chez reseau (6 à 10 rounds sur
+  RTS) ; l'exploitation des matrices creuses ou en bande.
 
 ## Comment les projets s'en servent
 

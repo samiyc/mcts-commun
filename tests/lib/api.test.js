@@ -11,6 +11,7 @@ import * as mcts from "../../src/mcts.js";
 import * as measure from "../../src/measure.js";
 import * as race from "../../src/race.js";
 import * as pool from "../../src/pool.js";
+import * as qp from "../../src/qp.js";
 import * as random from "../../src/random.js";
 import * as replayKeys from "../../src/replay-keys.js";
 import * as trace from "../../src/trace.js";
@@ -48,6 +49,8 @@ describe("the library's contract (tests/lib/api.test.js)", () => {
     assert.deepEqual(Object.keys(pool.createStatePool(1, 1)).sort(), ["buffer", "capacity", "clear", "count", "size", "states", "take"]);
     assert.deepEqual(Object.keys(cmaes), ["createCmaes"]);
     assert.deepEqual(Object.keys(cmaes.createCmaes({ genes: 2 })).sort(), ["ask", "best", "evaluations", "genes", "mean", "population", "run", "sigma", "snapshot", "tell"]);
+    assert.deepEqual(Object.keys(qp).sort(), ["createQp", "solveQp"]);
+    assert.deepEqual(Object.keys(qp.solveQp({ Q: [1], c: [0] })).sort(), ["active", "culprit", "iterations", "multipliers", "rounds", "status", "value", "x"]);
     assert.deepEqual(Object.keys(race).sort(), ["commonSeeds", "nextBatch", "raceStep"]);
     assert.deepEqual(Object.keys(race.raceStep({ a: { 1: 1 }, b: { 1: 0 } }, ["a", "b"])), ["seeds", "standings", "best", "dropped", "alive"]);
     assert.deepEqual(Object.keys(trace).sort(), ["DEBUG_CAP", "RING", "SLOW_MS", "count", "onPulse", "progress", "resetTrace", "setTraceLevel", "timed", "timing", "trace", "traceLevel", "traceSnapshot", "traceTo"]);

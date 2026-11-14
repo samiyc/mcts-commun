@@ -313,5 +313,5 @@ Les pages de présentation sont en anglais (Sami, 30/10). Les docs de travail re
 | Des règles d'autonomie écrites (le submit, par exemple) | oui, sur le modèle de Fantastic Bits | Sami les écrit, les sessions les suivent |
 | Le SPRT dans `measure` | **fait le 30/10** : `sprt` et `eloScore` (5cbe179) | les projets qui mesurent |
 | La licence, public ou privé | à décider avant de montrer un dépôt, pas cette semaine | Sami |
-| Un solveur QP à bornes dans la lib | **décidé le 13/11** (Sami : « ok pour le solveur dans la lib ») : un seul solveur, écrit par commun quand `circuit` (la courbure minimale, P4) ou `reseau` (le DC-OPF) en aura besoin | commun, à la demande du premier des deux |
+| Un solveur QP dans la lib | **décidé le 13/11** (Sami : « ok pour le solveur dans la lib ») ; **fait le 14/11** à la demande de reseau (des contraintes générales, pas seulement des bornes) : `qp`, Goldfarb-Idnani, les LP par des rounds proximaux (README, « Un programme quadratique ») | commun ; reseau et circuit s'en servent |
 | La relance automatique de CMA-ES (IPOP), proposée par codingame | **attendre, décidé le 13/11** : qu'un second projet en ait besoin ; `circuit` (P2) le dira (README, « CMA-ES ») | commun, à la demande |
