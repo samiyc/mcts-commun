@@ -104,6 +104,42 @@ describe("CMA-ES (src/cmaes.js, Sami 12/11/2026)", () => {
     assert.equal(again.evaluations, first.evaluations);
   });
 
+  it("starts again with a population twice as large (IPOP), and finds Rastrigin's bottom where one descent stalls", () => {
+    // Rastrigin: a bowl covered in bumps, 11⁵ local optima within reach; the larger population sees past them.
+    const rastrigin = (x) => -x.reduce((sum, v) => sum + v * v - 10 * Math.cos(2 * Math.PI * v) + 10, 0);
+    for (const seed of [1, 3, 4]) {
+      const start = { genes: 5, mean: [3, 3, 3, 3, 3], sigma: 2, seed };
+      const once = createCmaes(start).run(rastrigin, { budget: 100_000 }).score;
+      const ipop = createCmaes(start);
+      const found = ipop.run(rastrigin, { budget: 100_000, restarts: 9 }).score;
+      assert.ok(once < -1, `graine ${seed}, une descente : ${once}`);
+      assert.ok(found > -1e-9, `graine ${seed}, IPOP : ${found}`);
+      assert.ok(ipop.restarts >= 1 && ipop.population === 8 * 2 ** ipop.restarts, `${ipop.restarts} relances, population ${ipop.population}`);
+    }
+  });
+
+  it("says when a descent has nothing left to give: a converged bowl, a noisy plateau (raquette's case)", () => {
+    const bowl = createCmaes({ genes: 4, mean: [1, 1, 1, 1], seed: 2 });
+    while (bowl.stopped === null) bowl.tell(bowl.ask().map((plan) => sphere(plan)));
+    assert.equal(bowl.stopped, "tolFun");
+    assert.ok(bowl.best.score > -1e-12);
+
+    const rng = createRng(7);
+    const noise = createCmaes({ genes: 25, sigma: 0.1, seed: 3 });
+    let generations = 0;
+    while (noise.stopped === null && generations < 1000) {
+      noise.tell(noise.ask().map(() => rng.next()));
+      generations += 1;
+    }
+    assert.equal(noise.stopped, "stagnation", `${generations} générations`);
+
+    const kept = JSON.parse(JSON.stringify(noise.snapshot()));
+    noise.restart();
+    assert.deepEqual([noise.restarts, noise.population, noise.sigma, noise.stopped], [1, 26, 0.1, null]);
+    assert.equal(noise.best.score, kept.best.score, "the best plan is kept across");
+    assert.equal(createCmaes({ genes: 25, from: kept }).stopped, "stagnation", "a snapshot keeps the history");
+  });
+
   it("takes NaN for the worst score, and refuses what it cannot run", () => {
     const es = createCmaes({ genes: 2, seed: 1 });
     const population = es.ask();

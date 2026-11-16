@@ -285,6 +285,10 @@ const plans = es.ask();                 // population plans, des tampons de la s
 es.tell(scores);                        // un score par plan, dans l'ordre ; NaN compte pour le pire
 writeFileSync("cmaes.json", JSON.stringify(es.snapshot()));
 const again = createCmaes({ genes: 12, from: JSON.parse(readFileSync("cmaes.json", "utf8")) });
+
+// IPOP : une descente qui n'a plus rien à donner repart de la moyenne et du pas du départ, la population doublée.
+const wide = es.run(scoreOf, { budget: 200_000, restarts: 9 });
+if (es.stopped) es.restart();           // la même chose avec ask/tell : stopped lu après chaque tell
 ```
 
 - **Ses réglages sont ceux de Hansen** : rien à régler sauf `sigma` (le premier pas, environ un tiers de l'étendue de
@@ -295,6 +299,13 @@ const again = createCmaes({ genes: 12, from: JSON.parse(readFileSync("cmaes.json
   est en n²). Dans un tour de 50 ms, c'est le score qui décide du nombre de plans, comme pour l'escalade.
 - **Son meilleur usage** : régler hors du jeu, dans la file, les poids d'une note ou les paramètres d'une règle, où
   chaque essai coûte une série. Dans le tour, l'escalade suffit souvent quand les gènes sont peu liés.
+- **Un cas où elle gagne** (raquette, 16/11, `raquette/docs/recherche/autojeu.md`) : 25 nombres d'une règle de jeu,
+  une note bruitée (la part des points sur des graines communes), 1 à 1,56 million de graines par recherche. En
+  finale sur 4 000 graines neuves, CMA-ES fait 63 à 66 % contre l'adversaire de l'objectif, l'escalade 56 % ; contre
+  un adversaire tenu à part, 53 à 54 % contre 49 %, et 54,8 % en face à face. Presque tout le gain vient dans les
+  10 premiers % du budget, puis le pas cale ; la population double (26) descend moins vite et va plus loin. **Le gain
+  se transfère mal** hors des adversaires de l'objectif (14 à 16 points contre eux, 3 à 4 contre l'autre) : gardez
+  un contrôle hors objectif.
 - **Trois contre-exemples mesurés** (13, 14 et 16/11). Sur Mars Lander, le recuit de codingame la bat : des gènes
   entiers, une note en marches d'escalier. Sur la ligne de course de circuit, l'escalade par blocs de gènes voisins la
   bat de 0,1 à 0,5 s au tour, sur 25 pistes (`circuit/docs/ligne-cmaes.md`) : 70 à 175 gènes d'une B-spline, chacun
@@ -306,11 +317,17 @@ const again = createCmaes({ genes: 12, from: JSON.parse(readFileSync("cmaes.json
   dans une vallée en biais : ni les trajectoires finement échantillonnées, où les gènes ne sont liés qu'à leurs
   voisins, ni les réglages en butée. Une gestion des bornes dans `createCmaes` (par réflexion, ou par un repère
   transformé) pourrait changer le troisième cas ; elle n'est pas mesurée, et attend qu'un projet en ait besoin.
-- **Pas de relance automatique (IPOP), pour le moment.** codingame l'a proposée le 13/11 : quand CMA-ES cale, `run`
-  repartirait avec une population doublée. Sur Mars Lander, elle a perdu contre leur recuit, mais les gènes y sont
-  entiers et la note en marches d'escalier, le cas où CMA-ES est faible. Décidé avec Sami le 13/11 : on attend qu'un
-  second projet en ait besoin, `circuit` (P2) d'abord. D'ici là, un projet relance lui-même avec une `population`
-  plus grande et une autre graine.
+- **La relance IPOP** (Auger et Hansen, 2005 ; proposée par codingame le 13/11, demandée par raquette le 16/11, oui
+  de Sami le 16/11). `run(score, { restarts })` : quand une descente n'a plus rien à donner, elle repart de la
+  moyenne et du pas du départ avec une population double, jusqu'à `restarts` fois (9 dans l'article : jusqu'à 512
+  fois la population). Le meilleur plan est gardé d'une descente à l'autre, et le budget compte toutes les descentes.
+  `stopped` dit pourquoi une descente est finie, selon les critères du tutoriel de Hansen (`src/cmaes/stop.js`) :
+  `"tolFun"` (les scores ne bougent plus), `"tolX"` (le pas est nul), `"condition"` (la covariance dégénère) ou
+  `"stagnation"` (ni le meilleur ni le médian d'une génération ne progressent sur l'histoire récente : sur une note
+  bruitée comme celle de raquette, c'est lui qui vient). Avec `ask`/`tell`, lisez `stopped` après chaque `tell` et
+  appelez `restart()` ; l'instantané garde l'histoire et les relances. **Sans `restarts`, rien ne change** : les
+  mêmes plans qu'avant. Sur Rastrigin à 5 gènes (des milliers d'optima locaux), une descente cale entre −5 et −11 ;
+  IPOP trouve le fond (`tests/lib/cmaes.test.js`).
 
 ## Un programme quadratique, ou linéaire (`qp`)
 

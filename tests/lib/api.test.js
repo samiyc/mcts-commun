@@ -48,7 +48,7 @@ describe("the library's contract (tests/lib/api.test.js)", () => {
     assert.deepEqual(Object.keys(replayKeys).sort(), ["nextSpeed", "replayHint", "replayKeys", "within"]);
     assert.deepEqual(Object.keys(pool.createStatePool(1, 1)).sort(), ["buffer", "capacity", "clear", "count", "size", "states", "take"]);
     assert.deepEqual(Object.keys(cmaes), ["createCmaes"]);
-    assert.deepEqual(Object.keys(cmaes.createCmaes({ genes: 2 })).sort(), ["ask", "best", "evaluations", "genes", "mean", "population", "run", "sigma", "snapshot", "tell"]);
+    assert.deepEqual(Object.keys(cmaes.createCmaes({ genes: 2 })).sort(), ["ask", "best", "evaluations", "genes", "mean", "population", "restart", "restarts", "run", "sigma", "snapshot", "stopped", "tell"]);
     assert.deepEqual(Object.keys(qp).sort(), ["createQp", "solveQp"]);
     assert.deepEqual(Object.keys(qp.solveQp({ Q: [1], c: [0] })).sort(), ["active", "culprit", "iterations", "multipliers", "rounds", "status", "value", "x"]);
     assert.deepEqual(Object.keys(race).sort(), ["commonSeeds", "nextBatch", "raceStep"]);
