@@ -295,11 +295,17 @@ const again = createCmaes({ genes: 12, from: JSON.parse(readFileSync("cmaes.json
   est en n²). Dans un tour de 50 ms, c'est le score qui décide du nombre de plans, comme pour l'escalade.
 - **Son meilleur usage** : régler hors du jeu, dans la file, les poids d'une note ou les paramètres d'une règle, où
   chaque essai coûte une série. Dans le tour, l'escalade suffit souvent quand les gènes sont peu liés.
-- **Deux contre-exemples mesurés** (13 et 14/11). Sur Mars Lander, le recuit de codingame la bat : des gènes entiers,
-  une note en marches d'escalier. Sur la ligne de course de circuit, l'escalade par blocs de gènes voisins la bat de
-  0,1 à 0,5 s au tour, sur 25 pistes (`circuit/docs/ligne-cmaes.md`) : 70 à 175 gènes d'une B-spline, chacun lié à ses
-  seuls voisins, et 220 µs par plan à 145 gènes. **Sa zone est celle des réglages** (6 à 50 gènes liés entre eux),
-  pas celle des trajectoires finement échantillonnées, où les gènes ne sont liés qu'à leurs voisins.
+- **Trois contre-exemples mesurés** (13, 14 et 16/11). Sur Mars Lander, le recuit de codingame la bat : des gènes
+  entiers, une note en marches d'escalier. Sur la ligne de course de circuit, l'escalade par blocs de gènes voisins la
+  bat de 0,1 à 0,5 s au tour, sur 25 pistes (`circuit/docs/ligne-cmaes.md`) : 70 à 175 gènes d'une B-spline, chacun
+  lié à ses seuls voisins, et 220 µs par plan à 145 gènes. Sur la règle R3 d'economie (7 gènes bornés, 1 600 plans,
+  5 relances), les deux trouvent la même règle, mais l'escalade y arrive 2 à 4 fois plus vite
+  (`economie/docs/regle-r3.md` § 2) : l'optimum est sur les bornes (5 gènes sur 7 pour un des jeux de poids), et la
+  pénalité qui y ramène CMA-ES déforme ce qu'il apprend près des bords. Son seul avantage : des relances plus
+  régulières. **Sa zone est celle des réglages** (6 à 50 gènes liés entre eux) **dont l'optimum est à l'intérieur**,
+  dans une vallée en biais : ni les trajectoires finement échantillonnées, où les gènes ne sont liés qu'à leurs
+  voisins, ni les réglages en butée. Une gestion des bornes dans `createCmaes` (par réflexion, ou par un repère
+  transformé) pourrait changer le troisième cas ; elle n'est pas mesurée, et attend qu'un projet en ait besoin.
 - **Pas de relance automatique (IPOP), pour le moment.** codingame l'a proposée le 13/11 : quand CMA-ES cale, `run`
   repartirait avec une population doublée. Sur Mars Lander, elle a perdu contre leur recuit, mais les gènes y sont
   entiers et la note en marches d'escalier, le cas où CMA-ES est faible. Décidé avec Sami le 13/11 : on attend qu'un
