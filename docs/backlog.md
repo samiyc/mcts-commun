@@ -201,7 +201,14 @@ pendant 45 min, puis tout à la fin) :
    remplissage derrière ses propres jobs en rend 1 ; **`--min-threads N`** en rend la moitié : un job qui accepte de
    partir avec moins de fils que `threads`, jusqu'à N, démarre sur les fils libres quand il manque les siens
    (`MCTS_THREADS` les lui dit ; `runThreads` dans la file, `asked` au journal). Pour une arène dont les parties
-   tournent en parallèle, `--threads 9 --min-threads 6` ; pas pour un job dont les fils sont fixes. Et quand la file
+   tournent en parallèle, `--threads 9 --min-threads 6` ; pas pour un job dont les fils sont fixes.
+
+   **La règle depuis le 17/11/2026** (Sami : « ok pour --min-threads 6 ») : **tout job de 9 fils ou plus passe
+   `--min-threads 6`**, et règle son parallélisme sur `MCTS_THREADS`, pas sur un `--jobs` écrit en dur dans la
+   commande. Du 13 au 16/11, environ 600 jobs de 9 fils, tous sans `--min-threads`. Les mêmes journées rejouées
+   (`bench/scheduler-replay.js`) : les fils vides pendant qu'un job attendait passent de 12 à 5 heures-fils le 14/11,
+   de 4 à 2 le 15/11. Un plafond strict à 6 fils faisait autant, mais chaque série aurait pris 1,5 fois plus longtemps,
+   même seule sur une machine libre. Et quand la file
    est pleine de jobs de 9, un job de 1 fil coûte 8 fils tant qu'il dure : qu'il parte en même temps que les autres
    jobs de 1 fil de son projet plutôt que seul.
 6. **Ne jamais écrire dans `~/.mcts-backlog`** : passer par `mcts-backlog` (`--add-file`, `--status --json`,
