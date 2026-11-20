@@ -44,7 +44,8 @@
     "mcts-serve": "bin/serve.js",
     "mcts-backlog": "bin/backlog.js",
     "mcts-board": "bin/board.js",
-    "mcts-race": "bin/race.js"
+    "mcts-race": "bin/race.js",
+    "mcts-worktree": "bin/worktree.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

@@ -16,6 +16,26 @@ ici.
 | `npm run test:coverage` | les mêmes tests avec la couverture, qui doit rester au-dessus de 95 % des lignes, 85 % des branches et 88 % des fonctions (le 31/10 : 96,7, 88,2 et 91,0 ; les fichiers sous 90 % sont ceux de la TUI, de `stay.js` et de `remote-transport.js`) |
 | `npm run bench` | ce que coûtent A*, les réservations et la recherche commune, en µs par appel (`bench/grid-search.js [SRC]`, l'ancien code depuis un worktree pour comparer) ; `node bench/beam-climb.js` pour le faisceau et l'escalade, avec les passages du ramasse-miettes ; `node bench/profile.js -- node script.js …` pour les fonctions au plus de temps propre ; `node bench/scheduler-replay.js AAAA-MM-JJ` rejoue une journée de la file sous plusieurs politiques (les fils vides pendant qu'un job attendait, les attentes des jobs de priorité 1). Sous `mcts-backlog --slot 1`, et toujours en alternance, ancien contre nouveau : le bruit est de ±5 % |
 
+**Retirer un worktree : `mcts-worktree` (20/11/2026).** Le 19/11, `git worktree remove --force` d'un worktree de
+codingame a suivi sa jonction `node_modules`, puis le lien `file:` `node_modules/mcts-commun`, et a vidé toute la
+lib, `.git` compris (`mcts-codingame/docs/incidents.md`). C'était la troisième fois qu'une suppression récursive
+traversait un lien vers mcts-commun. Les règles de discipline ne suffisaient pas, alors l'outil s'en charge :
+- `npx mcts-worktree --check DIR` liste les jonctions et les liens sous DIR, et ne change rien ;
+- `npx mcts-worktree --remove DIR [--force]` défait les liens sans toucher à leurs cibles. Il **reparcourt** ensuite
+  DIR et refuse s'il reste un seul lien. Alors seulement, il lance `git worktree remove`, depuis le dépôt du worktree ;
+- `--remove DIR --folder` fait de même pour un dossier ordinaire, comme le `wt/tmp` des sous-agents, et finit par
+  `fs.rm`, qui ne suit aucun lien.
+
+Il refuse, avant de toucher à quoi que ce soit :
+- une racine de disque, un dossier qui contient le dossier personnel ou mcts-commun ;
+- un dépôt (un dossier `.git`), ou un dossier qui en contient un ;
+- sans `--folder`, ce qui n'est pas un worktree lié ;
+- un worktree qui a des changements, sauf avec `--force`.
+
+**Ne plus lancer `git worktree remove` à la main sur un worktree qui a des jonctions.** Le code est dans
+`node/worktree.js`, les tests dans `tests/tools/worktree.test.js` : une vraie jonction, et sa cible intacte après le
+retrait.
+
 `npm install` active le hook (`git config core.hooksPath .githooks`). `npm test` et le hook lancent **4 fichiers de
 test à la fois au plus** (`--test-concurrency=4`), les fils d'un `--slot` (28/10/2026) : seul, `node --test` en lance
 autant que de cœurs moins un, et il ne lit pas `TEST_CONCURRENCY` (l'entrepôt). Pendant des mesures, `TEST_CONCURRENCY=2`

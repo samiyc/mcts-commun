@@ -48,6 +48,10 @@ communs de `search`. On en reparlera si un second projet en veut autant.
 
 - Le lien `file:../mcts-commun` prend la lib telle qu'elle est sur le disque : rien à installer. Un `npm install` crée
   `npx mcts-backlog` et `npx mcts-board` s'ils manquent.
+- **Ce lien est aussi un danger** (19/11). Sous Windows, `node_modules/mcts-commun` est une jonction : une suppression
+  récursive qui la suit vide la lib. **Un worktree ou un dossier de sous-agents se retire par
+  `node "E:/Dev/My projects/mcts-commun/bin/worktree.js" --remove DIR`**, ou `npx mcts-worktree` une fois que
+  `npm install` l'a créé, jamais par `git worktree remove` à la main (`docs/outillage.md`).
 - **Node 24 LTS** (24.22.1) remplace Node 20.10 sur la machine : **installé par Sami le 28/10 vers 17 h 30**, dans
   `D:\Program Files\nodejs` ; `npm run check` de commun y passe. Tous les projets passaient leurs tests sous son zip,
   sauf lopin : `node --test tests/` n'y marche plus (Node lit `tests/` comme un nom de fichier), il faut un motif,

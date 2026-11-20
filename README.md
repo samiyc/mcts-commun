@@ -467,6 +467,11 @@ Chaque projet décrit ses mesures de nuit dans un `night.json` (`{ jobs: [{ id, 
 
 **Se brancher depuis un autre outil** (Sami, 26/10/2026) : tout passe par la commande, jamais par `queue.json` à la main, parce que la commande tient le verrou de la file (`queue.lock`). `--status`, `--wait` (son code de sortie dit comment le job a fini), `--cancel`, `--retry`, `--set-priority`, `--measured` pour une estimation refaite sur le code du jour, et `skipIf` sur un job, une commande du projet qui peut l'annuler juste avant son départ. Le contrat complet est dans [`docs/backlog.md`](docs/backlog.md).
 
+**Retirer un worktree ou un dossier de sous-agents** (20/11/2026) : utiliser `npx mcts-worktree --remove DIR`
+(`--folder` pour un dossier ordinaire), jamais `git worktree remove` à la main. Le 19/11, un `git worktree remove` a
+traversé une jonction `node_modules` et vidé toute la lib. L'outil défait d'abord les jonctions, vérifie qu'il n'en
+reste aucune, et seulement ensuite il supprime. Les détails sont dans [`docs/outillage.md`](docs/outillage.md).
+
 **La charge, et une machine en plus** (Sami, 26/10/2026 : les 18 fils du PC suffiront-ils ?) : `--list`, le TUI et la page disent ce que la file demande à la machine, d'après les jobs déjà passés et à ses estimations, et comment se sont passées les dernières nuits. Quand elles saturent, `--push` envoie des jobs à un serveur loué ou au portable, `--pull` en rapatrie les résultats. Les coûts, ce que Sami fait lui-même et la marche à suivre sont dans [`docs/distant.md`](docs/distant.md).
 
 ## Le tableau des sessions (`mcts-board`)
