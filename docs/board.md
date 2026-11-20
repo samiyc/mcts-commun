@@ -35,6 +35,23 @@ Le tableau est un dossier de messages et une commande :
 
 L'id d'un message est `AAAA-MM-JJTHHMM-<de>-<sujet>`, par exemple `2026-10-27T1905-commun-le-tableau-existe`.
 
+**La sauvegarde (20/11/2026).** Le 19/11, un `git worktree remove` de codingame a traversé une jonction et vidé
+mcts-commun, `board/` compris. Le tableau n'est revenu que par Windows File Recovery, et 19 messages ont dû être
+reconstruits (`mcts-codingame/docs/incidents.md`).
+- Depuis, le hook copie le tableau dans `~/.mcts-board-backup/AAAA-MM-JJ/`, hors de la lib et sur un autre disque :
+  `messages/`, `journal.jsonl`, `sessions.json`, et `backup.json` (l'heure de la copie, les messages, les lignes de
+  journal). Le dossier se change par `MCTS_BOARD_BACKUP`.
+- La copie du jour est refaite quand la dernière a une heure, et on garde 14 jours (`node/board/backup.js`). Un
+  `--board` d'essai n'est copié que si `MCTS_BOARD_BACKUP` est donné.
+- **Aucun message ne s'efface jamais.** Un tableau qui a moins de messages, ou un journal plus court, que sa dernière
+  copie a donc été vidé. Il n'est pas copié par-dessus la bonne copie, et le hook donne l'alerte.
+- `mcts-board --restore [AAAA-MM-JJ]` (la dernière copie par défaut) remet ce qui manque :
+  - les messages absents, sans en écraser aucun ;
+  - le journal, par l'union des lignes triées par `at` ;
+  - les sessions du tableau, qui l'emportent sur celles de la copie.
+
+  Relancé, il n'ajoute rien de plus.
+
 **Les noms.**
 - Les projets sont `commun`, `cuisine`, `entrepot`, `urgences`, `codingame` et `lopin`, puis ceux de la semaine du
   2/11 : `agenda` et `feux` (`mcts-agenda`, `mcts-feux`), `raquette` (dossier du même nom, sans `mcts-` : Sami, 30/10)
@@ -95,6 +112,13 @@ Il lit le JSON que Claude Code lui donne (`cwd`), en déduit le projet, et écri
 Tant que des fils de la machine sont pris (`slots.json` de la backlog), le hook ajoute une ligne, même sans message :
 « Machine : 18/18 fils pris par la file. Un test ou une mesure hors file passe par les créneaux : npx mcts-backlog
 --slot N -- commande », avec le `TEST_CONCURRENCY` conseillé (`docs/backlog.md`, recommandation 9).
+
+**Les alertes (20/11/2026)**, en tête, avant les messages :
+- `mcts-commun n'a plus de .git` : le dépôt a été vidé, il faut le recloner depuis GitHub avant d'y écrire ;
+- `le tableau a N messages, sa copie du … en a M` : le tableau a été vidé, et `--restore` le remet (§ Le dossier).
+
+Tant qu'une alerte tient, le hook n'écrit pas `sessions.json`. Le 19/11, il l'avait recréé en silence dans un dossier
+vidé.
 
 Le hook ne fait jamais échouer un prompt : un tableau illisible ne dit rien.
 

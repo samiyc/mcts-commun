@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { backupBoard, backupRoot, restoreBoard } from "../node/board/backup.js";
 import { READERS, isFor, projectOf, threadOf, threadsOf, unreadOf } from "../node/board/board.js";
 import { boardHome, createBoard } from "../node/board/store.js";
 import { boardText, hookText, inboxText, threadText } from "../node/board/text.js";
@@ -20,7 +21,9 @@ import { SLOT_MAX_MINUTES, SLOT_MAX_THREADS, machineLoad } from "../node/queue/s
  *   mcts-board --done ID              its thread closed
  *   mcts-board --list [--json]        every thread, whom each waits on, the unread by reader
  *   mcts-board --hook                 for Claude Code's hooks: the unread of the session in the folder of the JSON on
- *                                     stdin (`cwd`), nothing outside a project; never fails the prompt
+ *                                     stdin (`cwd`), nothing outside a project; never fails the prompt; copies the
+ *                                     board out of the library hourly, alerts when it or the library look emptied
+ *   mcts-board --restore [AAAA-MM-JJ] puts back from a copy what the board lacks (node/board/backup.js)
  *
  * `--board DIR` (or MCTS_BOARD_HOME) for another board than mcts-commun's `board/`, as the tests do.
  */
@@ -104,17 +107,38 @@ async function list() {
  * mail; else the folder it started in; else that of the moment (a session started in the projects' parent folder:
  * urgences, 27/10/2026), then kept.
  */
-async function sessionProject(input) {
+async function sessionProject(input, remember) {
   const known = input.session_id ? await board.sessionOf(input.session_id) : null;
   if (known) return known;
   const found = projectOf(process.env.CLAUDE_PROJECT_DIR) ?? projectOf(input.cwd || process.cwd());
-  if (found && input.session_id) await board.rememberSession(input.session_id, found);
+  if (found && input.session_id && remember) await board.rememberSession(input.session_id, found);
   return found;
 }
 
-/** What the hook does for the session `input` describes: its unread shown, journaled as shown. */
+const LIB_GIT = fileURLToPath(new URL("../.git", import.meta.url));
+const exists = (file) => access(file).then(() => true, () => false);
+
+/**
+ * The board copied outside the library when its last copy is an hour old (node/board/backup.js), and the alerts when the
+ * library or the board look emptied (mcts-codingame, 19/11/2026: the hook then recreated `sessions.json` in silence).
+ */
+async function safetyAlerts() {
+  const own = path.resolve(board.home) === path.resolve(boardHome());
+  const alerts = own && !(await exists(LIB_GIT)) ? [`── Alerte : mcts-commun n'a plus de .git (${path.dirname(LIB_GIT)}) : le dépôt a été vidé ? Le recloner depuis GitHub avant d'y écrire. ──`] : [];
+  const root = backupRoot(board.home);
+  const copy = root ? await backupBoard(board.home, root) : null;
+  if (copy?.status === "shrunk") {
+    const { size, last } = copy;
+    alerts.push(`── Alerte : le tableau a ${size.messages} messages et ${size.journal} lignes de journal, sa copie du ${last.day} en a ${last.messages} et ${last.journal} : il a été vidé ? ${COMMAND} --restore remet ce qui manque, sans rien écraser. ──`);
+  }
+  return alerts;
+}
+
+/** What the hook does for the session `input` describes: the alerts, its unread shown, journaled as shown. */
 async function hookFor(input) {
-  const who = await sessionProject(input);
+  const alerts = await safetyAlerts().catch(() => []);
+  for (const alert of alerts) console.log(alert);
+  const who = await sessionProject(input, alerts.length === 0);
   if (!who) return;
   const { text, shown } = hookText(await board.read(), who, COMMAND);
   if (text) console.log(text);
@@ -146,8 +170,17 @@ async function hook() {
   }
 }
 
-const COMMANDS = { "--post": post, "--inbox": inbox, "--read": readOne, "--done": close, "--list": list, "--hook": hook };
-const HELP = "usage : mcts-board --post --to X,Y --subject \"…\" [--reply ID] -- texte | --inbox | --read ID | --done ID | --list [--json] | --hook   (docs/board.md)";
+/** Puts back what the copy of a day (the latest by default) has and the board lacks; overwrites nothing. */
+async function restore() {
+  const root = backupRoot(board.home);
+  if (!root) throw new Error("ce tableau n'a pas de dossier de sauvegarde (MCTS_BOARD_BACKUP)");
+  const day = flags[flags.indexOf("--restore") + 1] ?? "";
+  const done = await restoreBoard(board.home, root, /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null);
+  console.log(`Remis depuis la copie du ${done.from} : ${done.messages} message(s), ${done.journal} ligne(s) de journal.`);
+}
+
+const COMMANDS = { "--post": post, "--inbox": inbox, "--read": readOne, "--done": close, "--list": list, "--hook": hook, "--restore": restore };
+const HELP = "usage : mcts-board --post --to X,Y --subject \"…\" [--reply ID] -- texte | --inbox | --read ID | --done ID | --list [--json] | --hook | --restore [AAAA-MM-JJ]   (docs/board.md)";
 
 const command = Object.keys(COMMANDS).find((flag) => flags.includes(flag));
 if (!command || flags.includes("--help")) {
