@@ -40,6 +40,8 @@ tableau du 6/11). Ils sont nés sous Node 24, sur la lib d'aujourd'hui ; la lib 
 | economie | `random` | `climb`, `beam`, `measure`, `trace`, `replay-keys`, `theme.css` ; `mcts` pour une guerre commerciale entre deux États | – | à partir du J4, des jobs d'un fil |
 | reseau (12/11) | rien encore : le socle seul | `climb`, `beam`, `search` (des mondes météo), `events`, `measure`, `random` ; `qp` pour la répartition (J3), fait le 14/11 à sa demande | – | pas encore |
 | circuit (13/11) | rien encore : le socle et la recherche du cadrage | `cmaes`, `climb`, `beam`, `race`, `measure`, `random` ; `qp` pour P4 (14/11) | `mcts` : une course contre la montre n'a qu'un joueur | pas encore |
+| recrutement (`defis-recrutement`, 21/11) | rien encore : le socle seul | `beam`, `climb`, `random`, `measure` pour le défi de Luminal (ordonnancer un programme sur une machine VLIW) | – | pas encore |
+| voyage (`voyage-afrique-sud`, 21/11) | rien encore : le socle seul | `beam`, `climb`, `random` : un itinéraire sous budget et sous durée, un front de Pareto | `mcts` : rien d'incertain à jouer, pour l'instant | pas encore |
 
 **Une question pourra venir d'economie au J6** : noter un plan de `createClimb` sur K futurs communs, comme les mondes
 communs de `search`. On en reparlera si un second projet en veut autant.
