@@ -37,6 +37,19 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
   dans le même dossier, sinon l'estimation corrigée du rythme du projet (ses 30 derniers jobs finis, 3 au moins).
   Sur les 292 jobs finis au 27/10, l'écart médian à la durée réelle passe de ×2,9 à ×1,5. `priority` vaut 1
   (urgent), 2 (normal) ou 3 (peut attendre) ; `--set-priority` la change en place.
+- **Le classement des projets (Sami, 21/11/2026)** passe avant la priorité. Il est écrit dans `ranking.json` à côté
+  de la file, par exemple 1 voyage, 2 recrutement, 3 codingame (`node/queue/ranking.js`). **Il est strict** :
+  - les jobs du projet classé premier passent devant tous les autres, quelles que soient leurs priorités, puis ceux du
+    deuxième, et ainsi de suite ;
+  - les projets hors du classement viennent ensuite ;
+  - dans un même rang, la priorité et la règle de Smith décident, comme avant ;
+  - un job qui raterait son échéance (`due`) passe toujours devant ;
+  - les fils libres restent remplis par les autres projets, tant que cela ne retarde pas le job de tête (EASY).
+
+  Le projet d'un job se lit dans son `cwd`, copies et worktrees compris : `mcts-codingame-wt/c4l4` est codingame et
+  `E:Deveconomie-j7b` economie (`jobProjectOf`, `node/board/board.js`). Le rang n'est jamais écrit dans la file. On
+  le change par `--rank`, par la touche P de la TUI ou par la carte « Priorités des projets » de la page, et le
+  lanceur le relit à chaque passe.
 - **`measured: true`** (`--measured` sur `--add` ou `--add-file`) : l'estimation vient d'une mesure du code
   d'aujourd'hui, la file la garde telle quelle (cuisine, 28/10/2026 : des estimations refaites après les gains de vitesse
   étaient encore multipliées par ×0,12, le rythme de jobs estimés avant eux ; la file disait 108 min pour environ 45).
@@ -74,6 +87,7 @@ le lanceur écrit pouvait perdre l'un ou l'autre. Le test le montre : sans verro
 | `--cancel ID` | un job à venir finit `cancelled` tout de suite, et ceux qui en dépendent sont bloqués ; un job en cours est marqué, et son lanceur l'arrête | une ligne | 0, ou 3 si l'id est inconnu |
 | `--retry ID [--priority N]` | remet un job fini dans la file sous `ID-r1` (puis `-r2`…) : même commande, même dossier, même priorité sauf `--priority`, sans ses prérequis ni son échéance | une ligne | 0, ou 1 s'il n'est pas fini |
 | `--set-priority MOTIF N` | donne la priorité N (1 à 3) aux jobs à venir dont l'id correspond au motif (`*` : n'importe quels caractères, entre guillemets pour le shell), sans les annuler ni changer leur id ; le lanceur en route la suit dès le job suivant ; `priority-set` au journal | une ligne | 0, 1 si N n'est pas 1, 2 ou 3, 3 si aucun job à venir ne correspond |
+| `--rank [A,B,C | aucun]` | le classement des projets, A d'abord (les noms du tableau : `voyage`, `recrutement`, `codingame`…), ou `aucun` pour l'effacer ; sans valeur, le lit. Le lanceur le suit dès le job suivant ; `ranking-set` au journal. La touche P de la TUI et la page écrivent le même fichier | « Priorités : 1 voyage · 2 recrutement · 3 codingame » | 0, ou 1 si un nom est inconnu ou en double |
 | `--slot N [--id NOM] -- COMMANDE` | lance un test ou une mesure **hors file** dans N fils des créneaux de la machine : attend qu'ils soient libres (servi avant les jobs suivants de la file, voir la recommandation 9), lance la commande au premier plan avec `MCTS_THREADS=N`, puis les rend. **4 fils et 15 min au plus** : au-delà de 4, refusé ; à 15 min, arrêté. Le shell est `cmd.exe` sous Windows (§ « Un job ») | la sortie de la commande ; une ligne sur la sortie d'erreur tant qu'il attend | celui de la commande ; 2 refusé (plus de 4 fils) ; 124 arrêté à 15 min |
 | `--push MACHINE`, `--pull MACHINE`, `--list --machine MACHINE` | une autre machine : les jobs marqués `--machine MACHINE` (sur `--add` ou `--add-file`) y partent, sa file se lit d'ici, ses résultats reviennent ([`distant.md`](distant.md)) | des lignes, ou la vue JSON de là-bas | 0, ou 1 si la machine est inconnue ou injoignable |
 | `--help` | l'aide ; une option inconnue est refusée (code 1) et ne lance jamais de lanceur | du texte | 0 |
@@ -105,6 +119,9 @@ que personne ait à le relancer.
 - **Le jour aussi** : un lanceur permanent prend un job dès qu'il arrive. Sami (30/10/2026) : les jobs de jour sont
   bienvenus tant que la file reste sous contrôle, 18 fils au plus ; s'il veut le PC pour lui, il coupe le lanceur. Un
   job qui doit attendre la nuit s'ajoute avec `--not-before 2026-10-30T20:00`. La priorité et `due` ne changent pas.
+- **Le classement des projets** (`ranking.json`) est relu à chaque passe : le changer ne demande pas de relancer le
+  lanceur. Mais un lanceur démarré avant le code du classement (le 21/11/2026) ne le connaît pas. Les vues le disent
+  alors (« le lanceur permanent, plus ancien, ne l'applique pas encore »), jusqu'à ce qu'il soit relancé.
 - **Son code** : un lanceur garde le code de `node/` chargé à son démarrage. Après un changement de la file dans
   commun, il faut le relancer pour qu'il le prenne, quand aucun job ne tourne, et seulement avec l'accord de Sami.
 - **Le premier** a démarré le 30/10/2026 à 00:30, à la main (la commande du raccourci), sur le code de `c5a6295` :
@@ -284,7 +301,9 @@ pendant 45 min, puis tout à la fin) :
     - **des pools de fils qui lisent `MCTS_THREADS`** et des jobs qui reprennent où ils se sont arrêtés, en
       tranches de 30 min au plus (lopin) ;
     - **un `--id` stable et lisible** pour une série d'essais ;
-    - **changer une priorité par `--set-priority`**, pas par des annulations (cuisine en a fait 115).
+    - **changer une priorité par `--set-priority`**, pas par des annulations (cuisine en a fait 115) ;
+    - **`--priority 1` ne fait pas passer devant un projet mieux classé** (21/11/2026) : le classement de Sami décide
+      entre les projets, la priorité seulement dans un projet.
 11. **Le ramasse-miettes des jobs qui allouent** (31/10/2026, [`recherche.md`](recherche.md) § 6) : la jeune
     génération de V8 fixée à 64 Mo, sur la ligne `node` de la commande du job,
     `node --min-semi-space-size=64 --max-semi-space-size=64 scripts/…` (les workers du processus en héritent) :

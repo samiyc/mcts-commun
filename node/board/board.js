@@ -24,6 +24,28 @@ export function projectOf(dir) {
   return null;
 }
 
+/** The project a folder's name belongs to: a known folder or project name, or one followed by `-` (a copy, a worktree's parent). */
+function folderProject(name) {
+  const lower = name.toLowerCase();
+  if (FOLDERS[lower]) return FOLDERS[lower];
+  const named = Object.entries(FOLDERS).find(([folder, project]) => lower.startsWith(`${folder}-`) || lower.startsWith(`${project}-`));
+  return named ? named[1] : null;
+}
+
+/**
+ * The project a job's `cwd` works for (Sami, 21/11/2026: the queue's ranking of projects): like `projectOf`, and its
+ * copies and worktrees too: `mcts-codingame-wt/c4l4` is codingame, `E:/Dev/economie-j7b` economie, `mcts-feux-j8` feux.
+ * Null outside them.
+ */
+export function jobProjectOf(cwd) {
+  const parts = String(cwd ?? "").split(/[\\/]+/).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    const project = folderProject(parts[i]);
+    if (project) return project;
+  }
+  return null;
+}
+
 /** Throws unless every name of `names` is a reader, or `tous` among recipients (`everyone`); `tous` never signs. */
 export function checkNames(names, { everyone = true } = {}) {
   const unknown = names.filter((name) => !(everyone && name === "tous") && !READERS.includes(name));

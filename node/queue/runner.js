@@ -2,6 +2,7 @@ import { appendFile, mkdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { withLearned } from "../../src/schedule/estimate.js";
+import { readRanking, withRank } from "./ranking.js";
 import { nextJob, threadsFor } from "../../src/schedule.js";
 import { alive, heatSettings, memoryFloorGb, readCpuTemperature, readSlots, takeSlot, waitUntilCool, watchHeat, watchMemory } from "../machine.js";
 import { fillGap } from "./fill.js";
@@ -125,12 +126,12 @@ function stopCancelled({ running, journal }, jobs) {
 
 /**
  * The next job by lopin's order, among those not running, each by its length learned from the archive
- * (src/schedule/estimate.js); a job for another machine (`machine`, node/remote/remote.js) is left.
+ * (src/schedule/estimate.js) and the rank of its project in Sami's ranking, read at every pass (node/queue/ranking.js); a job for another machine (`machine`, node/remote/remote.js) is left.
  */
-async function pickNext({ queue, running }, current) {
+async function pickNext({ home, queue, running }, current) {
   const archive = await queue.readArchive();
   const waiting = current.jobs.filter((job) => job.status !== "running" && !running.has(job.id) && !job.machine);
-  return nextJob(withLearned(waiting, archive), [...archive, ...current.jobs.filter((one) => one.status === "running")], Date.now());
+  return nextJob(withRank(withLearned(waiting, archive), await readRanking(home)), [...archive, ...current.jobs.filter((one) => one.status === "running")], Date.now());
 }
 
 /**

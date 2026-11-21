@@ -136,3 +136,7 @@ dialog#tail pre { margin: 0; padding: 12px 14px; max-height: calc(100vh - 140px)
   .journal li .what { grid-column: 1 / -1; }
   .night { --lane-label: 40%; }
 }
+
+/* The projects ranking card (21/11/2026). */
+.ranking label { margin-right: 12px; white-space: nowrap; }
+#ranking-stale { color: var(--warn); }

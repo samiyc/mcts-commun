@@ -18,6 +18,7 @@ const KINDS = {
   "orphans-requeued": ["orphelins repris", "warn"],
   "queue-retried": ["file réécrite", ""],
   "queue-refused": ["file refusée", "bad"],
+  "ranking-set": ["classement des projets", ""],
   added: ["ajouté", ""],
   crash: ["plantage", "bad"],
 };
@@ -27,6 +28,7 @@ const WHAT = {
   "job-started": (entry) => `${entry.id} (${entry.threads} fil${entry.threads > 1 ? "s" : ""})`,
   "runner-started": (entry) => `${entry.budget} fils au plus`,
   "heat-alert": (entry) => `${entry.celsius} °C`,
+  "ranking-set": (entry) => (entry.projects?.length ? entry.projects.map((project, i) => i + 1 + " " + project).join(" · ") : "aucun") + ` (${entry.by})`,
 };
 const whatOf = (entry) => WHAT[entry.kind]?.(entry) ?? entry.message ?? entry.id ?? entry.ids?.join(", ") ?? "";
 

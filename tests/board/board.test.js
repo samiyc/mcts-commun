@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { idOf, messageText, parseMessage, projectOf } from "../../node/board/board.js";
+import { idOf, jobProjectOf, messageText, parseMessage, projectOf } from "../../node/board/board.js";
 import { markReadFor } from "../../node/board/store.js";
 import { BOARD, run, scratch } from "../fixtures/board-cli.js";
 
@@ -25,6 +25,14 @@ describe("the sessions' board (bin/board.js, docs/board.md)", () => {
     assert.equal(projectOf("E:/Dev/My projects/circuit/docs"), "circuit");
     assert.equal(projectOf("E:/Dev/My projects/defis-recrutement/luminal"), "recrutement");
     assert.equal(projectOf("E:/Dev/My projects/voyage-afrique-sud"), "voyage");
+    // A job's project for the queue's ranking (21/11/2026): the copies and the worktrees too.
+    assert.equal(jobProjectOf("E:/Dev/My projects/mcts-codingame-wt/c4l4"), "codingame");
+    assert.equal(jobProjectOf("E:/Dev/economie-j7b"), "economie");
+    assert.equal(jobProjectOf("E:/Dev/agenda-j7-final"), "agenda");
+    assert.equal(jobProjectOf("E:/Dev/My projects/mcts-feux-j8/scripts"), "feux");
+    assert.equal(jobProjectOf("E:/Dev/My projects/circuit/docs"), "circuit");
+    assert.equal(jobProjectOf("E:/Dev/My projects/ARC-AGI"), null);
+    assert.equal(projectOf("E:/Dev/My projects/mcts-codingame-wt/c4l4"), null, "the board's own rule does not change");
     assert.equal(projectOf("E:/Dev/My projects/proteines"), null, "given up on 6/11/2026");
     assert.equal(projectOf("E:/Dev/My projects/ARC-AGI"), null);
     const message = { id: "x", at: "2026-10-27T18:30:00", from: "commun", to: ["cuisine", "tous"], subject: "un: deux\ntrois", replyTo: null, body: "Corps\n\n---\nfin" };

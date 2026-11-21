@@ -17,6 +17,12 @@
       <section class="tiles" id="machine" aria-label="La machine"></section>
       <section id="alerts" aria-live="polite"></section>
 
+      <details open id="ranking-card">
+        <summary>Priorités des projets</summary>
+        <p class="hint">Le classement de Sami : les jobs du Top 1 passent devant tous les autres, puis ceux du Top 2, du Top 3, et ensuite les autres projets, chacun par la priorité de ses jobs. Les fils libres restent remplis par les autres tant qu'ils ne retardent pas le job de tête. La même chose au terminal : <code>npx mcts-backlog --rank voyage,recrutement,codingame</code>, ou P dans la TUI. <span id="ranking-stale" class="warn"></span></p>
+        <div id="ranking" class="ranking"></div>
+      </details>
+
       <details open id="running-card">
         <summary>En cours <span class="count" id="running-count"></span></summary>
         <div class="scroll"><table id="running"></table></div>

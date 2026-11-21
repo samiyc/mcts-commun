@@ -1,4 +1,5 @@
 import { withLearned } from "../../src/schedule/estimate.js";
+import { readRanking, withRank } from "./ranking.js";
 import { holdOf, indexJobs, minutesOf, smithOrder } from "../../src/schedule.js";
 import { readSlots } from "../machine.js";
 import { threadsNow } from "./wanted.js";
@@ -56,11 +57,14 @@ export function fillerOf({ ready, next, free, budget, running = [], now = Date.n
 }
 
 /** The ready jobs of the queue but those running, by their lengths learned, in the runner's order; and the running ones' ends. */
-async function readyOf({ queue, running }, current) {
+async function readyOf({ home, queue, running }, current) {
   const archive = await queue.readArchive();
-  const learned = withLearned(
-    current.jobs.filter((job) => !job.machine),
-    archive,
+  const learned = withRank(
+    withLearned(
+      current.jobs.filter((job) => !job.machine),
+      archive,
+    ),
+    await readRanking(home),
   );
   const waiting = learned.filter((job) => job.status !== "running" && !running.has(job.id));
   const byId = indexJobs(waiting, [...archive, ...current.jobs.filter((one) => one.status === "running")]);

@@ -6,6 +6,7 @@ import { readTraces } from "./traces.js";
 import { readJournal, runnerStarts } from "../queue/journal.js";
 import { alive, heatSettings, readCpuTemperature, readSlots, threadBudget } from "../machine.js";
 import { readStay } from "../queue/stay.js";
+import { readRanking } from "../queue/ranking.js";
 import { tailOf } from "../tail.js";
 import { readWanted } from "../queue/wanted.js";
 
@@ -121,6 +122,7 @@ export async function readBacklog(home, { now = Date.now(), budget = threadBudge
     alivePids: pids.filter((pid) => alive(pid)),
     runnerStarts: await allStarts(home, journal, stay),
     stay,
+    ranking: await readRanking(home),
     machine: machine ? { cores: os.cpus().length, freeGb: round(os.freemem() / GB), totalGb: round(os.totalmem() / GB), cpu: await cpuReading(now) } : null,
   };
 }

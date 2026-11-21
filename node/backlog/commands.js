@@ -5,6 +5,7 @@ import { isFinished } from "../../src/schedule.js";
 import { traceSummary } from "./traces.js";
 import { incidentsOf, progressOf, projectNight, projectOf } from "./view.js";
 import { stamp } from "../queue/queue.js";
+import { readRanking, withRank } from "../queue/ranking.js";
 
 /**
  * What `mcts-backlog` does to the queue for a person or another tool (Sami, 26/10/2026: other applications must be
@@ -79,7 +80,8 @@ export async function jobStatus(queue, id, { home, budget, now = Date.now() }) {
   const queued = current.jobs.find((job) => job.id === id);
   const job = queued ?? archive.filter((one) => one.id === id).at(-1);
   if (!job) return null;
-  const night = queued && !isFinished(queued) ? planOf(projectNight(current.jobs, archive, budget, now), id) : {};
+  const ranked = withRank(current.jobs, await readRanking(home));
+  const night = queued && !isFinished(queued) ? planOf(projectNight(ranked, archive, budget, now), id) : {};
   const full = (file) => (file ? path.join(home, file) : null);
   return { ...job, project: projectOf(job.cwd), place: queued ? "queue" : "archive", finished: isFinished(job), ...night, output: full(job.output), trace: full(job.trace), ...(await tracedOf(full(job.trace))) };
 }

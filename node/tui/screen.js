@@ -1,5 +1,5 @@
 import { INVERSE, RESET, clip } from "./ansi.js";
-import { clockText, loadShort, machineLine, stylesOf } from "../backlog/text.js";
+import { clockText, loadShort, machineLine, rankingLine, stylesOf } from "../backlog/text.js";
 import { detailOf } from "./detail.js";
 import { TABS, rowsOf } from "./tabs.js";
 
@@ -10,8 +10,9 @@ const HELP = [
   "/               filtrer (Échap efface)   r                relire maintenant",
   "?               cette aide               q  Ctrl+C        quitter",
   "l  L            (onglet Messages) marquer lus pour sami les messages du fil choisi, ou tous",
+  "P               le classement des projets : « voyage, recrutement, codingame », le 1er passe devant",
   "",
-  "Lecture seule : le lanceur peut tourner, rien ici n'écrit dans ses fichiers ; seuls l et L écrivent, dans le tableau.",
+  "Lecture seule, sauf deux écritures : l et L dans le tableau, P dans le classement des projets (ranking.json).",
   "Une trace bat toutes les 30 s : muette depuis 2 min, le job est sans doute coincé dans un calcul.",
 ];
 
@@ -19,7 +20,8 @@ const HELP = [
 function headLines(view, s) {
   const { doneToday, failedToday, cancelledToday, nightEnd } = view.counts;
   const failed = (failedToday ? s.red(failedToday + " en échec") : "0 en échec") + (cancelledToday ? `, ${cancelledToday} annulé(s)` : "");
-  const end = (nightEnd ? " · la file finirait vers " + clockText(nightEnd) : "") + (view.load ? " · " + loadShort(view.load) : "");
+  const ranked = rankingLine(view, s);
+  const end = (nightEnd ? " · la file finirait vers " + clockText(nightEnd) : "") + (view.load ? " · " + loadShort(view.load) : "") + (ranked ? " · " + ranked : "");
   return [`${s.inverse(s.bold(" mcts-backlog "))} ${machineLine(view, s)}`, s.gray(` ${new Date(view.now).toLocaleTimeString("fr-FR")} · aujourd'hui ${doneToday} fini(s), ${failed}${end}`)];
 }
 
@@ -61,10 +63,11 @@ function tableLines(list, shown, context) {
 }
 
 function keysLine(ui, s) {
+  if (ui.ranking !== null && ui.ranking !== undefined) return `${s.yellow("Priorités : ")}${ui.ranking}${s.inverse(" ")}  ${s.gray("le 1er d'abord, séparés par des virgules ; Entrée enregistre, Échap annule, « aucun » efface")}`;
   if (ui.typing) return `${s.yellow("/")}${ui.filter}${s.inverse(" ")}  ${s.gray("Entrée garde, Échap efface")}`;
   if (ui.message) return s.red(ui.message);
   if (ui.tab === TABS.findIndex((tab) => tab.title === "Messages")) return s.gray(" ↑↓ choisir  Entrée le dernier message  l lu pour sami (fil)  L tout lu  ? aide  q quitter");
-  return s.gray(" ↑↓ choisir  ←→ onglets  Entrée sortie  / filtrer  ? aide  q quitter   (lecture seule)");
+  return s.gray(" ↑↓ choisir  ←→ onglets  Entrée sortie  / filtrer  P priorités  ? aide  q quitter");
 }
 
 /**

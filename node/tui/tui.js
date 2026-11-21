@@ -4,6 +4,8 @@ import { CSI, RESET, wrapLines } from "./ansi.js";
 import { readBacklog, viewOf } from "../backlog/view.js";
 import { boardView, markReadFor } from "../board/store.js";
 import { stylesOf } from "../backlog/text.js";
+import { createJournal } from "../queue/journal.js";
+import { rankingText, setRanking } from "../queue/ranking.js";
 import { tailOf } from "../tail.js";
 import { pagerOf, screenOf } from "./screen.js";
 import { TABS, fileOf, rowsOf } from "./tabs.js";
@@ -14,8 +16,8 @@ export { TABS, fileOf, rowsOf } from "./tabs.js";
 
 /**
  * `mcts-backlog --tui`: the machine's backlog in a terminal view that follows it live, after k9s and lazydocker (Sami,
- * 26/10/2026: `--list` was obscure). Read only: the runner may be at work, nothing here writes to its files; the one
- * write is the board's, l and L in the Messages tab, Sami's messages marked read through mcts-board's store. Drawn
+ * 26/10/2026: `--list` was obscure). Read only, but for two writes: the board's, l and L in the Messages tab, Sami's
+ * messages marked read through mcts-board's store; and P, Sami's ranking of the projects (node/queue/ranking.js). Drawn
  * with plain ANSI codes, no dependency; refreshed every 2 s.
  *
  * The screens are laid out by node/tui/screen.js (pure, tested), the tabs by node/tui/tabs.js and the panel below by
@@ -116,6 +118,31 @@ function typingKey(ctx, { raw, text }) {
   return choose(ctx, () => {});
 }
 
+/**
+ * P: Sami's ranking of the projects typed on the keys line (21/11/2026), « voyage, recrutement, codingame »; Enter
+ * writes it through node/queue/ranking.js (« aucun » or nothing clears it), Escape leaves it as it was.
+ */
+async function rankingKey(ctx, { raw, text }) {
+  const { ui } = ctx;
+  if (raw === "return") return saveRanking(ctx);
+  if (raw === "escape") ui.ranking = null;
+  else if (raw === "backspace") ui.ranking = ui.ranking.slice(0, -1);
+  else if (text?.length === 1 && text >= " ") ui.ranking += text;
+  return draw(ctx);
+}
+
+/** Writes the ranking typed after P, then says what was written, or why not. */
+async function saveRanking(ctx) {
+  const { ui } = ctx;
+  const typed = ui.ranking.trim();
+  ui.ranking = null;
+  const names = typed === "aucun" ? [] : typed.split(/[,s]+/);
+  const written = await setRanking(ctx.home, names, { by: "tui", journal: createJournal(ctx.home) }).then((ranking) => ranking, (error) => error);
+  await load(ctx);
+  ui.message = written instanceof Error ? written.message : `Priorités : ${rankingText(written) ?? "aucune"}`;
+  return draw(ctx);
+}
+
 const tabTo = (ctx, index) => choose(ctx, (ui) => Object.assign(ui, { tab: (index + TABS.length) % TABS.length, selected: 0, offset: 0 }));
 
 async function openPager(ctx) {
@@ -145,6 +172,7 @@ const LIST_ACTIONS = {
   escape: (ctx) => choose(ctx, (ui) => Object.assign(ui, { help: false, filter: "" })),
   "?": (ctx) => choose(ctx, (ui) => (ui.help = !ui.help)),
   "/": (ctx) => choose(ctx, (ui) => Object.assign(ui, { typing: true, filter: "" })),
+  p: (ctx) => choose(ctx, (ui) => (ui.ranking = (ctx.view?.ranking?.projects ?? []).join(", "))),
   r: (ctx) => load(ctx),
   right: (ctx) => tabTo(ctx, ctx.ui.tab + 1),
   left: (ctx) => tabTo(ctx, ctx.ui.tab - 1),
@@ -165,6 +193,7 @@ function onKey(ctx, text, key = {}) {
   const press = { raw: key.name ?? text, name: keyName(text, key), text };
   if (key.ctrl && press.raw === "c") return ctx.quit();
   if (ctx.pager) return pagerKey(ctx, press);
+  if (ctx.ui.ranking !== null) return rankingKey(ctx, press);
   if (ctx.ui.typing) return typingKey(ctx, press);
   return listKey(ctx, press);
 }
@@ -173,7 +202,7 @@ function onKey(ctx, text, key = {}) {
 export async function runTui({ home, budget }) {
   const { stdin, stdout } = process;
   if (!stdin.isTTY || !stdout.isTTY) throw new Error("--tui demande un terminal (essayer --list)");
-  const ui = { tab: 0, selected: 0, offset: 0, filter: "", typing: false, help: false, message: "", tail: [], color: !process.env.NO_COLOR };
+  const ui = { tab: 0, selected: 0, offset: 0, filter: "", typing: false, ranking: null, help: false, message: "", tail: [], color: !process.env.NO_COLOR };
   const ctx = { home, budget, stdout, ui, chosen: new Map(), view: null, pager: null, loading: false };
   const restore = () => stdout.write(`${RESET}${CSI}?25h${CSI}?1049l`);
   const done = new Promise((resolve) => {

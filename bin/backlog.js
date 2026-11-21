@@ -7,6 +7,7 @@ import { createJournal } from "../node/queue/journal.js";
 import { backlogHome, threadBudget } from "../node/machine.js";
 import { createQueue, stamp } from "../node/queue/queue.js";
 import { pullJobs, pushJobs, remoteView } from "../node/remote/remote.js";
+import { readRanking, rankingText, setRanking } from "../node/queue/ranking.js";
 import { runQueue } from "../node/queue/runner.js";
 import { claimStay, releaseStayOnExit } from "../node/queue/stay.js";
 
@@ -35,6 +36,7 @@ import { claimStay, releaseStayOnExit } from "../node/queue/stay.js";
  *   mcts-backlog --cancel ID                 a job to come ends cancelled; a running one is stopped by its runner
  *   mcts-backlog --retry ID [--priority N]   a finished job queued again, as ID-r1 (at priority N)
  *   mcts-backlog --set-priority PATTERN N    the jobs to come whose id matches (`*` any characters) at priority N
+ *   mcts-backlog --rank A,B,C                Sami's ranking of the projects (strict: A's jobs first); `aucun` clears it
  *   mcts-backlog --push MACHINE              the jobs for another machine (`--machine MACHINE` on --add or --add-file)
  *                                            sent there with their folders, its runner started (node/remote/remote.js)
  *   mcts-backlog --list --machine MACHINE    its queue (--json too); --pull MACHINE brings back what it did
@@ -147,6 +149,22 @@ async function priority() {
   return ids.length ? 0 : 3;
 }
 
+/** `--rank A,B,C` Sami's ranking of the projects (node/queue/ranking.js), `--rank aucun` clears it, `--rank` alone says it. */
+async function rank() {
+  const value = option("--rank");
+  if (!value || value.startsWith("--")) {
+    console.log(`Priorités : ${rankingText(await readRanking(home)) ?? "aucune (l'ordre des jobs seul)"}`);
+    return 0;
+  }
+  const ranking = await setRanking(home, value === "aucun" ? [] : value.split(","), { by: "commande", journal }).catch((error) => error);
+  if (ranking instanceof Error) {
+    console.error(ranking.message);
+    return 1;
+  }
+  console.log(`Priorités : ${rankingText(ranking) ?? "aucune (l'ordre des jobs seul)"}`);
+  return 0;
+}
+
 async function tui() {
   const { runTui } = await import("../node/tui/tui.js");
   await runTui({ home, budget });
@@ -175,7 +193,7 @@ async function pull() {
   console.log(`${option("--pull")} : ${ended.length} fini(s) rapatrié(s)${ended.length ? " (" + ended.join(", ") + ")" : ""}, ${waiting.length} encore là-bas.`);
 }
 
-const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry, "--set-priority": priority, "--slot": slot };
+const COMMANDS = { "--push": push, "--pull": pull, "--add": add, "--add-file": addFile, "--list": list, "--json": list, "--tui": tui, "--status": status, "--wait": wait, "--cancel": cancel, "--retry": retry, "--set-priority": priority, "--rank": rank, "--slot": slot };
 const OPTIONS = ["--home", "--budget", "--done", "--tag", "--no-tag", "--cwd", "--estimate", "--threads", "--min-threads", "--priority", "--after", "--due", "--limit", "--skip-if", "--machine", "--timeout", "--id", "--measured", "--stay", "--not-before"];
 const USAGE = `mcts-backlog : la file de la machine (docs/backlog.md)
   mcts-backlog                       lance la file jusqu'au bout
@@ -185,6 +203,7 @@ const USAGE = `mcts-backlog : la file de la machine (docs/backlog.md)
   --add-file FICHIER.json [--tag T | --no-tag] [--machine M] [--measured]
   --status ID [--json] · --wait ID [--timeout MIN] · --cancel ID · --retry ID [--priority N]
   --set-priority MOTIF N             les jobs à venir dont l'id correspond (* : n'importe quoi) en priorité N
+  --rank [A,B,C | aucun]             le classement des projets (A d'abord, strict), l'effacer, ou le lire
   --slot N [--id NOM] -- COMMANDE    un test court hors file (4 fils, 15 min au plus), dans N fils libres ; la
                                      commande passe par le shell du système (cmd.exe sous Windows, comme les jobs)
   --push M · --pull M · --list --machine M

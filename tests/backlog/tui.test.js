@@ -93,4 +93,24 @@ describe("the backlog's terminal view (node/tui/tui.js, Sami 26/10: like k9s, re
     assert.deepEqual((await readdir(home)).sort(), ["queue.json", "runs"]);
     await rm(home, { recursive: true, force: true });
   });
+
+  it("writes Sami's ranking of the projects on P, typed and saved with Enter (21/11/2026)", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "tui-"));
+    await mkdir(path.join(home, "runs"));
+    await writeFile(path.join(home, "queue.json"), JSON.stringify({ jobs: [] }));
+    const typed = [..."voyage, recrutement"].map((text) => [text, {}]);
+    const code = `
+      Object.assign(process.stdout, { isTTY: true, columns: 100, rows: 20 });
+      Object.assign(process.stdin, { isTTY: true, setRawMode: () => {} });
+      const { runTui } = await import(${JSON.stringify(TUI)});
+      const keys = [["P", { name: "p", shift: true }], ...${JSON.stringify(typed)}, [undefined, { name: "return" }], ["q", { name: "q" }]];
+      setTimeout(() => keys.forEach(([text, key], i) => setTimeout(() => process.stdin.emit("keypress", text, { name: key.name ?? text, ...key }), i * 20)), 300);
+      await runTui({ home: ${JSON.stringify(home)}, budget: 2 });
+      process.exit(0);
+    `;
+    const { stdout } = await run(process.execPath, ["--input-type=module", "-e", code], { env: { ...process.env, MCTS_SENSORS_URL: "http://127.0.0.1:9/" }, timeout: 15_000 });
+    assert.ok(visible(stdout).includes("Priorités : "), "the prompt");
+    assert.deepEqual(JSON.parse(await readFile(path.join(home, "ranking.json"), "utf8")).projects, ["voyage", "recrutement"]);
+    await rm(home, { recursive: true, force: true });
+  });
 });

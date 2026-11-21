@@ -6,6 +6,8 @@ import { readBacklog, viewOf } from "../node/backlog/view.js";
 import { boardView, createBoard, markReadFor } from "../node/board/store.js";
 import { threadText } from "../node/board/text.js";
 import { backlogHome, threadBudget } from "../node/machine.js";
+import { createJournal } from "../node/queue/journal.js";
+import { setRanking } from "../node/queue/ranking.js";
 import { tailOf } from "../node/tail.js";
 
 /**
@@ -24,7 +26,8 @@ import { tailOf } from "../node/tail.js";
  *
  * The machine's backlog (Sami, 26/10/2026: a black box; mcts-commun's own page shows it): `GET /api/backlog` gives
  * node/backlog/view.js's view of `MCTS_BACKLOG_HOME` (~/.mcts-backlog), `GET /api/backlog/tail?id=…&kind=output|trace`
- * the end of a job's output or trace. Read only: the runner may be at work. A request that fails is written to the
+ * the end of a job's output or trace. Read only: the runner may be at work; but `POST /api/backlog/ranking`, Sami's ranking of
+ * the projects (node/queue/ranking.js, 21/11/2026). A request that fails is written to the
  * folder's `logs/serve-YYYY-MM.jsonl` (out of git).
  */
 const ROOT = process.cwd();
@@ -110,18 +113,36 @@ async function board(url, response) {
  * 27/10/2026: a button on the page). The page's one write, on 127.0.0.1, for sami alone.
  */
 async function boardRead(request, response) {
+  const asked = await bodyOf(request, response);
+  if (asked) json(response, 200, { marked: await markReadFor("sami", { thread: typeof asked.id === "string" ? asked.id : null }) });
+}
+
+/** A small JSON body (4 KB at most), or null with the error answered (413, 400). */
+async function bodyOf(request, response) {
   let body = "";
   for await (const chunk of request) {
     body += chunk;
-    if (body.length > 4096) return json(response, 413, { error: "trop gros" });
+    if (body.length > 4096) return json(response, 413, { error: "trop gros" }) ?? null;
   }
-  let asked;
   try {
-    asked = JSON.parse(body || "{}");
+    return JSON.parse(body || "{}");
   } catch {
-    return json(response, 400, { error: "pas du JSON" });
+    return json(response, 400, { error: "pas du JSON" }) ?? null;
   }
-  json(response, 200, { marked: await markReadFor("sami", { thread: typeof asked.id === "string" ? asked.id : null }) });
+}
+
+/**
+ * `POST /api/backlog/ranking` with `{ "projects": ["voyage", "recrutement", "codingame"] }`: Sami's ranking of the projects
+ * (21/11/2026: three lists on the page), written through node/queue/ranking.js; an unknown name is answered 400.
+ */
+async function rankingPost(request, response) {
+  const asked = await bodyOf(request, response);
+  if (!asked) return;
+  const home = backlogHome();
+  const projects = Array.isArray(asked.projects) ? asked.projects.filter((name) => typeof name === "string" && name) : [];
+  const written = await setRanking(home, projects, { by: "page", journal: createJournal(home) }).then((ranking) => ranking, (error) => error);
+  if (written instanceof Error) json(response, 400, { error: written.message });
+  else json(response, 200, { ranking: written });
 }
 
 /** The file whose end `/api/backlog/tail` gives: a running or ended job's output, or a trace. */
@@ -160,6 +181,7 @@ const ROUTES = [
   { path: "/api/backlog/tail", methods: ["GET"], handle: (request, response, url) => backlog(url, response) },
   { path: "/api/board", methods: ["GET"], handle: (request, response, url) => board(url, response) },
   { path: "/api/board/read", methods: ["POST"], handle: (request, response) => boardRead(request, response) },
+  { path: "/api/backlog/ranking", methods: ["POST"], handle: (request, response) => rankingPost(request, response) },
 ];
 
 async function serve(request, response) {

@@ -54,6 +54,14 @@ describe("the page server's replays (bin/serve.js, Sami 23/10: stored by themsel
       assert.equal((await fetch(`${base}/api/backlog/tail?id=personne`)).status, 404);
       assert.equal((await fetch(`${base}/`)).status, 404);
       assert.deepEqual((await readdir(home)).sort(), ["done", "queue.json", "runs"], "nothing written to the backlog");
+      // The one write: Sami's ranking of the projects (21/11/2026), an unknown name refused.
+      const rank = (body) => fetch(`${base}/api/backlog/ranking`, { method: "POST", body: JSON.stringify(body) });
+      const refused = await rank({ projects: ["voyage", "toto"] });
+      assert.equal(refused.status, 400);
+      assert.match((await refused.json()).error, /projet inconnu : toto/);
+      assert.equal((await rank({ projects: ["voyage", "recrutement"] })).status, 200);
+      assert.deepEqual(JSON.parse(await readFile(path.join(home, "ranking.json"), "utf8")).projects, ["voyage", "recrutement"]);
+      assert.deepEqual((await (await fetch(`${base}/api/backlog`)).json()).ranking.projects, ["voyage", "recrutement"]);
     } finally {
       const gone = new Promise((resolve) => server.once("exit", resolve));
       server.kill();

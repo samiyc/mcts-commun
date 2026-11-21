@@ -40,6 +40,15 @@ describe("the backlog's order: prerequisites, priorities, due times (src/schedul
     assert.equal(next([long, duel, quick], [], NOW, { fifo: true }), "long");
   });
 
+  it("puts a better-ranked project first whatever the priorities, Smith within a rank, a pressed due before both (Sami, 21/11)", () => {
+    const urgent = job("urgent", "5 min", { priority: 1 });
+    const trip = job("trip", "2 h", { priority: 3, rank: 1 });
+    const second = job("second", "10 min", { rank: 2 });
+    assert.deepEqual(ids(smithOrder([urgent, second, trip])), ["trip", "second", "urgent"]);
+    assert.deepEqual(ids(smithOrder([job("a", "1 h", { rank: 1 }), job("b", "10 min", { rank: 1 })])), ["b", "a"], "Smith within a rank");
+    assert.equal(next([trip, job("report", "30 min", { priority: 3, due: "2026-10-22T22:40" })]), "report");
+  });
+
   it("waits for `after`, counts a skipped prerequisite as finished, and blocks on a failed or unknown one", () => {
     const duel = job("duel", "40 min");
     const versus = job("versus", "1 min", { after: ["duel"] });

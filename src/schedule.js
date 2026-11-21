@@ -17,6 +17,10 @@ export const isFinished = (job) => FINISHED.includes(job.status);
  * - `due`: when the result should be there (ISO, local time, like `notBefore`). A ready job that would
  *   miss it if the rule's pick ran first, and can still make it, goes first; the earliest `due` first.
  * With every priority at 2 and no `due`, the shortest estimate goes first.
+ * - `rank` (Sami, 21/11/2026): the rank of the job's project in Sami's ranking, set by the caller (node/queue/ranking.js
+ *   `withRank`), never written to the queue. Strict: a better-ranked project goes first whatever the priorities; the
+ *   priority and Smith's rule decide between jobs of the same rank; a job without rank comes after every ranked one.
+ *   A `due` about to be missed still goes first.
  */
 export const WEIGHTS = Object.freeze({ 1: 4, 2: 2, 3: 1 });
 const DEFAULT_MINUTES = 60;
@@ -80,11 +84,17 @@ export function holdOf(job, byId, now) {
   return prerequisiteHold(job, byId) ?? stopIfHold(job, byId);
 }
 
-/** The ready jobs in Smith's order: most weight a minute first, the file order between equals. */
+/** A job's project rank (`rank`, 1 the first; Sami, 21/11/2026), set by its caller; none ranks after every ranked one. */
+const rankOf = (job) => job.rank ?? Infinity;
+
+/**
+ * The ready jobs in order: the best-ranked project first (`rank`, strict), then Smith's rule (most weight a minute
+ * first), the file order between equals. Without ranks, Smith's order as before.
+ */
 export function smithOrder(ready) {
   return ready
-    .map((job, index) => ({ job, index, rate: weightOf(job) / lengthOf(job) }))
-    .sort((a, b) => b.rate - a.rate || a.index - b.index)
+    .map((job, index) => ({ job, index, rank: rankOf(job), rate: weightOf(job) / lengthOf(job) }))
+    .sort((a, b) => (a.rank === b.rank ? 0 : a.rank - b.rank) || b.rate - a.rate || a.index - b.index)
     .map(({ job }) => job);
 }
 

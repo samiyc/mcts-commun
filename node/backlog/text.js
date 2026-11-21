@@ -83,6 +83,13 @@ function runnerText(one, view, s) {
 }
 
 /** The machine in one line: runners, threads, CPU, memory. */
+/** Sami's ranking of the projects (node/queue/ranking.js), and whether the permanent runner is too old to apply it; "" without. */
+export function rankingLine(view, s) {
+  const ranking = view.ranking;
+  if (!ranking?.text) return "";
+  return `Priorités : ${ranking.text}${ranking.stale ? s.yellow(" (le lanceur permanent, plus ancien, ne l'applique pas encore : à redémarrer)") : ""}`;
+}
+
 export function machineLine(view, s) {
   const runners = view.runners.length ? view.runners.map((one) => runnerText(one, view, s)).join("  ") : `${s.gray("○")} aucun lanceur`;
   const { used, budget } = view.threads;
@@ -193,7 +200,8 @@ function headLines(view, s) {
   const { doneToday, failedToday, cancelledToday, nightEnd } = view.counts;
   const end = nightEnd ? `${clockText(nightEnd)} (${relativeText(nightEnd, view.now)})` : "";
   const when = new Date(view.now).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-  const lines = [`${s.bold("La backlog de la machine")} ${s.gray("— " + when)}`, machineLine(view, s), s.gray(`Aujourd'hui : ${doneToday} ${plural(doneToday, "fini")}, ${failedToday} en échec${maybe(cancelledToday ? cancelledToday + " " + plural(cancelledToday, "annulé") : "", ", ")}${maybe(end, " · la file finirait vers ")}`)];
+  const ranked = rankingLine(view, s);
+  const lines = [`${s.bold("La backlog de la machine")} ${s.gray("— " + when)}`, machineLine(view, s), ...(ranked ? [ranked] : []), s.gray(`Aujourd'hui : ${doneToday} ${plural(doneToday, "fini")}, ${failedToday} en échec${maybe(cancelledToday ? cancelledToday + " " + plural(cancelledToday, "annulé") : "", ", ")}${maybe(end, " · la file finirait vers ")}`)];
   if (!view.load) return lines;
   const nights = view.load.nights.map(nightText).join(" · ");
   return [...lines, s.gray(loadText(view.load)), ...(nights ? [s.gray("Nuits : " + nights)] : [])];

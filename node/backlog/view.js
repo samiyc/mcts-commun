@@ -1,4 +1,5 @@
 import { withLearned } from "../../src/schedule/estimate.js";
+import { rankingText, staleRunner, withRank } from "../queue/ranking.js";
 import { holdOf, indexJobs, isFinished, minutesOf, nextJob } from "../../src/schedule.js";
 import { loadOf } from "./load.js";
 import { runnersOf } from "./runners.js";
@@ -182,11 +183,15 @@ function countsOf({ now, archive, running, planned, held, order }) {
   };
 }
 
+/** Sami's ranking as the views show it: the projects, the line, and whether the permanent runner is too old to apply it. */
+const rankingOf = ({ ranking = null, stay = null }) => ({ projects: ranking?.projects ?? [], text: rankingText(ranking), stale: Boolean(ranking) && staleRunner(stay) });
+
 /** What the views show, from `readBacklog`'s state: pure. */
 export function viewOf(state) {
   const { now, budget, archive, slots, wanted = [], journal = [], outputs = {}, traces = [], alivePids = [], machine = null } = state;
   // Each job's length learned from the archive, as the runner orders them (src/schedule/estimate.js, 27/10/2026).
-  const jobs = withLearned(state.jobs, archive);
+  // And the rank of its project in Sami's ranking (node/queue/ranking.js, 21/11/2026), as the runner reads it.
+  const jobs = withRank(withLearned(state.jobs, archive), state.ranking);
   const traceById = new Map(traces.filter((one) => one.id).map((one) => [one.id, one]));
   const running = jobs
     .filter((job) => job.status === "running")
@@ -215,5 +220,6 @@ export function viewOf(state) {
     traces: traces.map(traceOf(now, new Map([...archive, ...jobs].filter(isFinished).map((job) => [job.id, job])))),
     counts,
     load: loadOf({ now, budget, running, planned, finished, archive, nightEnd: counts.nightEnd }),
+    ranking: rankingOf(state),
   };
 }
